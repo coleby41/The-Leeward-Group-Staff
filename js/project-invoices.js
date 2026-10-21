@@ -152,7 +152,8 @@
         });
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const approved = (companiesRes.data || []).filter(c => {
-            if (["Name", "Street", "City", "State", "Zip", "SSN/FID"].some(k => isBlank(c[k]))) return false;
+            if (["Name", "Street", "City", "State", "Zip"].some(k => isBlank(c[k]))) return false;
+            if (isBlank(c["SSN/FID"]) && !c.W9Exempt) return false;
             if (!c.W9FilePath && !c.W9Exempt) return false;
             // Same rules as the Vendors page: a COI expiration date that
             // hasn't passed (no PDF needed), unless COI-exempt.

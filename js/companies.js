@@ -397,7 +397,8 @@ function missingVendorRequirements(company) {
     if (isBlank(company.City)) missing.push("City");
     if (isBlank(company.State)) missing.push("State");
     if (isBlank(company.Zip)) missing.push("Zip");
-    if (isBlank(company["SSN/FID"])) missing.push("SSN / FID");
+    // The W-9 bypass covers the SSN / FID too (Coleby, 2026-10-21).
+    if (isBlank(company["SSN/FID"]) && !company.W9Exempt) missing.push("SSN / FID");
     if (!company.W9FilePath && !company.W9Exempt) missing.push("W9");
 
     // COI (Coleby, 2026-10-21): approved as long as there's a COI
@@ -544,10 +545,11 @@ function renderCompanies(companies) {
                     <span class="chip ${approved ? "chip--success" : "chip--danger"}">${approved ? "Approved" : "Not Approved"}</span>
                 </div>
 
+                ${company.W9Exempt && isBlank(company["SSN/FID"]) ? "" : `
                 <div class="company-card-row company-card-row--ssn">
                     <span class="company-card-label">SSN / FID</span>
                     <span class="company-card-value">${escapeHtmlCompanies(maskSsnFid(company["SSN/FID"]))}</span>
-                </div>
+                </div>`}
 
                 ${company.W9Exempt && !company.W9FilePath ? "" : `
                 <div class="company-card-row company-card-row--w9">
