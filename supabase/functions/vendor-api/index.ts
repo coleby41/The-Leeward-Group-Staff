@@ -443,7 +443,15 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   const { data: projects } = projectIds.length
     ? await ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds)
     : { data: [] };
-  const fileIds = [...new Set((invs || []).flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]).filter(Boolean))];
+  // Leeward's COI template for each project (sample COI with the coverage it needs).
+  const { data: templates } = projectIds.length
+    ? await ctx.admin.from("project_coi_templates").select("project_id, project_file_id, updated_at").in("project_id", projectIds)
+    : { data: [] };
+  const templateByProject = new Map((templates || []).map((t: Row) => [t.project_id, t]));
+  const fileIds = [...new Set([
+    ...(invs || []).flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]),
+    ...(templates || []).map((t: Row) => t.project_file_id),
+  ].filter(Boolean))];
   const { data: files } = fileIds.length
     ? await ctx.admin.from("project_files").select("id, file_name, created_at").in("id", fileIds)
     : { data: [] };
@@ -467,6 +475,11 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
           proposal: r.proposal_file_id && fileById.get(r.proposal_file_id) ? { id: r.proposal_file_id, name: (fileById.get(r.proposal_file_id) as Row).file_name } : null,
         };
       }),
+      coi_template: (() => {
+        const t: Row = templateByProject.get(p.id);
+        const f: Row = t && fileById.get(t.project_file_id);
+        return f ? { id: t.project_file_id, name: f.file_name, updated_at: t.updated_at } : null;
+      })(),
       coi: {
         requested_at: requested,
         received_at: received,
@@ -560,7 +573,8 @@ async function projectFileUrl(ctx: VendorContext, body: Row) {
   const [project] = id ? await awardedProjects(ctx, id) : [];
   if (!project) return fail("not_found", 404);
   const fileId = String(body.file_id || "");
-  const allowed = project.coi.file?.id === fileId || project.scopes.some((sc: Row) => sc.proposal?.id === fileId);
+  const allowed = project.coi.file?.id === fileId || project.coi_template?.id === fileId
+    || project.scopes.some((sc: Row) => sc.proposal?.id === fileId);
   if (!allowed) return fail("not_found", 404);
   const { data: file } = await ctx.admin.from("project_files").select("bucket, storage_path, file_name").eq("id", fileId).maybeSingle();
   if (!file) return fail("not_found", 404);

@@ -240,9 +240,9 @@
     function projectCoi(p) {
         if (company.COIExempt) return { cls: "vd-status--ok", label: "COI exempt", file: null };
         const file = p.coi_file_id ? projectCoiFiles.get(String(p.coi_file_id)) : null;
-        if (file && p.coi_received_at) return { cls: "vd-status--ok", label: "COI received", file, when: dateOnly(String(p.coi_received_at).slice(0, 10)) };
-        if (p.coi_requested_at) return { cls: "vd-status--warn", label: "COI requested", file: null };
-        if (p.source === "awarded") return { cls: "vd-status--bad", label: "No COI yet", file: null };
+        // Either on file or not (Coleby, 2026-10-21).
+        if (file) return { cls: "vd-status--ok", label: "COI on file", file, when: dateOnly(String(p.coi_received_at || "").slice(0, 10)) };
+        if (p.source === "awarded") return { cls: "vd-status--bad", label: "COI not on file", file: null };
         return { cls: "", label: "", file: null };
     }
 

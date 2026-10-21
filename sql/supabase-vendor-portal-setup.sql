@@ -549,6 +549,34 @@ revoke all on function public.vendor_projects(bigint) from public, anon;
 grant execute on function public.vendor_projects(bigint) to authenticated;
 
 
+-- 9b. project_coi_templates: the COI template for a project (2026-10-21) ----------------
+-- Leeward uploads a sample COI per project (the coverage and additional-
+-- insured wording that project needs). Awarded vendors download it from the
+-- project's folder in the Vendor Portal before uploading their own COI. The
+-- file itself is a normal project_files row (Contracts & Procurement › Vendors).
+
+create table if not exists public.project_coi_templates (
+  project_id uuid primary key references public.projects(id) on delete cascade,
+  project_file_id uuid not null references public.project_files(id) on delete cascade,
+  uploaded_by_name text,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.project_coi_templates enable row level security;
+revoke all on public.project_coi_templates from anon, authenticated;
+grant select, insert, update, delete on public.project_coi_templates to authenticated;
+grant all on public.project_coi_templates to service_role;
+
+drop policy if exists project_coi_templates_select on public.project_coi_templates;
+create policy project_coi_templates_select on public.project_coi_templates
+  for select to authenticated using (public.can_view_bid_invites());
+drop policy if exists project_coi_templates_write on public.project_coi_templates;
+create policy project_coi_templates_write on public.project_coi_templates
+  for all to authenticated
+  using (public.has_permission('projects.manage_bid_invites'))
+  with check (public.has_permission('projects.manage_bid_invites'));
+
+
 -- 10. Sanity checks -- run after the above -----------------------------------------------
 --   select key, label from public.permissions where key in
 --     ('vendors.send_bid_invites', 'projects.manage_bid_invites', 'vendors.approve_applications');   -- 3 rows

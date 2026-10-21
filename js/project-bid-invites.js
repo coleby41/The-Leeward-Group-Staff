@@ -23,6 +23,7 @@
     const BIDS_CATEGORY = "contracts_procurement";
     const BIDS_SUBFOLDER = "bids";
     const DOCS_BUCKET = "project-documents";
+    const VENDORS_SUBFOLDER = "vendors";
 
     const STATUS = {
         pending:      { label: "Not Sent",     chip: "chip--muted" },
@@ -49,6 +50,8 @@
 
     let project = null;
     let packages = [];          // bid_packages rows + .files + .invites
+    let coiTemplate = null;     // { file: project_files row, uploaded_by_name, updated_at } or null
+    let templateBusy = false;
     let canManage = false;
     let canSend = false;
     let logTarget = null;       // { pkg, invite }
@@ -214,8 +217,83 @@
             files: fileLinks.filter(l => l.package_id === pkg.id).map(l => Array.isArray(l.project_files) ? l.project_files[0] : l.project_files).filter(Boolean),
             invites: invites.filter(i => i.package_id === pkg.id).map(i => ({ ...i, proposal: i.proposal_file_id ? proposalsById.get(String(i.proposal_file_id)) || null : null })),
         }));
+        await loadTemplate();
         $("bidLoading").style.display = "none";
         render();
+    }
+
+    // The project's COI template (sample COI with the coverage this project
+    // needs). Awarded vendors download it from the project folder in the portal.
+    async function loadTemplate() {
+        const { data, error } = await client().from("project_coi_templates")
+            .select("project_file_id, uploaded_by_name, updated_at, project_files(id, file_name, bucket, storage_path)")
+            .eq("project_id", project.id).maybeSingle();
+        if (error) { console.warn("COI template not loaded (run sql/supabase-vendor-portal-setup.sql):", error.message); coiTemplate = null; return; }
+        const file = data ? (Array.isArray(data.project_files) ? data.project_files[0] : data.project_files) : null;
+        coiTemplate = file ? { file, uploaded_by_name: data.uploaded_by_name, updated_at: data.updated_at } : null;
+    }
+
+    function renderTemplate() {
+        const el = $("bidCoiTemplate");
+        if (!el) return;
+        const t = coiTemplate;
+        el.style.display = "";
+        el.innerHTML = `
+            <div class="card-header"><h2 class="card-title">COI Template</h2>${t ? `<span class="chip chip--success">On file</span>` : `<span class="chip chip--muted">Not on file</span>`}</div>
+            <p class="auth-inline-copy" style="margin:0 0 12px">A sample COI showing the coverage and additional-insured wording this project needs. Awarded vendors download it from this project's folder in the Vendor Portal before they upload their own COI.</p>
+            ${t ? `<div class="bid-file-row">
+                    <span class="bid-file-row-name">${esc(t.file.file_name)}<span class="bid-cell-sub">Uploaded ${esc(shortDate(t.updated_at))}${t.uploaded_by_name ? ` by ${esc(t.uploaded_by_name)}` : ""}</span></span>
+                    <button type="button" class="workbook-btn" style="flex:0 0 auto" data-act="template-view">View</button>
+                    ${canManage ? `<button type="button" class="workbook-btn workbook-btn--danger" style="flex:0 0 auto" data-act="template-remove" ${templateBusy ? "disabled" : ""}>Remove</button>` : ""}
+                </div>` : ""}
+            ${canManage ? `<div class="bid-file-add-row">
+                    <label class="bid-file-add-btn" style="cursor:pointer">${templateBusy ? "Uploading…" : t ? "Replace COI Template (PDF)" : "+ Upload COI Template (PDF)"}
+                        <input type="file" id="bidCoiTemplateInput" accept="application/pdf,.pdf" hidden ${templateBusy ? "disabled" : ""}>
+                    </label>
+                </div>` : ""}`;
+        $("bidCoiTemplateInput")?.addEventListener("change", e => uploadTemplate(e.target.files && e.target.files[0]));
+    }
+
+    async function uploadTemplate(file) {
+        if (!file || templateBusy) return;
+        if (!/\.pdf$/i.test(file.name)) { toast("The COI template has to be a PDF.", "error"); renderTemplate(); return; }
+        templateBusy = true;
+        renderTemplate();
+        try {
+            const name = `${project.name || "Project"} - COI Template.pdf`.replace(/[\\/:*?"<>|]+/g, "-");
+            const renamed = new File([file], name, { type: "application/pdf" });
+            const path = await window.ProjectFields.uploadFile(project.id, renamed, null, { pathSegments: [BIDS_CATEGORY, VENDORS_SUBFOLDER] });
+            const { data: row, error } = await client().from("project_files").insert({
+                project_id: project.id, category: BIDS_CATEGORY, subfolder: VENDORS_SUBFOLDER, sub_subfolder: null,
+                bucket: DOCS_BUCKET, storage_path: path, file_name: name, source: "bid", uploaded_by_name: staffName(),
+            }).select("id").single();
+            if (error) { client().storage.from(DOCS_BUCKET).remove([path]).catch(() => {}); throw error; }
+            const { error: upErr } = await client().from("project_coi_templates").upsert({
+                project_id: project.id, project_file_id: row.id, uploaded_by_name: staffName(), updated_at: new Date().toISOString(),
+            });
+            if (upErr) throw upErr;
+            toast(coiTemplate ? "COI template replaced" : "COI template uploaded");
+            await loadTemplate();
+        } catch (err) {
+            console.error("COI template upload failed:", err);
+            toast(`Couldn't upload the COI template: ${err.message || err}`, "error");
+        } finally {
+            templateBusy = false;
+            renderTemplate();
+        }
+    }
+
+    async function removeTemplate() {
+        if (!coiTemplate || templateBusy) return;
+        templateBusy = true;
+        renderTemplate();
+        // The file stays in Project Files; it just stops being this project's template.
+        const { error } = await client().from("project_coi_templates").delete().eq("project_id", project.id);
+        templateBusy = false;
+        if (error) { toast(`Couldn't remove it: ${error.message}`, "error"); renderTemplate(); return; }
+        toast("COI template removed (the file is still in Project Files)");
+        coiTemplate = null;
+        renderTemplate();
     }
 
     /* ---------- render ---------- */
@@ -239,9 +317,8 @@
 
     // The COI PDF is only asked for once a vendor is awarded the job.
     function coiText(inv) {
-        if (inv.coi_received_at) return ` · COI received ${shortDate(inv.coi_received_at)}`;
-        if (inv.coi_requested_at) return ` · COI requested ${shortDate(inv.coi_requested_at)}`;
-        return "";
+        if (inv.coi_file_id || inv.coi_received_at) return ` · COI on file${inv.coi_received_at ? ` (${shortDate(inv.coi_received_at)})` : ""}`;
+        return ` · COI not on file${inv.coi_requested_at ? ` · requested ${shortDate(inv.coi_requested_at)}` : ""}`;
     }
 
     function rowActions(pkg, inv) {
@@ -328,6 +405,7 @@
     }
 
     function render() {
+        renderTemplate();
         $("bidEmpty").style.display = packages.length ? "none" : "block";
         $("bidPackages").innerHTML = packages.map(packageCard).join("");
     }
@@ -609,6 +687,8 @@
             }
             return;
         }
+        if (act === "template-view") { if (coiTemplate) openFile(coiTemplate.file); return; }
+        if (act === "template-remove") { removeTemplate(); return; }
         const found = findInvite(btn.dataset.invite);
         if (!found) return;
         if (act === "proposal") openFile(found.invite.proposal);
@@ -621,7 +701,7 @@
 
     function wire() {
         document.addEventListener("click", event => {
-            if (event.target.closest("#bidPackages, #bidCompareOverlay")) onClick(event);
+            if (event.target.closest("#bidPackages, #bidCompareOverlay, #bidCoiTemplate")) onClick(event);
         });
         $("bidLogForm").addEventListener("submit", saveLog);
         $("bidLogCancelBtn").addEventListener("click", () => closeOverlay("bidLogOverlay"));

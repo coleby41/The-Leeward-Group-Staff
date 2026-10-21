@@ -119,9 +119,10 @@ export async function requireVendor(sessionToken: unknown): Promise<{ ctx: Vendo
   const token = String(sessionToken || "");
   if (!token) return { error: json({ ok: false, error: "signed_out" }, 401) };
   const admin = serviceClient();
+  // One round trip: session + its login + the login's company.
   const { data: session, error } = await admin
     .from("vendor_sessions")
-    .select("id, vendor_user_id, expires_at, last_seen_at")
+    .select("id, vendor_user_id, expires_at, last_seen_at, vendor_users(*, Companies(*))")
     .eq("token_hash", await sha256(token))
     .maybeSingle();
   if (error) throw error;
@@ -129,16 +130,14 @@ export async function requireVendor(sessionToken: unknown): Promise<{ ctx: Vendo
     if (session) await admin.from("vendor_sessions").delete().eq("id", session.id);
     return { error: json({ ok: false, error: "signed_out" }, 401) };
   }
-  const { data: user } = await admin.from("vendor_users").select("*").eq("id", session.vendor_user_id).maybeSingle();
+  const one = (v: unknown) => (Array.isArray(v) ? v[0] : v) as Row | null | undefined;
+  const user = one(session.vendor_users);
   if (!user || (user.status !== "active" && user.status !== "pending")) {
     await admin.from("vendor_sessions").delete().eq("id", session.id);
     return { error: json({ ok: false, error: "signed_out" }, 401) };
   }
-  let company = null;
-  if (user.company_id) {
-    const { data } = await admin.from("Companies").select("*").eq("id", user.company_id).maybeSingle();
-    company = data || null;
-  }
+  const company = user.company_id ? one(user.Companies) || null : null;
+  delete user.Companies;
   // Sliding expiry: touch at most once an hour.
   if (Date.now() - new Date(session.last_seen_at).getTime() > 60 * 60 * 1000) {
     await admin.from("vendor_sessions").update({
