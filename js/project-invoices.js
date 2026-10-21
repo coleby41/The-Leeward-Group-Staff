@@ -153,13 +153,13 @@
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const approved = (companiesRes.data || []).filter(c => {
             if (["Name", "Street", "City", "State", "Zip", "SSN/FID"].some(k => isBlank(c[k]))) return false;
-            if (!c.W9FilePath) return false;
+            if (!c.W9FilePath && !c.W9Exempt) return false;
+            // Same rules as the Vendors page: a COI expiration date that
+            // hasn't passed (no PDF needed), unless COI-exempt.
             if (!c.COIExempt) {
-                if (!c.COIFilePath) return false;
-                if (c.COIExpiresOn) {
-                    const exp = new Date(`${c.COIExpiresOn}T00:00:00`);
-                    if (!Number.isNaN(exp.getTime()) && exp < today) return false;
-                }
+                if (!c.COIExpiresOn) return false;
+                const exp = new Date(`${c.COIExpiresOn}T00:00:00`);
+                if (Number.isNaN(exp.getTime()) || exp < today) return false;
             }
             if (!cats.length) return false;
             const have = catsByCompany.get(String(c.id)) || new Set();

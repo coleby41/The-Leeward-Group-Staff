@@ -17634,3 +17634,7 @@ a.vd-proj__name:hover { color: var(--accent); }
     .vd-merge__f { grid-column: 1 / -1; padding: 6px 14px; font-size: .78rem; font-weight: 700; }
     .vd-merge > .vd-merge__corner { display: none; }
 }
+
+/* Add/Edit Vendor: the W-9 and COI groups (hidden when exempt) keep the
+   form's normal spacing between their title, file input and notes. */
+#companyW9Section, #companyCoiSection { display: grid; gap: 14px; }

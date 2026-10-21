@@ -349,7 +349,7 @@ async function profile(ctx: VendorContext) {
     company: {
       legal_name: c.Name, friendly_name: c.FriendlyName || null, street: c.Street, city: c.City, state: c.State, zip: c.Zip,
       tax_id: maskTaxId(c["SSN/FID"]),
-      w9: { on_file: Boolean(c.W9FilePath), updated_at: c.W9UpdatedAt || null },
+      w9: { on_file: Boolean(c.W9FilePath), updated_at: c.W9UpdatedAt || null, exempt: Boolean(c.W9Exempt) },
       coi: { on_file: Boolean(c.COIFilePath), expires_on: c.COIExpiresOn || null, exempt: Boolean(c.COIExempt) },
       tags: tagList,
     },

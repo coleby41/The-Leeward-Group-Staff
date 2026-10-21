@@ -549,6 +549,12 @@ revoke all on function public.vendor_projects(bigint) from public, anon;
 grant execute on function public.vendor_projects(bigint) to authenticated;
 
 
+-- 9a. W-9 exemption (2026-10-21) -------------------------------------------------------
+-- Same idea as "COIExempt": staff can check "Exempt from W-9 requirement" on a
+-- vendor, and a missing W-9 no longer keeps that vendor from being Approved.
+alter table public."Companies" add column if not exists "W9Exempt" boolean not null default false;
+
+
 -- 9b. project_coi_templates: the COI template for a project (2026-10-21) ----------------
 -- Leeward uploads a sample COI per project (the coverage and additional-
 -- insured wording that project needs). Awarded vendors download it from the

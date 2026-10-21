@@ -112,7 +112,7 @@
         if (blank(company.State)) missing.push("State");
         if (blank(company.Zip)) missing.push("Zip");
         if (blank(company["SSN/FID"])) missing.push("SSN / FID");
-        if (!company.W9FilePath) missing.push("W9");
+        if (!company.W9FilePath && !company.W9Exempt) missing.push("W9");
         if (!company.COIExempt) {
             const s = coiState().state;
             if (s === "missing" || s === "expired") missing.push("Valid COI date");
@@ -217,7 +217,7 @@
         $("vdTaxBody").innerHTML = `
             <tr>
                 <td class="vd-td-main"><strong>W-9</strong></td>
-                <td data-label="Status">${hasW9 ? `<span class="vd-status vd-status--ok">On file</span>` : `<span class="vd-status vd-status--bad">Missing</span>`}</td>
+                <td data-label="Status">${hasW9 ? `<span class="vd-status vd-status--ok">On file</span>` : company.W9Exempt ? `<span class="vd-status vd-status--ok">Exempt</span>` : `<span class="vd-status vd-status--bad">Missing</span>`}</td>
                 <td data-label="SSN / FID">${tax
                     ? `<span class="vd-mask">${esc(revealTax ? tax : maskTaxId(tax))}</span> &nbsp;<button type="button" class="vd-link" data-act="reveal-tax">${revealTax ? "Hide" : "Reveal"}</button>`
                     : `<span class="vd-muted">—</span>`}</td>

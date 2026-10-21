@@ -398,7 +398,7 @@ function missingVendorRequirements(company) {
     if (isBlank(company.State)) missing.push("State");
     if (isBlank(company.Zip)) missing.push("Zip");
     if (isBlank(company["SSN/FID"])) missing.push("SSN / FID");
-    if (!company.W9FilePath) missing.push("W9");
+    if (!company.W9FilePath && !company.W9Exempt) missing.push("W9");
 
     // COI (Coleby, 2026-10-21): approved as long as there's a COI
     // expiration date and it hasn't passed. The PDF isn't needed for
@@ -549,10 +549,11 @@ function renderCompanies(companies) {
                     <span class="company-card-value">${escapeHtmlCompanies(maskSsnFid(company["SSN/FID"]))}</span>
                 </div>
 
+                ${company.W9Exempt && !company.W9FilePath ? "" : `
                 <div class="company-card-row company-card-row--w9">
                     <span class="company-card-label">W9</span>
                     ${buildDocBadgeHtml(company, "w9", "W9")}
-                </div>
+                </div>`}
 
                 ${company.COIExempt ? "" : `
                 <div class="company-card-row company-card-row--coi">
@@ -898,6 +899,10 @@ function updateCoiSectionVisibility() {
     const exempt = document.getElementById("companyCoiExemptInput")?.checked;
     const section = document.getElementById("companyCoiSection");
     if (section) section.style.display = exempt ? "none" : "";
+    // Same for "Exempt from W-9 requirement" (2026-10-21).
+    const w9Exempt = document.getElementById("companyW9ExemptInput")?.checked;
+    const w9Section = document.getElementById("companyW9Section");
+    if (w9Section) w9Section.style.display = w9Exempt ? "none" : "";
 }
 
 function openCompanyModal(company) {
@@ -929,6 +934,8 @@ function openCompanyModal(company) {
     document.getElementById("companyCoiInput").value = "";
     document.getElementById("companyCoiExpiresInput").value = company?.COIExpiresOn ?? "";
     document.getElementById("companyCoiExemptInput").checked = Boolean(company?.COIExempt);
+    const w9ExemptInput = document.getElementById("companyW9ExemptInput");
+    if (w9ExemptInput) w9ExemptInput.checked = Boolean(company?.W9Exempt);
     updateCoiSectionVisibility();
 
     const selectedTagIds = new Set(
@@ -999,7 +1006,8 @@ async function handleCompanyFormSubmit(event) {
             : null,
         "SSN/FID": document.getElementById("companySsnFidInput").value.trim() || null,
         COIExpiresOn: document.getElementById("companyCoiExpiresInput").value || null,
-        COIExempt: document.getElementById("companyCoiExemptInput").checked
+        COIExempt: document.getElementById("companyCoiExemptInput").checked,
+        W9Exempt: Boolean(document.getElementById("companyW9ExemptInput")?.checked)
     };
 
     if (!payload.Name) {
@@ -2758,6 +2766,7 @@ window.initCompaniesPage = async function () {
 
     const coiExemptInput = document.getElementById("companyCoiExemptInput");
     if (coiExemptInput) coiExemptInput.addEventListener("change", updateCoiSectionVisibility);
+    document.getElementById("companyW9ExemptInput")?.addEventListener("change", updateCoiSectionVisibility);
 
     const deleteBtn = document.getElementById("deleteCompanyBtn");
     if (deleteBtn) deleteBtn.addEventListener("click", openDeleteConfirm);
