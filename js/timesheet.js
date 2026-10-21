@@ -504,7 +504,7 @@ async function renderDocuments(docs) {
         <p>${escapeHtml(CATEGORY_LABELS[doc.category] || doc.category)} · ${new Date(doc.uploaded_at).toLocaleDateString()}</p>
       </div>
       <div style="display:flex; gap:6px;">
-        <a class="btn small secondary" href="${url}" target="_blank" rel="noopener">Open</a>
+        <button type="button" class="btn small secondary" data-preview-url="${escapeHtml(url)}" data-preview-name="${escapeHtml(doc.file_name)}">Open</button>
         <button class="btn small danger" onclick="deleteDoc('${doc.id}', '${doc.file_path}')">Delete</button>
       </div>
     `;
@@ -700,4 +700,10 @@ function pollForProfile(maxAttempts = 25, intervalMs = 200) {
 window.addEventListener('DOMContentLoaded', function () {
   pollForProfile();        // retries for a few seconds until the profile shows up; loads docs + timesheet once found
   renderAnnouncements();   // shows any messages Accounting has sent
+});
+// Document "Open" buttons preview in the portal (never a new tab).
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-preview-url]');
+  if (!btn || btn.dataset.previewUrl === '#') return;
+  window.FilePreview.open({ name: btn.dataset.previewName, url: btn.dataset.previewUrl });
 });

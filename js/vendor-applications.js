@@ -131,14 +131,16 @@
     }
 
     async function viewW9(app) {
-        const win = window.open("", "_blank");
-        const { data, error } = await callAdmin({ action: "w9_url", application_id: app.id });
-        if (error || !data?.url) {
-            if (win) win.close();
-            setMessage(`Couldn't open the W-9: ${error || "no link"}`, "error");
-            return;
-        }
-        if (win) win.location.href = data.url; else window.location.href = data.url;
+        // In the portal's preview, never a new tab.
+        window.FilePreview.open({
+            name: `${app.legal_name || "Applicant"} - W-9.pdf`,
+            kind: "pdf",
+            getUrl: async () => {
+                const { data, error } = await callAdmin({ action: "w9_url", application_id: app.id });
+                if (error || !data?.url) throw new Error(error || "no link");
+                return data.url;
+            },
+        });
     }
 
     /* ---------- open / close ---------- */

@@ -606,9 +606,10 @@ async function docUrl(ctx: VendorContext, body: Row) {
   const bucket = DOC_BUCKETS[kind];
   const path = kind === "coi" ? ctx.company!.COIFilePath : kind === "w9" ? ctx.company!.W9FilePath : null;
   if (!bucket || !path) return fail("not_found", 404);
-  const { data, error } = await ctx.admin.storage.from(bucket).createSignedUrl(path, LINK_SECONDS);
+  const name = `${companyName(ctx)} - ${kind === "coi" ? "COI" : "W-9"}.pdf`.replace(/[\\/]/g, "-");
+  const { data, error } = await ctx.admin.storage.from(bucket).createSignedUrl(path, LINK_SECONDS, { download: body.download ? name : undefined });
   if (error || !data) throw error || new Error("no url");
-  return json({ ok: true, url: data.signedUrl });
+  return json({ ok: true, url: data.signedUrl, name });
 }
 
 async function teamAdd(ctx: VendorContext, body: Row) {

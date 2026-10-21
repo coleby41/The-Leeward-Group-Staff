@@ -270,15 +270,14 @@
     async function openProjectCoi(fileId, download) {
         const f = projectCoiFiles.get(String(fileId));
         if (!f) return;
-        const win = download ? null : window.open("", "_blank");
-        const { data, error } = await client().storage.from(f.bucket || "project-documents").createSignedUrl(f.storage_path, 600, download ? { download: f.file_name } : undefined);
-        if (error || !data?.signedUrl) {
-            if (win) win.close();
-            toast("Couldn't open that file. Try again.", "error");
-            return;
-        }
-        if (win) win.location.href = data.signedUrl;
-        else window.location.href = data.signedUrl;
+        const sign = async dl => {
+            const { data, error } = await client().storage.from(f.bucket || "project-documents").createSignedUrl(f.storage_path, 600, dl ? { download: f.file_name } : undefined);
+            if (error || !data?.signedUrl) throw error || new Error("no url");
+            return data.signedUrl;
+        };
+        if (!download) { window.FilePreview.open({ name: f.file_name, getUrl: () => sign(false), getDownloadUrl: () => sign(true) }); return; }
+        try { window.FilePreview.download(await sign(true), f.file_name); }
+        catch (err) { toast("Couldn't open that file. Try again.", "error"); }
     }
 
     /* ---------- render: contacts ---------- */
@@ -369,20 +368,20 @@
 
     /* ---------- documents ---------- */
 
+    // View opens in the portal (FilePreview); Download saves the file. Never a new tab.
     async function openDoc(kind, download) {
         const bucket = kind === "coi" ? COI_BUCKET : W9_BUCKET;
         const path = kind === "coi" ? company.COIFilePath : company.W9FilePath;
         if (!path) return;
         const name = `${company.Name || "Vendor"} - ${kind === "coi" ? "COI" : "W-9"}.pdf`.replace(/[\\/:*?"<>|]+/g, "-");
-        const win = download ? null : window.open("", "_blank");
-        const { data, error } = await client().storage.from(bucket).createSignedUrl(path, 600, download ? { download: name } : undefined);
-        if (error || !data?.signedUrl) {
-            if (win) win.close();
-            toast("Couldn't open that file. Try again.", "error");
-            return;
-        }
-        if (win) win.location.href = data.signedUrl;
-        else window.location.href = data.signedUrl;
+        const sign = async dl => {
+            const { data, error } = await client().storage.from(bucket).createSignedUrl(path, 600, dl ? { download: name } : undefined);
+            if (error || !data?.signedUrl) throw error || new Error("no url");
+            return data.signedUrl;
+        };
+        if (!download) { window.FilePreview.open({ name, kind: "pdf", getUrl: () => sign(false), getDownloadUrl: () => sign(true) }); return; }
+        try { window.FilePreview.download(await sign(true), name); }
+        catch (err) { toast("Couldn't open that file. Try again.", "error"); }
     }
 
     /* ---------- vCard (.vcf) ---------- */

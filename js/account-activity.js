@@ -566,7 +566,7 @@
         try {
             const bytes = await window.IncidentReportPdf.buildMergedIncidentReportPdf(report, project, null, window.supabaseClient);
             const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
-            window.open(url, "_blank", "noopener");
+            window.FilePreview.open({ name: "Incident Report (preview).pdf", url, kind: "pdf" });
         } catch (error) {
             console.error("Failed to build report preview:", error);
             alert(error.message || "Couldn't build a preview right now. Please try again.");
@@ -608,7 +608,7 @@
         if (!path) return;
         const { data, error } = await window.supabaseClient.storage.from("form-submissions").createSignedUrl(path, 60 * 5);
         if (error || !data) { console.error("Failed to open submission PDF:", error); return; }
-        window.open(data.signedUrl, "_blank", "noopener");
+        window.FilePreview.open({ name: path.split("/").pop(), url: data.signedUrl, kind: "pdf" });
     }
 
     async function viewFiledReportPdf(reportId) {
@@ -628,7 +628,7 @@
         const bucket = fileRow.bucket || "project-documents";
         const { data: signed, error } = await window.supabaseClient.storage.from(bucket).createSignedUrl(fileRow.storage_path, 60 * 5);
         if (error || !signed) { console.error("Failed to open filed report PDF:", error); return; }
-        window.open(signed.signedUrl, "_blank", "noopener");
+        window.FilePreview.open({ name: fileRow.file_name || "Incident Report.pdf", url: signed.signedUrl });
     }
 
     /* ---------- reject popup ---------- */

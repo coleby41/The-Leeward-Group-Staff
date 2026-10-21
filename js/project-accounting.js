@@ -161,18 +161,7 @@
 
     async function openInvoiceFile(inv) {
         if (!inv || !inv.file) return;
-        if (isPhone()) {
-            // The phone's own PDF viewer shows every page and lets you share/save.
-            const win = window.open("", "_blank");
-            try {
-                const url = await PI().signedUrl(inv, false);
-                if (win) win.location.href = url; else window.location.href = url;
-            } catch (err) {
-                if (win) win.close();
-                toast("Couldn't open that invoice. Please try again.", "error");
-            }
-            return;
-        }
+        // Always in the portal's preview (Coleby: never a new tab), phones too.
         previewInvoice = inv;
         $("acctPreviewTitle").textContent = inv.file.file_name;
         $("acctPreviewBody").innerHTML = '<div class="file-preview-loading">Loading preview…</div>';

@@ -149,7 +149,8 @@
             return;
         }
 
-        window.open(data.signedUrl, "_blank", "noopener");
+        // Signed with download → the browser saves it; no new tab.
+        window.FilePreview.download(data.signedUrl, file.file_name);
     }
 
     /* ---------- deleting a BC/VPO ---------- */

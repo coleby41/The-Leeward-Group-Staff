@@ -808,7 +808,7 @@ function wizardFieldHtml(field, state) {
             // store just a storage path and need a signed URL on click.
             if (field.publicBucket) {
                 const fileName = existingPath.split("/").pop();
-                note = `<p class="wizard-file-existing-note">On file: <a href="${escapeHtmlProject(existingPath)}" target="_blank" rel="noopener">${escapeHtmlProject(fileName)}</a>. Choosing a new file replaces it.</p>`;
+                note = `<p class="wizard-file-existing-note">On file: <a href="#" class="wizard-preview-url-link" data-url="${escapeHtmlProject(existingPath)}" data-name="${escapeHtmlProject(fileName)}">${escapeHtmlProject(fileName)}</a>. Choosing a new file replaces it.</p>`;
             } else {
                 const fileName = existingPath.split("/").pop();
                 note = `<p class="wizard-file-existing-note">On file: ${escapeHtmlProject(fileName)} — <a href="#" class="wizard-view-file-link" data-path="${escapeHtmlProject(existingPath)}">view</a>. Choosing a new file replaces it.</p>`;
@@ -888,6 +888,12 @@ function renderWizardStep() {
         link.addEventListener("click", (event) => {
             event.preventDefault();
             viewProjectFile(link.dataset.path);
+        });
+    });
+    bodyEl.querySelectorAll(".wizard-preview-url-link").forEach(link => {
+        link.addEventListener("click", (event) => {
+            event.preventDefault();
+            window.FilePreview.open({ name: link.dataset.name, url: link.dataset.url });
         });
     });
 
@@ -1094,19 +1100,15 @@ async function uploadProjectFile(projectId, file, existingValue, options = {}) {
 
 async function viewProjectFile(filePath) {
     if (!window.supabaseClient || !filePath) return;
-
-    const { data, error } = await window.supabaseClient
-        .storage
-        .from(PROJECT_DOCS_BUCKET)
-        .createSignedUrl(filePath, 60 * 5);
-
-    if (error || !data?.signedUrl) {
-        console.error("Failed to create signed URL for project file:", error);
-        setWizardMessage("Couldn't open that file. Please try again.", "error");
-        return;
-    }
-
-    window.open(data.signedUrl, "_blank", "noopener");
+    // Opens in the portal (FilePreview), never a new tab.
+    window.FilePreview.open({
+        name: String(filePath).split("/").pop().replace(/^\d{10,}-/, ""),
+        getUrl: async () => {
+            const { data, error } = await window.supabaseClient.storage.from(PROJECT_DOCS_BUCKET).createSignedUrl(filePath, 60 * 5);
+            if (error || !data?.signedUrl) throw error || new Error("no url");
+            return data.signedUrl;
+        },
+    });
 }
 
 async function saveProjectFromWizard(successMessage) {

@@ -619,12 +619,11 @@ async function createDocSignedUrl(bucket, filePath) {
 }
 
 async function viewDocFile(bucket, filePath) {
-    const url = await createDocSignedUrl(bucket, filePath);
-    if (!url) {
-        showCompanyMessage("Couldn't open that file. Please try again.", "error");
-        return;
-    }
-    window.open(url, "_blank", "noopener");
+    // Opens in the portal (FilePreview), never a new tab.
+    window.FilePreview.open({
+        name: String(filePath || "").split("/").pop().replace(/^\d{10,}-/, ""),
+        getUrl: () => createDocSignedUrl(bucket, filePath),
+    });
 }
 
 // Unlike viewDocFile (which just opens the signed URL in a new tab), this

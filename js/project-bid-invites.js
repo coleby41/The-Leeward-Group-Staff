@@ -165,16 +165,15 @@
 
     async function openFile(file) {
         if (!file || !file.storage_path) return;
-        // Open the tab first (pop-up blockers), then point it at the file.
-        const tab = window.open("", "_blank");
-        const { data, error } = await client().storage.from(file.bucket || DOCS_BUCKET).createSignedUrl(file.storage_path, 60 * 10);
-        if (error || !data?.signedUrl) {
-            if (tab) tab.close();
-            toast(`Couldn't open ${file.file_name}.`, "error");
-            return;
-        }
-        if (tab) tab.location.href = data.signedUrl;
-        else window.location.href = data.signedUrl;
+        // In the portal's preview, never a new tab.
+        window.FilePreview.open({
+            name: file.file_name,
+            getUrl: async () => {
+                const { data, error } = await client().storage.from(file.bucket || DOCS_BUCKET).createSignedUrl(file.storage_path, 60 * 10);
+                if (error || !data?.signedUrl) throw error || new Error("no url");
+                return data.signedUrl;
+            },
+        });
     }
 
     /* ---------- data ---------- */
