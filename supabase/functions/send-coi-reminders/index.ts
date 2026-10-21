@@ -113,15 +113,13 @@ Deno.serve(async (_req: Request) => {
     recipientsByPhase.set(row.phase as Phase, (row.recipient_emails || []).filter(Boolean));
   }
 
-  // 2. Load every vendor that actually has a COI on file with a real
-  // expiration date -- a vendor that's never uploaded one at all doesn't
-  // fit any of these four expiration-relative phases, so it's skipped
-  // here (a "no COI at all" nag would be a different, separate feature).
+  // 2. Load every vendor with a COI expiration date. Since 2026-10-21 the
+  // date alone is what counts (the PDF is only requested once a vendor is
+  // awarded a job), so a vendor with a date but no PDF still gets reminders.
   const { data: companies, error: companiesError } = await supabase
     .from("Companies")
     .select('id, Name, "COIExpiresOn", "COIExempt"')
-    .not("COIExpiresOn", "is", null)
-    .not("COIFilePath", "is", null);
+    .not("COIExpiresOn", "is", null);
   if (companiesError) {
     console.error("Failed to load Companies:", companiesError);
     return new Response(JSON.stringify({ ok: false, error: companiesError.message }), { status: 500 });

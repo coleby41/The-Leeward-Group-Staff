@@ -41,7 +41,7 @@ export interface InviteForEmail {
   bid_amount?: number | string | null;
 }
 
-export type BidEmailKind = "invite" | "reminder_no_response" | "reminder_due" | "awarded" | "not_selected";
+export type BidEmailKind = "invite" | "reminder_no_response" | "reminder_due" | "awarded" | "not_selected" | "coi_request";
 
 export interface Rendered { subject: string; html: string; text: string }
 
@@ -99,6 +99,14 @@ const S = {
     appreciate: "We appreciate your interest in working with us and look forward to reviewing your proposal.",
     awardBody: (c: string, n: string, p: string, amount: string) => `Congratulations — we're pleased to let you know that <b>${c}</b> has been selected for <b>${n}</b> on <b>${p}</b>${amount ? ` at your bid of <b>${amount}</b>` : ""}.`,
     awardNext: (who: string) => `${who} will be in touch shortly with next steps. If you have any questions in the meantime, just reply to this email.`,
+    bannerCoi: "COI Needed",
+    subjCoi: (p: string, n: string) => `COI needed – ${p} – ${n}`,
+    coiIntro: (c: string, n: string, p: string) => `Before work starts on <b>${n}</b> at <b>${p}</b>, we need a current Certificate of Insurance (COI) for <b>${c}</b>.`,
+    coiAsk: "Please upload your COI as a PDF in the Leeward Vendor Portal. It must be current and list the coverage required for this project.",
+    coiLabel: "Upload your COI",
+    coiButton: "Upload COI",
+    coiNote: "Signs you in to the Leeward Vendor Portal — no password needed. Questions about coverage? Just reply to this email.",
+    textCoi: "Upload your COI:",
     resultsBody: (n: string, p: string) => `Thank you for submitting a bid for <b>${n}</b> on <b>${p}</b>. After careful review, we've selected another company for this scope.`,
     resultsThanks: "We appreciate the time you put into your proposal and hope to work with you on a future project.",
     textButton: "View the invite and bid:",
@@ -161,6 +169,14 @@ const S = {
     appreciate: "Agradecemos su interés en trabajar con nosotros y esperamos revisar su propuesta.",
     awardBody: (c: string, n: string, p: string, amount: string) => `¡Felicidades! Nos complace informarle que <b>${c}</b> fue seleccionada para <b>${n}</b> en <b>${p}</b>${amount ? ` con su oferta de <b>${amount}</b>` : ""}.`,
     awardNext: (who: string) => `${who} se comunicará pronto con los siguientes pasos. Si tiene preguntas mientras tanto, responda a este correo.`,
+    bannerCoi: "Se Necesita su COI",
+    subjCoi: (p: string, n: string) => `Se necesita su COI – ${p} – ${n}`,
+    coiIntro: (c: string, n: string, p: string) => `Antes de comenzar el trabajo de <b>${n}</b> en <b>${p}</b>, necesitamos un Certificado de Seguro (COI) vigente de <b>${c}</b>.`,
+    coiAsk: "Suba su COI en formato PDF en el Portal de Proveedores de Leeward. Debe estar vigente e incluir la cobertura requerida para este proyecto.",
+    coiLabel: "Suba su COI",
+    coiButton: "Subir COI",
+    coiNote: "Inicia su sesión en el Portal de Proveedores de Leeward; no necesita contraseña. ¿Preguntas sobre la cobertura? Responda a este correo.",
+    textCoi: "Suba su COI:",
     resultsBody: (n: string, p: string) => `Gracias por presentar una oferta para <b>${n}</b> en <b>${p}</b>. Después de una revisión cuidadosa, seleccionamos a otra empresa para este alcance.`,
     resultsThanks: "Agradecemos el tiempo dedicado a su propuesta y esperamos trabajar con usted en un proyecto futuro.",
     textButton: "Ver la invitación y ofertar:",
@@ -315,7 +331,7 @@ export function renderBidEmail(
   kind: BidEmailKind,
   pkg: BidPackageForEmail,
   invite: InviteForEmail,
-  options: { lang?: Lang; fileCount?: number } = {},
+  options: { lang?: Lang; fileCount?: number; coiRequest?: boolean } = {},
 ): Rendered {
   const lng: Lang = options.lang || "en";
   const s = strings(lng);
@@ -326,6 +342,17 @@ export function renderBidEmail(
   const link = inviteLink(invite.token);
   const due = formatWhen(pkg.due_at, lng);
 
+  // The COI PDF is only asked for once a vendor gets the job -- on its own,
+  // or as part of the award email.
+  const coiBox = darkBox(s.coiLabel, button(link, s.coiButton)
+    + `<p style="margin:18px 0 0;font-family:${FONT};font-size:13.5px;line-height:1.65;color:#ffffff;">${s.coiNote}</p>`);
+  if (kind === "coi_request") {
+    const bodyHtml = p(s.coiIntro(company, pkgName, project)) + p(s.coiAsk);
+    const html = shell(lng, s.bannerCoi, greeting(who, lng) + bodyHtml + coiBox, s.footerBid);
+    const text = [s.hello(who), "", stripTags(bodyHtml.replace(/<\/p>/g, "\n\n")).trim(), "", s.textCoi, link, "", "The Leeward Group LLC"].join("\n");
+    return { subject: s.subjCoi(pkg.project_name, pkg.name), html, text };
+  }
+
   if (kind === "awarded" || kind === "not_selected") {
     const awarded = kind === "awarded";
     const amount = invite.bid_amount != null && invite.bid_amount !== "" ? formatMoney(invite.bid_amount) : "";
@@ -333,8 +360,10 @@ export function renderBidEmail(
     const bodyHtml = awarded
       ? p(s.awardBody(company, pkgName, project, escapeHtml(amount))) + p(s.awardNext(escapeHtml(pkg.contact_name)))
       : p(s.resultsBody(pkgName, project)) + p(s.resultsThanks);
-    const html = shell(lng, awarded ? s.bannerAward : s.bannerResults, greeting(who, lng) + bodyHtml, s.footerBid);
-    const text = [s.hello(who), "", stripTags(bodyHtml.replace(/<\/p>/g, "\n\n")).trim(), "", "The Leeward Group LLC"].join("\n");
+    const withCoi = awarded && options.coiRequest;
+    const fullBody = withCoi ? bodyHtml + p(s.coiAsk) : bodyHtml;
+    const html = shell(lng, awarded ? s.bannerAward : s.bannerResults, greeting(who, lng) + fullBody + (withCoi ? coiBox : ""), s.footerBid);
+    const text = [s.hello(who), "", stripTags(fullBody.replace(/<\/p>/g, "\n\n")).trim(), ...(withCoi ? ["", s.textCoi, link] : []), "", "The Leeward Group LLC"].join("\n");
     return { subject, html, text };
   }
 

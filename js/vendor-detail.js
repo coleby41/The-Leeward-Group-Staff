@@ -94,11 +94,12 @@
 
     function coiState() {
         if (company.COIExempt) return { state: "exempt", label: "COI exempt" };
-        if (!company.COIFilePath) return { state: "missing", label: "No COI on file" };
+        // The COI date is what counts (2026-10-21); the PDF is requested on award.
+        if (!company.COIExpiresOn) return { state: "missing", label: "No COI date" };
         const left = daysUntil(company.COIExpiresOn);
         if (left !== null && left < 0) return { state: "expired", label: "COI expired" };
         if (left !== null && left <= COI_EXPIRING_SOON_DAYS) return { state: "expiring", label: "COI expiring soon" };
-        return { state: "ok", label: "COI on file" };
+        return { state: "ok", label: company.COIFilePath ? "COI valid" : "COI valid · no PDF yet" };
     }
 
     function missingRequirements() {
@@ -113,7 +114,7 @@
         if (!company.W9FilePath) missing.push("W9");
         if (!company.COIExempt) {
             const s = coiState().state;
-            if (s === "missing" || s === "expired") missing.push("Valid COI");
+            if (s === "missing" || s === "expired") missing.push("Valid COI date");
         }
         if (!categories.length) missing.push("Tags");
         categories.forEach(cat => {

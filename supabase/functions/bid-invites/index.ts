@@ -7,6 +7,9 @@
 //       invite_ids — used to retry a failed one)
 //   { action: "remind", invite_ids }               → reminder to vendors who haven't submitted a bid yet
 //   { action: "award", package_id, invite_id, notify_winner, notify_others }
+//       the winner's award email also asks for their COI PDF (unless the
+//       vendor is COI-exempt); without the email, use request_coi
+//   { action: "request_coi", invite_id }         → (re)sends the COI request to the awarded vendor
 //
 // Every email's "View Invite & Bid" button signs the vendor into the Vendor
 // Portal (VENDOR_PORTAL_URL). Emails go out in the language the vendor
@@ -199,6 +202,8 @@ async function handleAward(body: Row, staffName: string) {
   if (closeError) throw closeError;
   if (!closed?.length) return json({ ok: false, error: "This bid invite has already been awarded or closed." }, 409);
 
+  // The COI PDF is only requested once a vendor is awarded the job.
+  const coiNeeded = await needsCoi(admin, winner.company_id);
   const { error: winError } = await admin.from("bid_invites").update({ status: "awarded" }).eq("id", winner.id);
   if (winError) throw winError;
   if (losers.length) {
@@ -210,6 +215,7 @@ async function handleAward(body: Row, staffName: string) {
   const langs = await languagesFor(admin, [winner, ...losers].map((i: Row) => i.contact_email));
   const failed: { company_name: string; error: string }[] = [];
   let emailed = 0;
+  let coiRequested = false;
 
   const toEmail: { invite: Row; kind: "awarded" | "not_selected" }[] = [];
   if (body.notify_winner) toEmail.push({ invite: winner, kind: "awarded" });
@@ -218,17 +224,48 @@ async function handleAward(body: Row, staffName: string) {
   for (let i = 0; i < toEmail.length; i++) {
     const { invite, kind } = toEmail[i];
     if (i > 0) await pause();
-    const email = renderBidEmail(kind, emailPkg, invite, { lang: langs.get(normalizeEmail(invite.contact_email)) || "en" });
+    const email = renderBidEmail(kind, emailPkg, invite, { lang: langs.get(normalizeEmail(invite.contact_email)) || "en", coiRequest: kind === "awarded" && coiNeeded });
     const result = await sendEmail({ to: invite.contact_email, subject: email.subject, html: email.html, text: email.text, replyTo: pkg.contact_email });
     if (result.ok) {
       emailed++;
-      await admin.from("bid_invites").update({ result_emailed_at: new Date().toISOString() }).eq("id", invite.id);
+      const sentAt = new Date().toISOString();
+      // The award email doubles as the COI request (counted only once it's sent).
+      const coiAsked = kind === "awarded" && coiNeeded ? { coi_requested_at: sentAt, coi_received_at: null } : {};
+      await admin.from("bid_invites").update({ result_emailed_at: sentAt, ...coiAsked }).eq("id", invite.id);
+      if (kind === "awarded" && coiNeeded) coiRequested = true;
     } else {
       failed.push({ company_name: invite.company_name, error: result.error || "Unknown error" });
     }
   }
 
-  return json({ ok: true, emailed, failed, not_selected: losers.length });
+  return json({ ok: true, emailed, failed, not_selected: losers.length, coi_requested: coiRequested });
+}
+
+// deno-lint-ignore no-explicit-any
+async function needsCoi(admin: any, companyId: unknown): Promise<boolean> {
+  if (companyId == null) return true;
+  const { data } = await admin.from("Companies").select("COIExempt").eq("id", companyId).maybeSingle();
+  return !data?.COIExempt;
+}
+
+async function handleRequestCoi(body: Row) {
+  const inviteId = String(body.invite_id || "");
+  if (!inviteId) return json({ ok: false, error: "invite_id is required" }, 400);
+  const admin = serviceClient();
+  const { data: invite, error } = await admin.from("bid_invites").select("*").eq("id", inviteId).maybeSingle();
+  if (error) throw error;
+  if (!invite) return json({ ok: false, error: "That invite doesn't exist anymore." }, 404);
+  if (invite.status !== "awarded") return json({ ok: false, error: "The COI is only requested from the awarded vendor." }, 400);
+  if (!isValidEmail(invite.contact_email)) return json({ ok: false, error: "This vendor contact has no valid email." }, 400);
+  const loaded = await loadPackage(invite.package_id);
+  if (!loaded) return json({ ok: false, error: "That bid invite doesn't exist anymore." }, 404);
+  const langs = await languagesFor(admin, [invite.contact_email]);
+  const email = renderBidEmail("coi_request", packageForEmail(loaded.pkg, loaded.project), invite, { lang: langs.get(normalizeEmail(invite.contact_email)) || "en" });
+  const result = await sendEmail({ to: invite.contact_email, subject: email.subject, html: email.html, text: email.text, replyTo: loaded.pkg.contact_email });
+  if (!result.ok) return json({ ok: false, error: result.error || "The email didn't send." }, 502);
+  const now = new Date().toISOString();
+  await admin.from("bid_invites").update({ coi_requested_at: now, coi_received_at: null }).eq("id", invite.id);
+  return json({ ok: true, coi_requested_at: now });
 }
 
 Deno.serve(async (req: Request) => {
@@ -245,7 +282,7 @@ Deno.serve(async (req: Request) => {
   const action = String(body?.action || "");
   const needed = action === "preview" ? SEND
     : action === "send" ? [SEND, MANAGE]
-    : action === "remind" || action === "award" ? MANAGE
+    : action === "remind" || action === "award" || action === "request_coi" ? MANAGE
     : null;
   if (!needed) return json({ ok: false, error: `Unknown action "${action}"` }, 400);
 
@@ -256,6 +293,7 @@ Deno.serve(async (req: Request) => {
     if (action === "preview") return await handlePreview(body);
     if (action === "send") return await handleSend(body);
     if (action === "remind") return await handleRemind(body);
+    if (action === "request_coi") return await handleRequestCoi(body);
     return await handleAward(body, auth.staff.full_name || auth.staff.username || "Staff");
   } catch (error) {
     console.error(`bid-invites ${action} failed:`, error);

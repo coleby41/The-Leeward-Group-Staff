@@ -108,20 +108,23 @@ function daysUntil(dateOnlyValue) {
 // button, and the meta line shown inside the dropdown.
 function getDocStatus(company, type) {
     if (type === "coi") {
+        // Since 2026-10-21 the COI *date* is what counts: a vendor with an
+        // expiration date that hasn't passed is good to go. The PDF is only
+        // requested once they're awarded a job, so it may not be on file.
         const filePath = company.COIFilePath || null;
-        if (!filePath) return { hasFile: false, state: "missing", label: "Missing", meta: "" };
+        const hasDate = !isBlank(company.COIExpiresOn);
+        if (!hasDate && !filePath) return { hasFile: false, hasDate: false, state: "missing", label: "Missing", meta: "" };
+        if (!hasDate) return { hasFile: true, hasDate: false, state: "nodate", label: "No date", meta: "No expiration date on file", filePath };
 
         const remaining = daysUntil(company.COIExpiresOn);
         let state = "onfile";
-        let label = "On file";
+        let label = "Valid";
         if (remaining !== null) {
             if (remaining < 0) { state = "expired"; label = "Expired"; }
             else if (remaining <= COI_EXPIRING_SOON_DAYS) { state = "expiring"; label = "Expiring soon"; }
         }
-        const meta = company.COIExpiresOn
-            ? `Expires ${formatDocDate(company.COIExpiresOn, true)}`
-            : "No expiration date on file";
-        return { hasFile: true, state, label, meta, filePath };
+        const meta = `Expires ${formatDocDate(company.COIExpiresOn, true)}${filePath ? "" : " · no PDF yet (requested when awarded)"}`;
+        return { hasFile: Boolean(filePath), hasDate: true, state, label, meta, filePath };
     }
 
     // w9
@@ -136,16 +139,17 @@ function getDocStatus(company, type) {
 // the dropdown ("W9" / "Certificate of Insurance").
 function buildDocBadgeHtml(company, type, docLabel) {
     const status = getDocStatus(company, type);
-    const stateClass = status.state === "missing" ? "doc-badge-trigger--missing"
+    const stateClass = (status.state === "missing" || status.state === "nodate") ? "doc-badge-trigger--missing"
         : status.state === "expired" ? "doc-badge-trigger--expired"
         : status.state === "expiring" ? "doc-badge-trigger--expiring"
         : "";
 
     if (!status.hasFile) {
+        // No PDF: a COI with just a date still shows its status (hover for the date).
         return `
             <div class="doc-badge">
-                <button type="button" class="doc-badge-trigger ${stateClass}" disabled>
-                    <span class="doc-badge-label">Missing</span>
+                <button type="button" class="doc-badge-trigger ${stateClass}" disabled ${status.meta ? `title="${escapeHtmlCompanies(status.meta)}"` : ""}>
+                    <span class="doc-badge-label">${escapeHtmlCompanies(status.label || "Missing")}</span>
                 </button>
             </div>
         `;
@@ -372,7 +376,8 @@ function groupTagsByCategory(tagList) {
    VENDOR APPROVAL STATUS
    Fully derived from other fields — no DB column, no manual override.
    A vendor is "Approved" only once it has: Name, Street, City, State, Zip,
-   SSN/FID, a W9 on file, AND at least one tag from every existing tag
+   SSN/FID, a W9 on file, a COI expiration date that hasn't passed (or COI
+   exempt), AND at least one tag from every existing tag
    category (currently Asset Specialty + Trade — this stays correct even if
    a category is added or removed later, since it loops allTagCategories).
 =========================== */
@@ -384,7 +389,7 @@ function isBlank(value) {
 // Returns the list of human-readable things this vendor is missing.
 // Empty array = approved.
 function missingVendorRequirements(company) {
-    if (!company) return ["Vendor name", "Street", "City", "State", "Zip", "SSN / FID", "W9", "Valid COI"];
+    if (!company) return ["Vendor name", "Street", "City", "State", "Zip", "SSN / FID", "W9", "Valid COI date"];
 
     const missing = [];
     if (isBlank(company.Name)) missing.push("Vendor name");
@@ -395,13 +400,12 @@ function missingVendorRequirements(company) {
     if (isBlank(company["SSN/FID"])) missing.push("SSN / FID");
     if (!company.W9FilePath) missing.push("W9");
 
-    // A COI counts toward approval only while it's actually valid -- an
-    // expired one is treated the same as missing entirely, same as
-    // Coleby confirmed (2026-09-02): approval status should reflect a
-    // COI that's actually still in force, not just "was uploaded once".
+    // COI (Coleby, 2026-10-21): approved as long as there's a COI
+    // expiration date and it hasn't passed. The PDF isn't needed for
+    // approval -- Leeward asks for it when the vendor is awarded a job.
     if (!company.COIExempt) {
         const coiStatus = getDocStatus(company, "coi");
-        if (!coiStatus.hasFile || coiStatus.state === "expired") missing.push("Valid COI");
+        if (!coiStatus.hasDate || coiStatus.state === "expired") missing.push("Valid COI date");
     }
 
     if (allTagCategories.length === 0) {

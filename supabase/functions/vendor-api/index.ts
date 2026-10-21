@@ -16,6 +16,10 @@
 //   update_company { friendly_name, street, city, state, zip }   (account holder)
 //   doc_upload_url { kind: 'w9' | 'coi', file_name }
 //   save_doc { kind, path, expires_on? (coi), ssn_fid? (w9) }
+//       a COI PDF also answers any open "COI needed" request on an awarded invite
+//   set_coi_date { expires_on }  update the COI expiration date without a PDF
+//       (a current date is what counts for approval; the PDF is only asked
+//       for once the vendor is awarded a job)
 //   doc_url { kind }           short-lived link to their W-9 / COI on file
 //   team_add { name, email, title?, phone? }    (account holder)
 //   team_remove { id }                          (account holder)
@@ -105,7 +109,7 @@ async function updateMe(ctx: VendorContext, body: Row) {
 async function invites(ctx: VendorContext) {
   const gate = needsCompany(ctx); if (gate) return gate;
   const { data: rows, error } = await ctx.admin.from("bid_invites")
-    .select("id, status, bid_amount, decline_reason, sent_at, viewed_at, responded_at, package_id")
+    .select("id, status, bid_amount, decline_reason, sent_at, viewed_at, responded_at, package_id, coi_requested_at, coi_received_at")
     .eq("company_id", ctx.company!.id)
     .not("status", "in", "(pending,failed)")
     .order("sent_at", { ascending: false });
@@ -129,6 +133,7 @@ async function invites(ctx: VendorContext) {
         package_name: pkg.name, due_at: pkg.due_at, walkthrough_at: pkg.walkthrough_at, package_status: pkg.status,
         project_name: (projectById.get(pkg.project_id) as Row)?.name || "",
         open: pkg.status === "open" && new Date(pkg.due_at).getTime() > Date.now(),
+        coi_needed: r.status === "awarded" && Boolean(r.coi_requested_at) && !r.coi_received_at,
       };
     }),
   });
@@ -164,7 +169,11 @@ async function invite(ctx: VendorContext, body: Row) {
       id: inv.id, status: inv.status, bid_amount: inv.bid_amount, bid_notes: inv.bid_notes,
       decline_reason: inv.decline_reason, decline_note: inv.decline_note, responded_at: inv.responded_at,
       bid_source: inv.bid_source, proposal,
+      coi: inv.status === "awarded" && inv.coi_requested_at
+        ? { requested_at: inv.coi_requested_at, received_at: inv.coi_received_at || null }
+        : null,
     },
+    company_coi: { expires_on: ctx.company!.COIExpiresOn || null, on_file: Boolean(ctx.company!.COIFilePath), exempt: Boolean(ctx.company!.COIExempt) },
     package: {
       name: pkg.name, scope: pkg.scope, location: pkg.location || site || null, due_at: pkg.due_at,
       walkthrough_at: pkg.walkthrough_at, walkthrough_location: pkg.walkthrough_location,
@@ -398,11 +407,50 @@ async function saveDoc(ctx: VendorContext, body: Row) {
   const { error } = await ctx.admin.from("Companies").update(patch).eq("id", ctx.company!.id);
   if (error) throw error;
 
+  if (kind === "coi") await answerCoiRequests(ctx);
   const label = kind === "coi" ? `a new COI (expires ${body.expires_on})` : "a new W-9";
   const editors = await staffWithPermission(ctx.admin, "vendors.add_edit_vendor");
   await notifyStaff(ctx.admin, editors.map((s: Row) => s.id), {
     title: kind === "coi" ? "Vendor uploaded a COI" : "Vendor uploaded a W-9",
     message: `${companyName(ctx)} uploaded ${label} on the Vendor Portal.`,
+    type: "vendor_document",
+    link_url: `${STAFF_PORTAL_URL}/pages/vendor.html?id=${ctx.company!.id}`,
+    link_label: "View vendor",
+  });
+  return json({ ok: true });
+}
+
+// A COI PDF answers every open "COI needed" request on this company's
+// awarded invites; whoever created those bid packages gets a bell.
+async function answerCoiRequests(ctx: VendorContext) {
+  const { data: open } = await ctx.admin.from("bid_invites").select("id, package_id")
+    .eq("company_id", ctx.company!.id).eq("status", "awarded")
+    .not("coi_requested_at", "is", null).is("coi_received_at", null);
+  if (!open?.length) return;
+  await ctx.admin.from("bid_invites").update({ coi_received_at: new Date().toISOString() }).in("id", open.map((r: Row) => r.id));
+  const { data: pkgs } = await ctx.admin.from("bid_packages").select("id, name, project_id, created_by").in("id", open.map((r: Row) => r.package_id));
+  for (const pkg of pkgs || []) {
+    if (!pkg.created_by) continue;
+    await notifyStaff(ctx.admin, [pkg.created_by], {
+      title: "COI received",
+      message: `${companyName(ctx)} uploaded their COI for ${pkg.name}.`,
+      type: "vendor_document",
+      link_url: `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${pkg.project_id}`,
+      link_label: "View bids",
+    });
+  }
+}
+
+async function setCoiDate(ctx: VendorContext, body: Row) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  const expires = String(body.expires_on || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expires)) return fail("missing_fields", 400, { fields: ["expires_on"] });
+  const { error } = await ctx.admin.from("Companies").update({ COIExpiresOn: expires }).eq("id", ctx.company!.id);
+  if (error) throw error;
+  const editors = await staffWithPermission(ctx.admin, "vendors.add_edit_vendor");
+  await notifyStaff(ctx.admin, editors.map((s: Row) => s.id), {
+    title: "Vendor updated their COI date",
+    message: `${companyName(ctx)} set their COI expiration date to ${expires} on the Vendor Portal (no PDF).`,
     type: "vendor_document",
     link_url: `${STAFF_PORTAL_URL}/pages/vendor.html?id=${ctx.company!.id}`,
     link_label: "View vendor",
@@ -484,7 +532,7 @@ async function teamRemove(ctx: VendorContext, body: Row) {
 const ACTIONS: Record<string, (ctx: VendorContext, body: Row) => Promise<Response>> = {
   me, set_language: setLanguage, update_me: updateMe, invites, invite, file_url: fileUrl, respond,
   bid_upload_url: bidUploadUrl, submit_bid: submitBid, profile, update_company: updateCompany,
-  doc_upload_url: docUploadUrl, save_doc: saveDoc, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
+  doc_upload_url: docUploadUrl, save_doc: saveDoc, set_coi_date: setCoiDate, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
 };
 
 Deno.serve(async (req: Request) => {

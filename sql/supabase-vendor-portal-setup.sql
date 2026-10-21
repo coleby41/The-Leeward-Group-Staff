@@ -239,6 +239,9 @@ create table if not exists public.bid_invites (
 alter table public.bid_invites add column if not exists viewed_at timestamptz;
 alter table public.bid_invites add column if not exists bid_source text;
 alter table public.bid_invites add column if not exists submitted_by_vendor_user uuid;
+-- 2026-10-21: COI PDF is only asked for once a vendor is awarded the job.
+alter table public.bid_invites add column if not exists coi_requested_at timestamptz;  -- last time Leeward asked for the COI PDF
+alter table public.bid_invites add column if not exists coi_received_at timestamptz;   -- vendor uploaded it in the portal
 alter table public.bid_invites drop constraint if exists bid_invites_status_check;
 alter table public.bid_invites add constraint bid_invites_status_check check (status in (
   'pending', 'failed', 'sent', 'viewed', 'bidding', 'not_bidding', 'bid_received', 'awarded', 'not_selected'

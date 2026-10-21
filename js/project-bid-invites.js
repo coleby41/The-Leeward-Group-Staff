@@ -231,10 +231,17 @@
             case "bid_received": return inv.bid_source === "portal"
                 ? `Submitted in the Vendor Portal ${shortDate(inv.responded_at || inv.bid_received_on)}`
                 : `Logged ${shortDate(inv.bid_received_on || inv.logged_at)}${inv.logged_by_name ? ` by ${inv.logged_by_name}` : ""}`;
-            case "awarded": return `Awarded ${shortDate(pkg.awarded_at)}${inv.result_emailed_at ? " · emailed" : ""}`;
+            case "awarded": return `Awarded ${shortDate(pkg.awarded_at)}${inv.result_emailed_at ? " · emailed" : ""}${coiText(inv)}`;
             case "not_selected": return `Not selected${inv.result_emailed_at ? " · emailed" : ""}`;
             default: return "";
         }
+    }
+
+    // The COI PDF is only asked for once a vendor is awarded the job.
+    function coiText(inv) {
+        if (inv.coi_received_at) return ` · COI received ${shortDate(inv.coi_received_at)}`;
+        if (inv.coi_requested_at) return ` · COI requested ${shortDate(inv.coi_requested_at)}`;
+        return "";
     }
 
     function rowActions(pkg, inv) {
@@ -248,6 +255,10 @@
             }
             if ([...WAITING, "not_bidding"].includes(inv.status)) out.push(`<button type="button" class="workbook-btn" data-act="log" data-invite="${esc(inv.id)}" title="For a bid that came in by email instead of the portal">Log Bid</button>`);
             if (inv.status === "bid_received") out.push(`<button type="button" class="workbook-btn" data-act="log" data-invite="${esc(inv.id)}">Edit Bid</button>`);
+        }
+        if (canManage && inv.status === "awarded") {
+            const label = busy.has(inv.id) ? "Sending…" : inv.coi_requested_at && !inv.coi_received_at ? "Re-send COI Request" : "Request COI";
+            out.push(`<button type="button" class="workbook-btn" data-act="request-coi" data-invite="${esc(inv.id)}" ${busy.has(inv.id) ? "disabled" : ""} title="Emails the vendor a link to upload their COI PDF in the Vendor Portal">${label}</button>`);
         }
         return out.join("");
     }
@@ -344,6 +355,21 @@
         const failed = data.failed || [];
         if (failed.length) toast(`Sent ${data.sent}; ${failed.length} failed: ${failed.map(f => f.company_name).join(", ")}`, "error");
         else toast(data.sent ? `Reminder sent${label ? ` to ${label}` : ""}` : "Nobody needed a reminder");
+        await load();
+    }
+
+    async function requestCoi(invite) {
+        if (busy.has(invite.id)) return;
+        busy.add(invite.id);
+        render();
+        const { error } = await callBidFunction({ action: "request_coi", invite_id: invite.id });
+        busy.delete(invite.id);
+        if (error) {
+            toast(`COI request didn't send: ${error}`, "error");
+            render();
+            return;
+        }
+        toast(`COI requested from ${invite.company_name}`);
         await load();
     }
 
@@ -561,7 +587,7 @@
         closeOverlay("bidAwardOverlay");
         const failed = data.failed || [];
         if (failed.length) toast(`Awarded to ${invite.company_name}, but ${failed.length} email${failed.length === 1 ? "" : "s"} didn't send (${failed.map(f => f.company_name).join(", ")}).`, "error");
-        else toast(`Awarded to ${invite.company_name}${data.emailed ? ` · ${data.emailed} email${data.emailed === 1 ? "" : "s"} sent` : ""}`);
+        else toast(`Awarded to ${invite.company_name}${data.emailed ? ` · ${data.emailed} email${data.emailed === 1 ? "" : "s"} sent` : ""}${data.coi_requested ? " · COI requested" : ""}`);
         awardTarget = null;
         await load();
     }
@@ -590,6 +616,7 @@
         else if (act === "retry") openRetry(found.pkg, found.invite);
         else if (act === "remind") remind([found.invite.id], found.invite.company_name);
         else if (act === "award") openAward(found.pkg, found.invite);
+        else if (act === "request-coi") requestCoi(found.invite);
     }
 
     function wire() {

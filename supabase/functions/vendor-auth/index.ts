@@ -68,11 +68,17 @@ async function inviteLogin(body: Row, req: Request) {
   if (!/^[0-9a-f-]{36}$/i.test(token)) return json({ ok: false, error: "link_invalid" }, 400);
   const admin = serviceClient();
   const { data: invite } = await admin.from("bid_invites")
-    .select("id, package_id, company_id, contact_name, contact_email, status")
+    .select("id, package_id, company_id, contact_name, contact_email, status, coi_requested_at")
     .eq("token", token).maybeSingle();
   if (!invite || !invite.company_id || invite.status === "pending" || invite.status === "failed") return json({ ok: false, error: "link_invalid" }, 400);
   const { data: pkg } = await admin.from("bid_packages").select("due_at, status").eq("id", invite.package_id).maybeSingle();
-  const usableUntil = new Date(pkg?.due_at || 0).getTime() + INVITE_LINK_GRACE_DAYS * 24 * 60 * 60 * 1000;
+  const DAY = 24 * 60 * 60 * 1000;
+  // Usable until 14 days after bids are due -- or, for the awarded vendor,
+  // 30 days after Leeward last asked for their COI (the "Upload COI" button).
+  const usableUntil = Math.max(
+    new Date(pkg?.due_at || 0).getTime() + INVITE_LINK_GRACE_DAYS * DAY,
+    invite.status === "awarded" && invite.coi_requested_at ? new Date(invite.coi_requested_at).getTime() + 30 * DAY : 0,
+  );
   if (Date.now() > usableUntil) return json({ ok: false, error: "link_expired" }, 400);
 
   const email = normalizeEmail(invite.contact_email);
