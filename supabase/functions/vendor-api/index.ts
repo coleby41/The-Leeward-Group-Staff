@@ -15,11 +15,16 @@
 //   profile                    company info, W-9 / COI status, team logins
 //   update_company { friendly_name, street, city, state, zip }   (account holder)
 //   doc_upload_url { kind: 'w9' | 'coi', file_name }
-//   save_doc { kind, path, expires_on? (coi), ssn_fid? (w9) }
-//       a COI PDF also answers any open "COI needed" request on an awarded invite
-//   set_coi_date { expires_on }  update the COI expiration date without a PDF
-//       (a current date is what counts for approval; the PDF is only asked
-//       for once the vendor is awarded a job)
+//   save_doc { kind: 'w9', path, ssn_fid? }   (COI PDFs go in project folders, below)
+//   set_coi_date { expires_on }  the company's COI expiration date -- a
+//       current date is what counts for approval (no PDF)
+//   projects                   "My Projects": one folder per awarded project
+//   project { id }             one project folder (awarded scopes, COI status)
+//   project_coi_upload_url { project_id, file_name }
+//   save_project_coi { project_id, path, file_name }
+//       the COI PDF for that project: filed in the project's Files ›
+//       Contracts & Procurement › Vendors, answers the "COI needed" request
+//   project_file_url { project_id, file_id, download? }   their COI / proposal on that project
 //   doc_url { kind }           short-lived link to their W-9 / COI on file
 //   team_add { name, email, title?, phone? }    (account holder)
 //   team_remove { id }                          (account holder)
@@ -131,7 +136,7 @@ async function invites(ctx: VendorContext) {
       return {
         id: r.id, status: r.status, bid_amount: r.bid_amount, decline_reason: r.decline_reason, sent_at: r.sent_at,
         package_name: pkg.name, due_at: pkg.due_at, walkthrough_at: pkg.walkthrough_at, package_status: pkg.status,
-        project_name: (projectById.get(pkg.project_id) as Row)?.name || "",
+        project_name: (projectById.get(pkg.project_id) as Row)?.name || "", project_id: pkg.project_id,
         open: pkg.status === "open" && new Date(pkg.due_at).getTime() > Date.now(),
         coi_needed: r.status === "awarded" && Boolean(r.coi_requested_at) && !r.coi_received_at,
       };
@@ -180,7 +185,7 @@ async function invite(ctx: VendorContext, body: Row) {
       questions_due_at: pkg.questions_due_at, contact_name: pkg.contact_name, contact_email: pkg.contact_email,
       contact_phone: pkg.contact_phone, status: pkg.status, can_bid: canStillBid(pkg) && !["awarded", "not_selected"].includes(inv.status),
     },
-    project: { name: project?.name || "", code: project?.project_code || "" },
+    project: { id: pkg.project_id, name: project?.name || "", code: project?.project_code || "" },
     files: (fileRows || []).map((r: Row) => {
       const f = Array.isArray(r.project_files) ? r.project_files[0] : r.project_files;
       return f ? { id: f.id, name: f.file_name } : null;
@@ -387,6 +392,8 @@ async function saveDoc(ctx: VendorContext, body: Row) {
   const kind = String(body.kind);
   const bucket = DOC_BUCKETS[kind];
   if (!bucket) return fail("bad_kind");
+  // COI PDFs are per project now (save_project_coi).
+  if (kind === "coi") return fail("bad_kind");
   const path = String(body.path || "");
   if (!path.startsWith(`vendor-portal/${ctx.company!.id}/`) || path.includes("..")) return fail("missing_file", 400, { fields: ["file"] });
   if (!(await fileExists(ctx, bucket, path))) return fail("missing_file", 400, { fields: ["file"] });
@@ -407,7 +414,6 @@ async function saveDoc(ctx: VendorContext, body: Row) {
   const { error } = await ctx.admin.from("Companies").update(patch).eq("id", ctx.company!.id);
   if (error) throw error;
 
-  if (kind === "coi") await answerCoiRequests(ctx);
   const label = kind === "coi" ? `a new COI (expires ${body.expires_on})` : "a new W-9";
   const editors = await staffWithPermission(ctx.admin, "vendors.add_edit_vendor");
   await notifyStaff(ctx.admin, editors.map((s: Row) => s.id), {
@@ -420,25 +426,147 @@ async function saveDoc(ctx: VendorContext, body: Row) {
   return json({ ok: true });
 }
 
-// A COI PDF answers every open "COI needed" request on this company's
-// awarded invites; whoever created those bid packages gets a bell.
-async function answerCoiRequests(ctx: VendorContext) {
-  const { data: open } = await ctx.admin.from("bid_invites").select("id, package_id")
-    .eq("company_id", ctx.company!.id).eq("status", "awarded")
-    .not("coi_requested_at", "is", null).is("coi_received_at", null);
-  if (!open?.length) return;
-  await ctx.admin.from("bid_invites").update({ coi_received_at: new Date().toISOString() }).in("id", open.map((r: Row) => r.id));
-  const { data: pkgs } = await ctx.admin.from("bid_packages").select("id, name, project_id, created_by").in("id", open.map((r: Row) => r.package_id));
-  for (const pkg of pkgs || []) {
-    if (!pkg.created_by) continue;
-    await notifyStaff(ctx.admin, [pkg.created_by], {
+// ---- My Projects: one folder per awarded project -------------------------
+
+// Awarded invites for this company, grouped by project.
+async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
+  const { data: invs, error } = await ctx.admin.from("bid_invites")
+    .select("id, package_id, bid_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id")
+    .eq("company_id", ctx.company!.id).eq("status", "awarded");
+  if (error) throw error;
+  const pkgIds = [...new Set((invs || []).map((r: Row) => r.package_id))];
+  const { data: pkgs } = pkgIds.length
+    ? await ctx.admin.from("bid_packages").select("id, name, project_id, awarded_at, contact_name, contact_email, contact_phone").in("id", pkgIds)
+    : { data: [] };
+  const pkgById = new Map((pkgs || []).map((p: Row) => [p.id, p]));
+  const projectIds = [...new Set((pkgs || []).map((p: Row) => p.project_id))].filter((id) => !onlyProjectId || id === onlyProjectId);
+  const { data: projects } = projectIds.length
+    ? await ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds)
+    : { data: [] };
+  const fileIds = [...new Set((invs || []).flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]).filter(Boolean))];
+  const { data: files } = fileIds.length
+    ? await ctx.admin.from("project_files").select("id, file_name, created_at").in("id", fileIds)
+    : { data: [] };
+  const fileById = new Map((files || []).map((f: Row) => [f.id, f]));
+
+  return (projects || []).map((p: Row) => {
+    const mine = (invs || []).filter((r: Row) => (pkgById.get(r.package_id) as Row)?.project_id === p.id);
+    const withCoi = mine.filter((r: Row) => r.coi_file_id).sort((a: Row, b: Row) => String(b.coi_received_at).localeCompare(String(a.coi_received_at)))[0];
+    const requested = mine.map((r: Row) => r.coi_requested_at).filter(Boolean).sort().pop() || null;
+    const received = withCoi?.coi_received_at || null;
+    const outstanding = mine.some((r: Row) => r.coi_requested_at && !r.coi_received_at);
+    return {
+      id: p.id,
+      name: p.name,
+      location: [p.site_address, [p.site_city, p.site_state].filter(Boolean).join(", "), p.site_zip].filter(Boolean).join(" "),
+      scopes: mine.map((r: Row) => {
+        const pkg: Row = pkgById.get(r.package_id) || {};
+        return {
+          invite_id: r.id, name: pkg.name, amount: r.bid_amount, awarded_at: pkg.awarded_at,
+          contact_name: pkg.contact_name, contact_email: pkg.contact_email, contact_phone: pkg.contact_phone,
+          proposal: r.proposal_file_id && fileById.get(r.proposal_file_id) ? { id: r.proposal_file_id, name: (fileById.get(r.proposal_file_id) as Row).file_name } : null,
+        };
+      }),
+      coi: {
+        requested_at: requested,
+        received_at: received,
+        needed: outstanding,
+        file: withCoi && fileById.get(withCoi.coi_file_id) ? { id: withCoi.coi_file_id, name: (fileById.get(withCoi.coi_file_id) as Row).file_name, uploaded_at: received } : null,
+      },
+    };
+  }).sort((a: Row, b: Row) => Number(b.coi.needed) - Number(a.coi.needed) || String(a.name).localeCompare(String(b.name)));
+}
+
+async function projectsList(ctx: VendorContext) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  return json({ ok: true, projects: await awardedProjects(ctx), coi_exempt: Boolean(ctx.company!.COIExempt) });
+}
+
+function validProjectId(id: unknown): string | null {
+  const s = String(id || "");
+  return /^[0-9a-f-]{36}$/i.test(s) ? s : null;
+}
+
+async function projectOne(ctx: VendorContext, body: Row) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  const id = validProjectId(body.id);
+  const [project] = id ? await awardedProjects(ctx, id) : [];
+  if (!project) return fail("not_found", 404);
+  return json({
+    ok: true, project,
+    company_coi: { expires_on: ctx.company!.COIExpiresOn || null, exempt: Boolean(ctx.company!.COIExempt) },
+  });
+}
+
+const VENDOR_FILES_SUBFOLDER = "vendors";
+
+async function projectCoiUploadUrl(ctx: VendorContext, body: Row) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  const id = validProjectId(body.project_id);
+  const [project] = id ? await awardedProjects(ctx, id) : [];
+  if (!project) return fail("not_found", 404);
+  const name = safeFileName(body.file_name);
+  if (!/\.pdf$/i.test(name)) return fail("pdf_only");
+  const path = `${project.id}/${BIDS_CATEGORY}/${VENDOR_FILES_SUBFOLDER}/${Date.now()}-coi-${ctx.company!.id}-${name}`;
+  const { data, error } = await ctx.admin.storage.from(DOCS_BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw error || new Error("no upload url");
+  return json({ ok: true, bucket: DOCS_BUCKET, path, token: data.token, signed_url: data.signedUrl });
+}
+
+async function saveProjectCoi(ctx: VendorContext, body: Row) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  const id = validProjectId(body.project_id);
+  const [project] = id ? await awardedProjects(ctx, id) : [];
+  if (!project) return fail("not_found", 404);
+  const path = String(body.path || "");
+  const prefix = `${project.id}/${BIDS_CATEGORY}/${VENDOR_FILES_SUBFOLDER}/`;
+  if (!path.startsWith(prefix) || !path.includes(`-coi-${ctx.company!.id}-`) || path.includes("..")) return fail("missing_file", 400, { fields: ["file"] });
+  if (!(await fileExists(ctx, DOCS_BUCKET, path))) return fail("missing_file", 400, { fields: ["file"] });
+
+  const original = safeFileName(body.file_name || path.split("/").pop());
+  const fileName = `${companyName(ctx)} - COI - ${original}`.replace(/[\\/]/g, "-").slice(0, 200);
+  const { data: fileRow, error: fileError } = await ctx.admin.from("project_files").insert({
+    project_id: project.id, category: BIDS_CATEGORY, subfolder: VENDOR_FILES_SUBFOLDER, sub_subfolder: null,
+    bucket: DOCS_BUCKET, storage_path: path, file_name: fileName, source: "bid",
+    uploaded_by_name: `${ctx.user.name || ctx.user.email} (${companyName(ctx)}, Vendor Portal)`,
+  }).select("id").single();
+  if (fileError) throw fileError;
+
+  const now = new Date().toISOString();
+  const inviteIds = project.scopes.map((sc: Row) => sc.invite_id);
+  const { error } = await ctx.admin.from("bid_invites").update({ coi_file_id: fileRow.id, coi_received_at: now }).in("id", inviteIds);
+  if (error) throw error;
+
+  // Bell for whoever set up those bid packages.
+  // (Separate queries: bid_invites → bid_packages has two FKs, so an embed is ambiguous.)
+  const { data: invRows } = await ctx.admin.from("bid_invites").select("package_id").in("id", inviteIds);
+  const { data: pkgs } = await ctx.admin.from("bid_packages").select("created_by").in("id", [...new Set((invRows || []).map((r: Row) => r.package_id))]);
+  const creators = [...new Set((pkgs || []).map((r: Row) => r.created_by).filter(Boolean))];
+  if (creators.length) {
+    await notifyStaff(ctx.admin, creators, {
       title: "COI received",
-      message: `${companyName(ctx)} uploaded their COI for ${pkg.name}.`,
+      message: `${companyName(ctx)} uploaded their COI for ${project.name}.`,
       type: "vendor_document",
-      link_url: `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${pkg.project_id}`,
+      link_url: `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${project.id}`,
       link_label: "View bids",
     });
   }
+  return json({ ok: true });
+}
+
+async function projectFileUrl(ctx: VendorContext, body: Row) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  const id = validProjectId(body.project_id);
+  const [project] = id ? await awardedProjects(ctx, id) : [];
+  if (!project) return fail("not_found", 404);
+  const fileId = String(body.file_id || "");
+  const allowed = project.coi.file?.id === fileId || project.scopes.some((sc: Row) => sc.proposal?.id === fileId);
+  if (!allowed) return fail("not_found", 404);
+  const { data: file } = await ctx.admin.from("project_files").select("bucket, storage_path, file_name").eq("id", fileId).maybeSingle();
+  if (!file) return fail("not_found", 404);
+  const { data, error } = await ctx.admin.storage.from(file.bucket || DOCS_BUCKET).createSignedUrl(file.storage_path, LINK_SECONDS, { download: body.download ? file.file_name : undefined });
+  if (error || !data) throw error || new Error("no url");
+  return json({ ok: true, url: data.signedUrl, name: file.file_name });
 }
 
 async function setCoiDate(ctx: VendorContext, body: Row) {
@@ -532,7 +660,9 @@ async function teamRemove(ctx: VendorContext, body: Row) {
 const ACTIONS: Record<string, (ctx: VendorContext, body: Row) => Promise<Response>> = {
   me, set_language: setLanguage, update_me: updateMe, invites, invite, file_url: fileUrl, respond,
   bid_upload_url: bidUploadUrl, submit_bid: submitBid, profile, update_company: updateCompany,
-  doc_upload_url: docUploadUrl, save_doc: saveDoc, set_coi_date: setCoiDate, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
+  doc_upload_url: docUploadUrl, save_doc: saveDoc, set_coi_date: setCoiDate,
+  projects: projectsList, project: projectOne, project_coi_upload_url: projectCoiUploadUrl,
+  save_project_coi: saveProjectCoi, project_file_url: projectFileUrl, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
 };
 
 Deno.serve(async (req: Request) => {

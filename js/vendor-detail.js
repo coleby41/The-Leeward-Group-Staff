@@ -40,6 +40,7 @@
     let tags = [];            // this company's tags [{id, name, category_id}]
     let categories = [];      // all tag categories
     let projects = [];
+    let projectCoiFiles = new Map();
     let duplicatePairs = [];  // [[contactA, contactB], ...]
     let revealTax = false;
     let mergePair = null;
@@ -145,6 +146,13 @@
         tags = (companyTagsRes.data || []).map(r => (Array.isArray(r.vendor_tags) ? r.vendor_tags[0] : r.vendor_tags)).filter(Boolean);
         const seen = new Set();
         projects = (projectsRes.error ? [] : projectsRes.data || []).filter(p => !seen.has(p.project_id) && seen.add(p.project_id));
+        // Each awarded project's COI PDF (filed in that project's Contracts & Procurement › Vendors).
+        const fileIds = projects.map(p => p.coi_file_id).filter(Boolean);
+        projectCoiFiles = new Map();
+        if (fileIds.length) {
+            const { data: files } = await db.from("project_files").select("id, file_name, bucket, storage_path").in("id", fileIds);
+            (files || []).forEach(f => projectCoiFiles.set(String(f.id), f));
+        }
         return true;
     }
 
@@ -228,22 +236,49 @@
         btn.classList.toggle("hidden", !can("vendors.save_notes"));
     }
 
+    // One company COI date (approval) + a COI PDF per awarded project.
+    function projectCoi(p) {
+        if (company.COIExempt) return { cls: "vd-status--ok", label: "COI exempt", file: null };
+        const file = p.coi_file_id ? projectCoiFiles.get(String(p.coi_file_id)) : null;
+        if (file && p.coi_received_at) return { cls: "vd-status--ok", label: "COI received", file, when: dateOnly(String(p.coi_received_at).slice(0, 10)) };
+        if (p.coi_requested_at) return { cls: "vd-status--warn", label: "COI requested", file: null };
+        if (p.source === "awarded") return { cls: "vd-status--bad", label: "No COI yet", file: null };
+        return { cls: "", label: "", file: null };
+    }
+
     function renderProjects() {
         const coi = coiState();
-        const statusClass = coi.state === "ok" || coi.state === "exempt" ? "vd-status--ok" : coi.state === "expiring" ? "vd-status--warn" : "vd-status--bad";
-        const expires = company.COIExpiresOn ? `COI expires ${dateOnly(company.COIExpiresOn)}` : coi.state === "exempt" ? "Exempt from the COI requirement" : "No COI expiration on file";
-        const links = company.COIFilePath && !company.COIExempt
-            ? `<span class="vd-proj__links"><a href="#" data-act="view-doc" data-doc="coi">View</a>·<a href="#" data-act="download-doc" data-doc="coi">Download</a></span>`
-            : "";
+        const expires = company.COIExpiresOn ? `Company COI expires ${dateOnly(company.COIExpiresOn)}` : coi.state === "exempt" ? "Exempt from the COI requirement" : "No COI expiration on file";
+        const dateCls = coi.state === "ok" || coi.state === "exempt" ? "vd-status--ok" : coi.state === "expiring" ? "vd-status--warn" : "vd-status--bad";
         $("vdProjectsCount").textContent = String(projects.length);
-        $("vdProjects").innerHTML = projects.length
-            ? projects.map(p => `
+        const head = `<div class="vd-proj__meta" style="padding-bottom:8px;"><span class="vd-status ${dateCls}">${esc(expires)}</span></div>`;
+        $("vdProjects").innerHTML = head + (projects.length
+            ? projects.map(p => {
+                const pc = projectCoi(p);
+                const links = pc.file
+                    ? `<span class="vd-proj__links"><a href="#" data-act="view-proj-coi" data-file="${esc(pc.file.id)}">View</a>·<a href="#" data-act="download-proj-coi" data-file="${esc(pc.file.id)}">Download</a></span>`
+                    : "";
+                return `
                 <div class="vd-proj">
-                    <div class="vd-proj__top"><a class="vd-proj__name" href="/pages/project-home.html?id=${encodeURIComponent(p.project_id)}">${esc(p.project_name || "Project")}</a><span class="vd-status ${statusClass}">${esc(coi.label)}</span></div>
-                    <div class="vd-proj__meta"><span>${esc(expires)}</span>${links}</div>
-                </div>`).join("")
-            : `<p class="vd-empty">No projects yet — projects show here once this vendor is awarded a bid or has an invoice on a project.</p>
-               <div class="vd-proj__meta" style="padding-bottom:12px;"><span>${esc(expires)}</span>${links}</div>`;
+                    <div class="vd-proj__top"><a class="vd-proj__name" href="/pages/project-home.html?id=${encodeURIComponent(p.project_id)}">${esc(p.project_name || "Project")}</a>${pc.label ? `<span class="vd-status ${pc.cls}">${esc(pc.label)}</span>` : ""}</div>
+                    <div class="vd-proj__meta"><span>${esc(pc.file ? `COI PDF · uploaded ${pc.when}` : p.source === "awarded" ? "Project COI PDF" : "Invoice on this project")}</span>${links}</div>
+                </div>`;
+            }).join("")
+            : `<p class="vd-empty">No projects yet — projects show here once this vendor is awarded a bid or has an invoice on a project.</p>`);
+    }
+
+    async function openProjectCoi(fileId, download) {
+        const f = projectCoiFiles.get(String(fileId));
+        if (!f) return;
+        const win = download ? null : window.open("", "_blank");
+        const { data, error } = await client().storage.from(f.bucket || "project-documents").createSignedUrl(f.storage_path, 600, download ? { download: f.file_name } : undefined);
+        if (error || !data?.signedUrl) {
+            if (win) win.close();
+            toast("Couldn't open that file. Try again.", "error");
+            return;
+        }
+        if (win) win.location.href = data.signedUrl;
+        else window.location.href = data.signedUrl;
     }
 
     /* ---------- render: contacts ---------- */
@@ -632,6 +667,7 @@
             const act = el.dataset.act;
             if (act === "reveal-tax") { revealTax = !revealTax; renderTax(); }
             else if (act === "view-doc" || act === "download-doc") { e.preventDefault(); openDoc(el.dataset.doc, act === "download-doc"); }
+            else if (act === "view-proj-coi" || act === "download-proj-coi") { e.preventDefault(); openProjectCoi(el.dataset.file, act === "download-proj-coi"); }
             else if (act === "vcf") {
                 const c = contacts.find(x => String(x.id) === String(el.dataset.contact));
                 if (c) downloadVcf(vcardFor(c), `${c.Name || "Contact"}.vcf`);

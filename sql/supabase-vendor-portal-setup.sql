@@ -242,6 +242,7 @@ alter table public.bid_invites add column if not exists submitted_by_vendor_user
 -- 2026-10-21: COI PDF is only asked for once a vendor is awarded the job.
 alter table public.bid_invites add column if not exists coi_requested_at timestamptz;  -- last time Leeward asked for the COI PDF
 alter table public.bid_invites add column if not exists coi_received_at timestamptz;   -- vendor uploaded it in the portal
+alter table public.bid_invites add column if not exists coi_file_id uuid;            -- the project's COI PDF (project_files.id, filed in Contracts & Procurement › Vendors)
 alter table public.bid_invites drop constraint if exists bid_invites_status_check;
 alter table public.bid_invites add constraint bid_invites_status_check check (status in (
   'pending', 'failed', 'sent', 'viewed', 'bidding', 'not_bidding', 'bid_received', 'awarded', 'not_selected'
@@ -505,8 +506,13 @@ create trigger vendor_users_touch_updated_at
 -- project names -- no bid amounts, which stay limited to the bid
 -- permissions above).
 
-create or replace function public.vendor_projects(p_company_id bigint)
-returns table (project_id uuid, project_name text, source text)
+-- Return columns changed (2026-10-21: per-project COI), so drop first.
+drop function if exists public.vendor_projects(bigint);
+create function public.vendor_projects(p_company_id bigint)
+returns table (
+  project_id uuid, project_name text, source text,
+  coi_file_id uuid, coi_requested_at timestamptz, coi_received_at timestamptz
+)
 language plpgsql
 stable
 security definer
@@ -517,16 +523,20 @@ begin
     return;
   end if;
 
+  -- Awarded projects, with that project's COI PDF (one per vendor per project).
   return query
-    select p.id, p.name, 'awarded'::text
+    select p.id, p.name, 'awarded'::text,
+           (array_agg(bi.coi_file_id order by bi.coi_received_at desc nulls last))[1],
+           max(bi.coi_requested_at), max(bi.coi_received_at)
     from public.bid_invites bi
     join public.bid_packages bp on bp.id = bi.package_id
     join public.projects p on p.id = bp.project_id
-    where bi.company_id = p_company_id and bi.status = 'awarded';
+    where bi.company_id = p_company_id and bi.status = 'awarded'
+    group by p.id, p.name;
 
   if to_regclass('public.project_invoices') is not null then
     return query execute
-      'select distinct p.id, p.name, ''invoice''::text
+      'select distinct p.id, p.name, ''invoice''::text, null::uuid, null::timestamptz, null::timestamptz
          from public.project_invoices pi
          join public.projects p on p.id = pi.project_id
         where pi.vendor_id = $1::text'

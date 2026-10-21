@@ -9,7 +9,8 @@
 //   { action: "invite_login", token }      -> { session, redirect_to }
 //       The "View Invite & Bid" button in a bid invite email. Signs in the
 //       person the invite was sent to (creating their portal login the first
-//       time), until 14 days after bids are due.
+//       time), until 14 days after bids are due. For the awarded vendor it
+//       opens the project's folder (where the COI PDF is uploaded).
 //   { action: "sign_out", session }
 //
 // Deploy:  supabase functions deploy vendor-auth --no-verify-jwt
@@ -71,7 +72,7 @@ async function inviteLogin(body: Row, req: Request) {
     .select("id, package_id, company_id, contact_name, contact_email, status, coi_requested_at")
     .eq("token", token).maybeSingle();
   if (!invite || !invite.company_id || invite.status === "pending" || invite.status === "failed") return json({ ok: false, error: "link_invalid" }, 400);
-  const { data: pkg } = await admin.from("bid_packages").select("due_at, status").eq("id", invite.package_id).maybeSingle();
+  const { data: pkg } = await admin.from("bid_packages").select("due_at, status, project_id").eq("id", invite.package_id).maybeSingle();
   const DAY = 24 * 60 * 60 * 1000;
   // Usable until 14 days after bids are due -- or, for the awarded vendor,
   // 30 days after Leeward last asked for their COI (the "Upload COI" button).
@@ -111,7 +112,9 @@ async function inviteLogin(body: Row, req: Request) {
   }
 
   const session = await createSession(admin, user.id, req.headers.get("user-agent"));
-  return json({ ok: true, session, redirect_to: `invite.html?id=${invite.id}`, language: user.language });
+  // Awarded: the "Upload COI" button opens that project's folder.
+  const redirect = invite.status === "awarded" && pkg?.project_id ? `project.html?id=${pkg.project_id}` : `invite.html?id=${invite.id}`;
+  return json({ ok: true, session, redirect_to: redirect, language: user.language });
 }
 
 async function signOut(body: Row) {
