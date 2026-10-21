@@ -193,10 +193,14 @@
 
     async function loadProjects() {
         const select = $("bidProjectSelect");
-        const { data, error } = await client()
-            .from("projects_overview")
-            .select("id, name, project_code, site_address, site_city, site_state, site_zip, is_active")
-            .order("name", { ascending: true });
+        // Read the projects table itself (like the Incident Report form does):
+        // the projects_overview view doesn't include project_code.
+        const query = cols => client().from("projects").select(cols).order("name", { ascending: true });
+        let { data, error } = await query("id, name, project_code, site_address, site_city, site_state, site_zip, is_active");
+        if (error && error.code === "42703") {
+            // Older database without project_code — still list the projects.
+            ({ data, error } = await query("id, name, site_address, site_city, site_state, site_zip, is_active"));
+        }
         if (error) {
             console.error("bid-invites: couldn't load projects", error);
             select.innerHTML = `<option value="">Couldn't load projects</option>`;
