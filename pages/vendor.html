@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>The Leeward Group | Vendor</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button 
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+
+                            <button 
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+</div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+
+
+
+
+<aside class="sidebar" id="sidebar">
+
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+
+
+    <nav class="sidebar-nav">
+
+
+
+        <a href="/pages/dashboard.html" class="nav-item">
+
+            <span class="home-nav-icon"></span>
+
+            <span class="nav-text">
+                Dashboard
+            </span>
+
+        </a>
+
+
+
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+
+
+                <span class="docs-nav-icon"></span>
+
+
+                <span class="nav-text">
+                    Company docs
+                </span>
+
+
+                <span class="nav-arrow"></span>
+
+
+            </a>
+
+
+
+
+            <div class="subnav">
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+
+                </a>
+
+
+
+                <a href="/pages/form-template.html" class="subnav-item">
+
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+
+        <a href="/pages/timesheet.html" class="nav-item">
+
+            <span class="finance-nav-icon"></span>
+
+            <span class="nav-text">
+                Staff Finance
+            </span>
+
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+
+            <span class="projects-nav-icon"></span>
+
+            <span class="nav-text">
+                Project Overview
+            </span>
+
+        </a>
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+
+
+            <span class="website-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Company site
+            </span>
+
+
+        </a>
+
+
+
+
+
+        <a href="/pages/vendors.html" class="nav-item active">
+
+            <span class="companies-nav-icon"></span>
+
+            <span class="nav-text">
+                Vendor Information
+            </span>
+
+        </a>
+
+        <a href="/pages/incident-report.html" class="nav-item" id="incidentReportNavItem">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Incident Report</span>
+        </a>
+
+        <a href="/pages/account-activity.html" class="nav-item" id="accountActivityNavItem">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Account Activity</span>
+            <span class="nav-item-badge" id="accountActivityNavBadge"></span>
+        </a>
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+
+
+            <span class="docs-nav-icon"></span>
+
+
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+
+
+        </a>
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+
+
+
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="it-tools-nav-icon"></span>
+                <span class="nav-text">
+                    IT Tools
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+
+
+
+
+            <div class="subnav">
+
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Create account
+                    </span>
+
+
+                </a>
+
+
+
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+
+
+                </a>
+
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+
+
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+
+
+                </a>
+
+
+
+            </div>
+
+
+
+        </div>
+
+
+
+
+    </nav>
+
+
+
+
+
+    <div class="sidebar-footer">
+
+
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+
+
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+
+
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+
+
+    </div>
+
+
+</aside>
+
+
+<main class="main-content vd-page">
+
+    <nav class="vd-crumbs" aria-label="Breadcrumb"><a href="/pages/vendors.html">Vendors</a><span>/</span><span id="vdCrumbName">Vendor</span></nav>
+
+    <p class="workbook-preview-loading" id="vdLoading">Loading vendor…</p>
+    <div class="auth-message error hidden" id="vdError" role="alert"></div>
+
+    <div id="vdContent" class="hidden">
+
+        <div class="vd-head">
+            <div>
+                <h1><span id="vdName"></span> <span class="vd-status" id="vdHeadStatus"></span></h1>
+                <div class="vd-head__meta" id="vdHeadMeta"></div>
+            </div>
+            <div class="vd-head__actions">
+                <a href="#" class="vd-btn vd-btn--primary hidden" id="vdEditBtn">Edit Vendor</a>
+            </div>
+        </div>
+
+        <h2 class="vd-section-title">Company info</h2>
+        <div class="vd-layout">
+            <div class="vd-stack">
+                <section class="vd-panel">
+                    <div class="vd-panel__head"><h3 class="vd-panel__title">Company details</h3></div>
+                    <div class="vd-panel__body">
+                        <dl class="vd-dl" id="vdDetails"></dl>
+                    </div>
+                </section>
+
+                <section class="vd-panel">
+                    <div class="vd-panel__head"><h3 class="vd-panel__title">Tax information</h3></div>
+                    <table class="vd-table">
+                        <thead><tr><th>Document</th><th>Status</th><th>SSN / FID</th><th>Uploaded</th><th class="is-right">Actions</th></tr></thead>
+                        <tbody id="vdTaxBody"></tbody>
+                    </table>
+                </section>
+            </div>
+
+            <div class="vd-stack">
+                <section class="vd-panel">
+                    <div class="vd-panel__head">
+                        <h3 class="vd-panel__title">Notes</h3>
+                        <div class="vd-panel__actions"><button type="button" class="vd-link hidden" id="vdNotesEditBtn">+ Add Note</button></div>
+                    </div>
+                    <div class="vd-panel__body">
+                        <p class="vd-empty" id="vdNotesText"></p>
+                        <div class="hidden" id="vdNotesEditor">
+                            <textarea class="vendor-profile-notes-input" id="vdNotesInput" rows="4" maxlength="4000" placeholder="Notes about this vendor"></textarea>
+                            <div class="vd-notes-actions">
+                                <span class="auth-message" id="vdNotesMessage"></span>
+                                <button type="button" class="vd-btn" id="vdNotesCancelBtn">Cancel</button>
+                                <button type="button" class="vd-btn vd-btn--primary" id="vdNotesSaveBtn">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="vd-panel">
+                    <div class="vd-panel__head"><h3 class="vd-panel__title">Projects <span class="vd-count" id="vdProjectsCount">0</span></h3></div>
+                    <div class="vd-panel__body" id="vdProjects"></div>
+                </section>
+            </div>
+        </div>
+
+        <h2 class="vd-section-title">Account info</h2>
+        <section class="vd-panel">
+            <div class="vd-panel__head">
+                <h3 class="vd-panel__title">Contacts <span class="vd-count" id="vdContactsCount">0</span></h3>
+                <div class="vd-panel__actions">
+                    <button type="button" class="vd-link" id="vdSaveAllBtn" title="Download every contact as one .vcf file">Save all to Phone Contacts</button>
+                    <button type="button" class="vd-btn hidden" id="vdAddContactBtn">+ Add Contact</button>
+                </div>
+            </div>
+            <div class="vd-dup-bar hidden" id="vdDupBar"></div>
+            <table class="vd-table vd-contacts-table">
+                <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Work phone</th><th>Mobile phone</th><th class="is-right"></th></tr></thead>
+                <tbody id="vdContactsBody"></tbody>
+            </table>
+            <p class="vd-empty hidden" id="vdContactsEmpty" style="padding: 16px 18px;">No contacts on file yet.</p>
+        </section>
+
+    </div>
+</main>
+
+
+<!-- Add / edit contact -->
+<div class="popup-overlay hidden" id="vdContactOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="vdContactTitle">
+        <div class="workbook-preview-header">
+            <h2 id="vdContactTitle">Add Contact</h2>
+            <button type="button" class="menu-btn" id="vdContactCloseBtn" aria-label="Close">✕</button>
+        </div>
+        <form class="auth-form" id="vdContactForm" novalidate>
+            <input type="hidden" id="vdContactId">
+            <div class="wizard-field-grid">
+                <label class="auth-field"><span>Name <span class="bid-required">*</span></span><input type="text" id="vdContactName" maxlength="120"></label>
+                <label class="auth-field">Title<input type="text" id="vdContactTitleInput" maxlength="120"></label>
+            </div>
+            <div class="wizard-field-grid">
+                <label class="auth-field">Email<input type="email" id="vdContactEmail" maxlength="200"></label>
+                <label class="auth-field">Second email<input type="email" id="vdContactEmail2" maxlength="200"></label>
+            </div>
+            <div class="wizard-field-grid">
+                <label class="auth-field">Work phone<input type="tel" id="vdContactWork" maxlength="40"></label>
+                <label class="auth-field">Mobile phone<input type="tel" id="vdContactMobile" maxlength="40"></label>
+            </div>
+            <label class="auth-field">Role<input type="text" id="vdContactRole" maxlength="120" placeholder="e.g. Estimator, Billing"></label>
+            <p class="auth-inline-copy hidden" id="vdContactLoginNote">This person signs in to the Vendor Portal with their email, so it can't be changed here — they can update their other details in the portal.</p>
+            <p class="auth-message" id="vdContactMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--red hidden" id="vdContactDeleteBtn">Delete</button>
+                <button type="submit" class="auth-button" id="vdContactSaveBtn">Save Contact</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Merge duplicate contacts -->
+<div class="popup-overlay hidden" id="vdMergeOverlay">
+    <div class="popup workbook-popup bid-invite-popup" role="dialog" aria-modal="true" aria-labelledby="vdMergeTitle">
+        <div class="workbook-preview-header">
+            <h2 id="vdMergeTitle">Merge Contacts</h2>
+            <button type="button" class="menu-btn" id="vdMergeCloseBtn" aria-label="Close">✕</button>
+        </div>
+        <p class="auth-inline-copy">These look like the same person. Pick which details to keep — everything else is combined into one contact.</p>
+        <div class="vd-merge" id="vdMergeGrid"></div>
+        <div class="vd-merge-note" id="vdMergeNote"></div>
+        <p class="auth-message" id="vdMergeMessage" role="status"></p>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="vdMergeCancelBtn">Cancel</button>
+            <button type="button" class="auth-button" id="vdMergeConfirmBtn">Merge Contacts</button>
+        </div>
+    </div>
+</div>
+
+
+<script src="/js/script.js"></script>
+<script src="/js/mobile-app.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/nav-approvals-badge.js"></script>
+<script src="/js/vendor-detail.js"></script>
+
+<script>
+/* ===========================
+   SIGN OUT
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+
+
+
+/* ===========================
+   ELEMENTS
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const adminNavGroup =
+    document.getElementById("adminNavGroup");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+
+
+
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+
+    if (!profile) return;
+
+
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+
+
+
+    if (userNameElement) {
+
+        userNameElement.textContent = name;
+
+    }
+
+
+
+
+
+
+    if (brandInitials) {
+
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+
+
+        const initials =
+            words.length >= 2
+
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+
+            : words[0]
+                ?.substring(0,2)
+                .toUpperCase() || "ST";
+
+
+
+        brandInitials.textContent =
+            initials;
+
+
+    }
+
+
+
+
+
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+
+
+    if (sidebarGroupPill) {
+
+
+        const groups =
+            window.getSupabaseUserGroups
+
+            ? window.getSupabaseUserGroups(profile)
+
+            : [];
+
+
+
+        sidebarGroupPill.textContent =
+            groups.length
+
+            ? groups
+                .map(
+                    g =>
+                    g.charAt(0).toUpperCase() +
+                    g.slice(1)
+                )
+                .join(", ")
+
+            : "No Group";
+
+
+    }
+
+
+}
+
+
+
+
+
+
+
+
+
+/* ===========================
+   NAV ACCESS
+=========================== */
+
+
+function updateNavAccess(profile) {
+
+
+    const shouldShowAdminNav =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "IT") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (adminNavGroup) {
+
+        adminNavGroup.style.display =
+            shouldShowAdminNav
+            ? "block"
+            : "none";
+
+    }
+
+
+
+    const payrollToolsNavItem =
+        document.getElementById("payrollToolsNavItem");
+
+
+    const shouldShowPayrollTools =
+        window.isSupabaseUserInGroup
+
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+
+        : false;
+
+
+
+    if (payrollToolsNavItem) {
+
+        payrollToolsNavItem.style.display =
+            shouldShowPayrollTools
+            ? "flex"
+            : "none";
+
+    }
+
+
+}
+
+
+
+
+
+
+
+/* ===========================
+   LOAD PROFILE
+=========================== */
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+
+
+if (storedProfile) {
+
+
+    try {
+
+
+        const parsedProfile =
+            JSON.parse(storedProfile);
+
+
+
+        updateStaffName(parsedProfile);
+
+        updateNavAccess(parsedProfile);
+
+
+
+    } catch(error) {
+
+
+        console.warn(
+            "Unable to parse stored profile:",
+            error
+        );
+
+
+    }
+
+
+}
+
+
+
+
+
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+    }
+    if (typeof window.initVendorDetailPage === "function") window.initVendorDetailPage();
+});
+</script>
+
+</body>
+
+</html>

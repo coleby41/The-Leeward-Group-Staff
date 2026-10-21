@@ -89,6 +89,19 @@
         });
     }
 
+    // Bid Invites (beta) tab — only for people who can send or manage bid
+    // invites (sql/supabase-bid-invites-setup.sql). Starts hidden in the
+    // markup so nobody sees it flash in and back out.
+    async function applyBidInvitesNavVisibility() {
+        const item = document.getElementById("bidInvitesNavItem");
+        if (!item || !window.Permissions) return;
+        try { await (window.supabaseInitialProfilePromise || Promise.resolve()); } catch (e) { /* ignore */ }
+        try { await window.Permissions.initPermissions(); } catch (e) { /* hasPermission fails open */ }
+        const allowed = window.Permissions.hasPermission("vendors.send_bid_invites")
+            || window.Permissions.hasPermission("projects.manage_bid_invites");
+        item.style.display = allowed ? "" : "none";
+    }
+
     /* ===========================
        HEADER — project name, breadcrumb, title
     =========================== */
@@ -809,6 +822,7 @@
 
         const projectId = getProjectIdFromUrl();
         wireNavLinks(projectId);
+        applyBidInvitesNavVisibility(); // background — not awaited
         wireSwitcherToggle();
 
         if (!projectId) {

@@ -57,3 +57,31 @@ SQL migrations live in `sql/` and are run by hand in the Supabase SQL Editor —
 ## Known issue
 
 `pages/my-tasks.html` (and a few code comments elsewhere) reference a `dashboard-shared.js` file that doesn't exist anywhere in the codebase. This predates this reorg — it wasn't introduced by the folder restructure. Worth a look at some point: either that script was deleted at some point without removing the reference, or it was never actually needed.
+
+## Vendor Portal + Bid Invites
+
+Vendors have their own website (the **Vendor Portal**, a separate repo / Vercel project). This repo holds everything on the staff side plus the backend both sites share:
+
+- **Staff pages:** Vendors › More Actions › *Vendor Applications* (approve / reject new vendors), the vendor page (`pages/vendor.html?id=` — company & account info, contacts with vCard download and merge, projects, tax info), and each project's *Bid Invites* page.
+- **SQL:** `sql/supabase-vendor-portal-setup.sql` (tables, permissions, RLS) and `sql/supabase-bid-invites-cron-setup.sql` (daily reminder job).
+- **Edge Functions** (`supabase/functions/`): `bid-invites`, `bid-reminders`, `vendor-admin` (staff, JWT checked) and `vendor-auth`, `vendor-apply`, `vendor-api` (called by the Vendor Portal — deploy with `--no-verify-jwt`; they do their own session checks).
+
+Setup, in order:
+
+1. Run `sql/supabase-vendor-portal-setup.sql` in the SQL Editor.
+2. Deploy the functions:
+   ```bash
+   supabase functions deploy bid-invites
+   supabase functions deploy bid-reminders
+   supabase functions deploy vendor-admin
+   supabase functions deploy vendor-auth --no-verify-jwt
+   supabase functions deploy vendor-apply --no-verify-jwt
+   supabase functions deploy vendor-api --no-verify-jwt
+   ```
+3. Deploy the Vendor Portal to Vercel, then set the secrets (no trailing slash):
+   ```bash
+   supabase secrets set VENDOR_PORTAL_URL=https://<vendor portal URL> STAFF_PORTAL_URL=https://<staff portal URL>
+   ```
+   `RESEND_API_KEY` and `RESEND_FROM_EMAIL` (optionally `BID_FROM_EMAIL`) must already be set, with the sending domain verified in Resend.
+4. Run `sql/supabase-bid-invites-cron-setup.sql` (reminders).
+5. Give the right workgroups the new permissions in IT Tools › Permissions: `vendors.approve_applications`, `vendors.send_bid_invites`, `projects.manage_bid_invites` (IT and Super Admin have them by default).

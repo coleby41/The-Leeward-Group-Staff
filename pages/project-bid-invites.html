@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bid Invites | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-to-do.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
+
+<header class="header">
+
+    <div class="header-left">
+
+        <!-- Phone-only nav button (hidden above 820px via .menu-btn--mobile-only).
+             These project pages use the collapse tab instead of a hamburger on
+             desktop, but on a phone the sidebar is a hidden drawer, so without
+             this there's no way to reach the other project tabs. script.js
+             picks it up by id like every other page's #menuBtn. -->
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="/pages/project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
+    </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">Bid Invites</h1>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+        <!-- Icon-only stand-in shown only once the sidebar collapses to its
+             68px rail (body.sidebar-collapsed in styles.css hides the input/
+             hint/results above but keeps this) — clicking it expands the
+             sidebar and focuses the real search input, same as ⌘F/Ctrl+F. -->
+        <button type="button" class="sidebar-search-collapsed-btn" id="sidebarSearchCollapsedBtn" aria-label="Search this project" title="Search this project">
+            <span class="sidebar-search-collapsed-icon" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/projects.html">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-files.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-form-logs.html">
+            <span class="form-logs-nav-icon"></span>
+            <span class="nav-text">Form Logs</span>
+        </a>
+
+        <!-- Bid Invites (beta): hidden until project-shell.js confirms the
+             vendors.send_bid_invites or projects.manage_bid_invites permission. -->
+        <a href="#" class="nav-item" data-nav-page="/pages/project-bid-invites.html" id="bidInvitesNavItem" style="display:none;">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">Bid Invites</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-timeline.html">
+            <span class="timeline-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
+        <hr style="border:.5px solid rgba(255,255,255,0.14); margin:10px 0;">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">Project Dashboard</p>
+            <h1>Bid Invites <span class="bid-beta-pill">Beta</span></h1>
+            <p>Every Invitation to Bid sent for this project — who's bidding, the bids that came back by email, and who got the award.</p>
+        </div>
+        <div class="hero-actions">
+            <a href="/pages/vendors.html" class="auth-button auth-button--secondary hidden" id="bidNewInviteBtn" style="text-decoration:none;">+ New Invite</a>
+        </div>
+    </section>
+
+    <div id="bidPageMessage" class="workbook-page-message" style="display:none;"></div>
+    <div class="workbook-loading" id="bidLoading"><p>Loading bid invites…</p></div>
+    <div class="workbook-empty" id="bidNoAccess" style="display:none;"><p>You don't have access to Bid Invites. Ask IT to turn on <strong>Manage Bid Invites</strong> for your workgroup on the Workgroups page.</p></div>
+    <div class="workbook-empty" id="bidEmpty" style="display:none;"><p>No bid invites for this project yet. Send one from <strong>Vendors › More Actions › Generate A Invite Bid</strong>.</p></div>
+
+    <div id="bidPackages"></div>
+
+</main>
+
+
+<!-- Log / edit a bid that came back by email. -->
+<div class="popup-overlay hidden" id="bidLogOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="bidLogTitle">
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="bidLogCancelBtn">&lsaquo; Cancel</button>
+        </div>
+        <h2 id="bidLogTitle">Log Bid</h2>
+        <p class="auth-inline-copy" id="bidLogSubtitle"></p>
+
+        <form class="auth-form" id="bidLogForm" novalidate>
+            <label class="auth-field">
+                <span>Total bid amount <span class="bid-required">*</span></span>
+                <span class="bid-money-input"><span>$</span><input type="text" id="bidLogAmount" inputmode="decimal" placeholder="0.00" autocomplete="off"></span>
+            </label>
+            <label class="auth-field">
+                Proposal (the file from their reply)
+                <input type="file" id="bidLogFile">
+            </label>
+            <p class="bid-field-hint" id="bidLogExistingFile"></p>
+            <label class="auth-field">
+                Date received
+                <input type="date" id="bidLogDate">
+            </label>
+            <label class="auth-field">
+                Notes / exclusions (optional)
+                <textarea id="bidLogNotes" class="bid-light-textarea" rows="3" maxlength="2000" placeholder="e.g. Excludes screens on Building C"></textarea>
+            </label>
+            <p class="bid-field-hint">Saving marks them Bid Received. The proposal is saved to this project in 05 Contracts &amp; Procurement › Bids.</p>
+            <p class="auth-message" id="bidLogMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="bidLogCancelBtn2">Cancel</button>
+                <button type="submit" class="auth-button" id="bidLogSaveBtn">Save Bid</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Fix a vendor's email and send their invite again. -->
+<div class="popup-overlay hidden" id="bidRetryOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="bidRetryTitle">
+        <h2 id="bidRetryTitle">Send Invite Again</h2>
+        <p class="auth-inline-copy" id="bidRetrySubtitle"></p>
+        <form class="auth-form" id="bidRetryForm" novalidate>
+            <div class="workbook-page-message error" id="bidRetryError" style="display:none;"></div>
+            <label class="auth-field">
+                Send to
+                <input type="email" id="bidRetryEmail" autocomplete="off">
+            </label>
+            <p class="auth-message" id="bidRetryMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="bidRetryCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="bidRetrySendBtn">Send</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Compare bids side by side. -->
+<div class="popup-overlay hidden" id="bidCompareOverlay">
+    <div class="popup workbook-popup bid-invite-popup" role="dialog" aria-modal="true" aria-labelledby="bidCompareTitle">
+        <div class="workbook-preview-header">
+            <h2 id="bidCompareTitle">Compare Bids</h2>
+            <button type="button" class="menu-btn" id="bidCompareCloseBtn" aria-label="Close">✕</button>
+        </div>
+        <p class="auth-inline-copy" id="bidCompareSubtitle"></p>
+        <div class="stats-grid bid-compare-stats" id="bidCompareStats"></div>
+        <div class="table-wrap">
+            <table class="dash-queue-table bid-tracker-table bid-compare-table">
+                <thead><tr><th>Vendor</th><th style="text-align:right;">Bid</th><th style="text-align:right;">vs. Low</th><th>Proposal</th><th></th></tr></thead>
+                <tbody id="bidCompareBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- Confirm the award. -->
+<div class="popup-overlay hidden" id="bidAwardOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="bidAwardTitle">
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="bidAwardBackBtn">&lsaquo; Back to compare</button>
+        </div>
+        <h2 id="bidAwardTitle">Award this bid?</h2>
+        <p class="auth-inline-copy" id="bidAwardSubtitle"></p>
+        <form class="auth-form" id="bidAwardForm" novalidate>
+            <label class="form-toggle-row">
+                <input type="checkbox" id="bidAwardNotifyWinner" checked>
+                <span><span id="bidAwardNotifyWinnerLabel">Email the winner an award notice</span>
+                    <p class="auth-inline-copy">Replies go to the invite's contact person.</p>
+                </span>
+            </label>
+            <label class="form-toggle-row" id="bidAwardNotifyOthersRow">
+                <input type="checkbox" id="bidAwardNotifyOthers" checked>
+                <span><span id="bidAwardNotifyOthersLabel">Email the other bidders a "not selected" note</span>
+                    <p class="auth-inline-copy">Only vendors whose bids were logged. Vendors who didn't bid aren't emailed.</p>
+                </span>
+            </label>
+            <p class="auth-inline-copy">The package moves to Awarded and closes. This can't be undone.</p>
+            <p class="auth-message" id="bidAwardMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="bidAwardCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="bidAwardConfirmBtn">Award</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/mobile-app.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/project-shell.js"></script>
+<script src="/js/project-bid-invites.js"></script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+</script>
+
+</body>
+</html>

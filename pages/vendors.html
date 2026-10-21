@@ -445,10 +445,20 @@
                      be in one of those workgroups. RLS enforces the real
                      restriction regardless of this. -->
                 <button type="button" class="vendor-toolbar-menu-item hidden" id="coiNotificationsBtn">COI Notifications</button>
-                <div class="vendor-toolbar-menu-divider"></div>
-                <button type="button" class="vendor-toolbar-menu-item vendor-toolbar-menu-item--ghost" id="inviteBidBtn" disabled aria-disabled="true" title="Coming soon">
+                <!-- Vendor Portal applications — hidden until
+                     js/vendor-applications.js confirms the
+                     vendors.approve_applications permission. -->
+                <div class="vendor-toolbar-menu-divider hidden" id="vendorAppsDivider"></div>
+                <button type="button" class="vendor-toolbar-menu-item vendor-toolbar-menu-item--with-badge hidden" id="vendorAppsBtn">
+                    Vendor Applications
+                    <span class="chip chip--warning vendor-apps-count hidden" id="vendorAppsCount">0</span>
+                </button>
+                <!-- Bid Invites (beta) — hidden until js/bid-invites.js confirms
+                     the vendors.send_bid_invites permission. -->
+                <div class="vendor-toolbar-menu-divider hidden" id="inviteBidDivider"></div>
+                <button type="button" class="vendor-toolbar-menu-item vendor-toolbar-menu-item--with-badge hidden" id="inviteBidBtn">
                     Generate A Invite Bid
-                    <span class="vendor-toolbar-menu-item-badge">Coming soon</span>
+                    <span class="bid-beta-pill">Beta</span>
                 </button>
             </div>
         </div>
@@ -532,8 +542,13 @@
             <p class="company-form-section-title">Vendor Details</p>
 
             <label class="auth-field">
-                Vendor name
+                Vendor name (legal name)
                 <input type="text" id="companyNameInput" name="name" required placeholder="e.g. Leeward Construction LLC">
+            </label>
+
+            <label class="auth-field">
+                Friendly name
+                <input type="text" id="companyFriendlyNameInput" name="friendlyName" placeholder="What everyone calls them, e.g. Leeward Construction">
             </label>
 
             <p class="company-form-section-title">Address</p>
@@ -1056,6 +1071,271 @@
 </div>
 
 
+<!-- Vendor Applications — companies that asked for Vendor Portal access
+     (js/vendor-applications.js). Approving creates the vendor + contact and
+     emails the applicant a sign-in link; rejecting emails them too. -->
+<div class="popup-overlay hidden" id="vendorAppsOverlay">
+    <div class="popup workbook-popup bid-invite-popup" role="dialog" aria-modal="true" aria-labelledby="vendorAppsTitle">
+        <div class="workbook-preview-header">
+            <h2 id="vendorAppsTitle">Vendor Applications</h2>
+            <button type="button" class="menu-btn" id="vendorAppsCloseBtn" aria-label="Close">✕</button>
+        </div>
+        <p class="auth-inline-copy">New companies that applied on the Vendor Portal. Approving one adds them to Vendors and emails them a sign-in link.</p>
+
+        <p class="workbook-preview-loading" id="vendorAppsLoading">Loading applications…</p>
+        <p class="workbook-preview-empty hidden" id="vendorAppsEmpty">No applications waiting. New ones show up here (and in your notifications).</p>
+
+        <div class="table-wrap hidden" id="vendorAppsTableWrap" style="margin-top: 14px;">
+            <table class="dash-queue-table bid-tracker-table vendor-apps-table">
+                <thead><tr><th>Company</th><th>Contact</th><th>W-9</th><th>Applied</th></tr></thead>
+                <tbody id="vendorAppsTableBody"></tbody>
+            </table>
+        </div>
+
+        <div class="card vendor-app-detail hidden" id="vendorAppDetail" style="margin-top: 16px; box-shadow: none;">
+            <div class="card-header"><h2 class="card-title" id="vendorAppDetailName"></h2><span class="chip chip--warning">Pending</span></div>
+            <dl class="bid-detail-list" id="vendorAppDetailList" style="margin: 10px 0 14px;"></dl>
+            <p class="auth-inline-copy">Before approving, check the W-9. You'll add tags (and the COI, once they have one) on the vendor's page like any other vendor.</p>
+
+            <div class="vendor-app-reject hidden" id="vendorAppRejectBox">
+                <label class="auth-field">
+                    Reason (optional — included in the email to the applicant)
+                    <textarea id="vendorAppRejectReason" rows="3" maxlength="1000" placeholder="e.g. We aren't adding new glazing vendors right now."></textarea>
+                </label>
+            </div>
+
+            <p class="auth-message" id="vendorAppMessage" role="status"></p>
+            <div class="popup-buttons" id="vendorAppButtons">
+                <button type="button" class="auth-button auth-button--red" id="vendorAppRejectBtn">Reject</button>
+                <button type="button" class="auth-button" id="vendorAppApproveBtn">Approve &amp; Send Sign-in Link</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Generate A Invite Bid (beta) — 3-step wizard, driven by js/bid-invites.js.
+     Emails approved vendors an Invitation to Bid whose "View Invite & Bid"
+     button signs them into the Vendor Portal, where they say whether they're
+     bidding and upload their proposal. Responses show on the project's Bid
+     Invites tab (pages/project-bid-invites.html). -->
+<div class="popup-overlay hidden" id="bidInviteOverlay">
+    <div class="popup workbook-popup project-wizard-popup bid-invite-popup" role="dialog" aria-modal="true" aria-labelledby="bidInviteTitle">
+
+        <div class="wizard-topbar">
+            <button type="button" class="wizard-topbar-link" id="bidInviteCancelBtn">&lsaquo; Cancel</button>
+            <button type="button" class="wizard-topbar-link" id="bidInviteBackBtn" style="display:none;">&lsaquo; Go back</button>
+        </div>
+
+        <div class="wizard-progress" id="bidInviteProgress">
+            <span class="wizard-progress-dot is-current"></span>
+            <span class="wizard-progress-dot"></span>
+            <span class="wizard-progress-dot"></span>
+        </div>
+
+        <h2 id="bidInviteTitle">Generate A Invite Bid <span class="bid-beta-pill">Beta</span></h2>
+        <p class="auth-inline-copy" id="bidInviteStepLabel">Step 1 of 3 · Bid details</p>
+
+        <form class="auth-form" id="bidInviteForm" novalidate autocomplete="off">
+
+            <!-- Step 1: bid details -->
+            <section class="bid-step" data-bid-step="1">
+                <div class="wizard-step-header">
+                    <span class="wizard-step-number">1</span>
+                    <div>
+                        <p class="wizard-step-header-title">Project &amp; scope</p>
+                        <p class="wizard-step-header-hint">The trade tag pre-selects matching vendors on the next step.</p>
+                    </div>
+                </div>
+
+                <label class="auth-field">
+                    <span>Project <span class="bid-required">*</span></span>
+                    <select id="bidProjectSelect"><option value="">Loading projects…</option></select>
+                </label>
+
+                <div class="wizard-field-grid">
+                    <label class="auth-field">
+                        <span>Bid package name <span class="bid-required">*</span></span>
+                        <input type="text" id="bidPackageName" maxlength="120" placeholder="e.g. Windows &amp; Glazing">
+                    </label>
+                    <label class="auth-field">
+                        Trade tag
+                        <select id="bidTradeTag"><option value="">None</option></select>
+                    </label>
+                </div>
+
+                <label class="auth-field">
+                    Scope of work
+                    <textarea id="bidScope" rows="4" maxlength="4000" placeholder="What the vendor is bidding on — sheets, inclusions, exclusions"></textarea>
+                </label>
+
+                <label class="auth-field">
+                    Location
+                    <input type="text" id="bidLocation" maxlength="200" placeholder="Filled in from the project's site address">
+                </label>
+
+                <p class="company-form-section-title">Dates</p>
+
+                <div class="wizard-field-grid">
+                    <label class="auth-field">
+                        <span>Bids due <span class="bid-required">*</span></span>
+                        <input type="date" id="bidDueDate">
+                    </label>
+                    <label class="auth-field">
+                        <span>Time <span class="bid-required">*</span></span>
+                        <input type="time" id="bidDueTime" value="14:00">
+                    </label>
+                </div>
+
+                <label class="auth-field">
+                    Questions due by (optional)
+                    <input type="datetime-local" id="bidQuestionsDue">
+                </label>
+
+                <label class="form-toggle-row">
+                    <input type="checkbox" id="bidWalkthroughToggle">
+                    <span>
+                        Pre-bid site walkthrough
+                        <p class="auth-inline-copy">Shows on the invite with its date, time and where to meet.</p>
+                    </span>
+                </label>
+
+                <div class="wizard-field-grid hidden" id="bidWalkthroughFields">
+                    <label class="auth-field">
+                        Walkthrough date &amp; time
+                        <input type="datetime-local" id="bidWalkthroughAt">
+                    </label>
+                    <label class="auth-field">
+                        Where to meet
+                        <input type="text" id="bidWalkthroughLocation" maxlength="200" value="Project site">
+                    </label>
+                </div>
+
+                <p class="company-form-section-title">Contact Person</p>
+                <p class="bid-field-hint">Vendors' questions go to this person, and they're emailed when a bid comes in.</p>
+
+                <div class="wizard-field-grid">
+                    <label class="auth-field">
+                        <span>Name <span class="bid-required">*</span></span>
+                        <input type="text" id="bidContactName" maxlength="120">
+                    </label>
+                    <label class="auth-field">
+                        <span>Email <span class="bid-required">*</span></span>
+                        <input type="email" id="bidContactEmail" maxlength="200" placeholder="name@theleewardgroup.us">
+                    </label>
+                </div>
+                <label class="auth-field">
+                    Phone
+                    <input type="tel" id="bidContactPhone" maxlength="40">
+                </label>
+
+                <p class="company-form-section-title">Plans &amp; Specs</p>
+
+                <div class="bid-file-list" id="bidFileList"></div>
+
+                <div class="bid-file-picker hidden" id="bidFilePicker">
+                    <input type="text" class="workbook-search-input" id="bidFilePickerSearch" placeholder="Search this project's files…" aria-label="Search this project's files">
+                    <div class="bid-file-picker-list" id="bidFilePickerList"></div>
+                </div>
+
+                <div class="bid-file-add-row">
+                    <button type="button" class="bid-file-add-btn" id="bidPickFilesBtn">Pick from Project Files</button>
+                    <label class="bid-file-add-btn" for="bidUploadInput">Upload file</label>
+                    <input type="file" id="bidUploadInput" multiple class="hidden">
+                </div>
+                <p class="bid-field-hint">Uploaded files are also saved to the project, in 05 Contracts &amp; Procurement › Bids. Vendors download them in the Vendor Portal.</p>
+            </section>
+
+            <!-- Step 2: pick vendors -->
+            <section class="bid-step" data-bid-step="2" hidden>
+                <div class="wizard-step-header">
+                    <span class="wizard-step-number">2</span>
+                    <div>
+                        <p class="wizard-step-header-title">Pick vendors</p>
+                        <p class="wizard-step-header-hint">Only Approved vendors with a contact email can be invited. Each one gets their own email.</p>
+                    </div>
+                </div>
+
+                <div class="bid-filter-row">
+                    <span class="bid-filter-label">Tags</span>
+                    <span id="bidTagChips" class="bid-filter-row"></span>
+                    <select class="bid-filter-select" id="bidAddTagSelect" aria-label="Filter by tag"><option value="">+ Filter by tag</option></select>
+                    <input type="text" class="workbook-search-input" id="bidVendorSearch" placeholder="Search all vendors…" aria-label="Search all vendors">
+                </div>
+
+                <div class="bid-vendor-table-wrap">
+                    <table class="dash-queue-table bid-vendor-table">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;"><input type="checkbox" id="bidSelectAll" aria-label="Select every approved vendor shown"></th>
+                                <th>Vendor</th>
+                                <th>Send to</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bidVendorTableBody"></tbody>
+                    </table>
+                </div>
+                <p class="bid-field-hint" id="bidVendorHint"></p>
+            </section>
+
+            <!-- Step 3: review & send -->
+            <section class="bid-step" data-bid-step="3" hidden>
+                <div class="wizard-step-header">
+                    <span class="wizard-step-number">3</span>
+                    <div>
+                        <p class="wizard-step-header-title">This is the email each vendor gets</p>
+                        <p class="wizard-step-header-hint">Sent separately — vendors don't see each other. The button signs them into the Vendor Portal to bid; replies go to your contact person.</p>
+                    </div>
+                </div>
+
+                <div class="bid-review-grid">
+                    <div class="bid-email-preview">
+                        <div class="bid-email-preview-meta">
+                            <span><strong>From:</strong> The Leeward Group</span>
+                            <span><strong>Reply-to:</strong> <span id="bidPreviewReplyTo"></span></span>
+                            <span><strong>Subject:</strong> <span id="bidPreviewSubject"></span></span>
+                        </div>
+                        <iframe id="bidEmailPreviewFrame" title="Email preview" sandbox=""></iframe>
+                        <div class="bid-email-preview-fallback hidden" id="bidEmailPreviewFallback"></div>
+                    </div>
+
+                    <div style="display:grid; gap:12px;">
+                        <div class="bid-side-panel">
+                            <p class="bid-side-panel-title">Sending to</p>
+                            <ul id="bidSendingList"></ul>
+                        </div>
+                        <label class="form-toggle-row">
+                            <input type="checkbox" id="bidRemindNoResponse" checked>
+                            <span>Remind if no response in 3 days</span>
+                        </label>
+                        <label class="form-toggle-row">
+                            <input type="checkbox" id="bidRemindBeforeDue" checked>
+                            <span>Remind 1 day before bids are due</span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Done -->
+            <section class="bid-step" data-bid-step="done" hidden>
+                <div class="bid-done-summary" id="bidDoneSummary"></div>
+                <ul class="bid-done-failures" id="bidDoneFailures"></ul>
+                <p class="auth-inline-copy">Vendors respond and upload their bids in the Vendor Portal. Track them, compare and award from the project's <strong>Bid Invites</strong> tab.</p>
+            </section>
+
+            <p class="auth-message" id="bidInviteMessage" role="status"></p>
+        </form>
+
+        <div class="wizard-actions-primary" id="bidInviteActions">
+            <span class="bid-selected-count hidden" id="bidSelectedCount"></span>
+            <a href="#" class="auth-button auth-button--secondary hidden" id="bidOpenTrackerBtn" style="text-decoration:none; text-align:center;">Open Bid Invites</a>
+            <button type="button" class="auth-button" id="bidInviteNextBtn">Next</button>
+        </div>
+    </div>
+</div>
+
+
 <script src="/js/script.js"></script>
 <script src="/js/mobile-app.js"></script>
 <script src="/js/install-app.js"></script>
@@ -1081,6 +1361,9 @@
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.3.10/build/vfs_fonts.js"></script>
 
 <script src="/js/companies.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/bid-invites.js"></script>
+<script src="/js/vendor-applications.js"></script>
 
 <script>
 /* ===========================
@@ -1436,8 +1719,8 @@ window.addEventListener("DOMContentLoaded", function() {
    Vendor/Manage Tags, initStartReportModal() below for Generate A
    Report -- are untouched, still wired by the same element ids; this
    only opens/closes the menu around them and tidies it away once an
-   action is chosen. "Generate A Invite Bid" is a disabled ghost item
-   with no handler wired up yet -- next phase.
+   action is chosen. "Generate A Invite Bid" (beta) opens the bid invite
+   wizard in js/bid-invites.js, which also shows/hides it by permission.
 =========================== */
 
 function initVendorActionsMenu() {

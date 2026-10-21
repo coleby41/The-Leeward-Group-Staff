@@ -556,7 +556,7 @@ function renderCompanies(companies) {
                     ${buildDocBadgeHtml(company, "coi", "Certificate of Insurance")}
                 </div>`}
 
-                <a href="#" class="company-view-contacts-link" data-id="${company.id}" data-name="${escapeHtmlCompanies(company.Name || "")}">View Contact Info</a>
+                <a href="/pages/vendor.html?id=${encodeURIComponent(company.id)}" class="company-view-contacts-link" data-id="${company.id}">View Vendor ›</a>
 
                 ${buildCardSearchDataHtml(company, companyTags, companyContacts)}
 
@@ -567,13 +567,14 @@ function renderCompanies(companies) {
     });
 
     // Card click (anywhere except an interactive element) opens the
-    // read-only vendor profile popup.
+    // vendor's own page (pages/vendor.html) -- Coleby, 2026-10-19: "when
+    // someone clicks the card on the vendor page ... open to this and not
+    // the popup". The old profile popup is still in the markup, unused.
     grid.querySelectorAll(".company-card").forEach(card => {
+        card.style.cursor = "pointer";
         card.addEventListener("click", (event) => {
             if (event.target.closest(".company-edit-btn, .doc-badge, .company-view-contacts-link")) return;
-            const id = card.dataset.companyId;
-            const company = allCompanies.find(c => String(c.id) === String(id));
-            if (company) openVendorProfileModal(company);
+            window.location.href = `/pages/vendor.html?id=${encodeURIComponent(card.dataset.companyId)}`;
         });
     });
 
@@ -590,15 +591,7 @@ function renderCompanies(companies) {
     // actions inside each dropdown).
     wireDocBadges(grid);
 
-    // View Contact Info links
-    grid.querySelectorAll(".company-view-contacts-link").forEach(link => {
-        link.addEventListener("click", (event) => {
-            event.preventDefault();
-            const id = link.dataset.id;
-            const company = allCompanies.find(c => String(c.id) === String(id));
-            if (company) openContactsModal(company);
-        });
-    });
+    // "View Vendor ›" is a plain link to the vendor page (contacts live there now).
 }
 
 /* ===========================
@@ -922,6 +915,8 @@ function openCompanyModal(company) {
     document.getElementById("companyExistingW9PathInput").value = company?.W9FilePath ?? "";
     document.getElementById("companyExistingCoiPathInput").value = company?.COIFilePath ?? "";
     document.getElementById("companyNameInput").value = company?.Name ?? "";
+    const friendlyInput = document.getElementById("companyFriendlyNameInput");
+    if (friendlyInput) friendlyInput.value = company?.FriendlyName ?? "";
     document.getElementById("companyStreetInput").value = company?.Street ?? "";
     document.getElementById("companyCityInput").value = company?.City ?? "";
     document.getElementById("companyStateInput").value = company?.State ?? "";
@@ -992,6 +987,7 @@ async function handleCompanyFormSubmit(event) {
 
     const payload = {
         Name: document.getElementById("companyNameInput").value.trim(),
+        FriendlyName: (document.getElementById("companyFriendlyNameInput")?.value || "").trim() || null,
         Street: document.getElementById("companyStreetInput").value.trim() || null,
         City: document.getElementById("companyCityInput").value.trim() || null,
         State: document.getElementById("companyStateInput").value.trim().toUpperCase() || null,
@@ -2556,7 +2552,18 @@ async function saveCoiNotificationSettings() {
 window.initCompaniesPage = async function () {
 
     await Promise.all([loadVendorTagData(), loadAllContacts()]);
-    loadCompanies();
+    await loadCompanies();
+
+    // pages/vendor.html's "Edit Vendor" button links back here with
+    // ?edit=<id> so the same edit popup (W-9/COI uploads, tags) is used.
+    const editId = new URLSearchParams(window.location.search).get("edit");
+    if (editId) {
+        const company = allCompanies.find(c => String(c.id) === String(editId));
+        if (company) {
+            try { await window.Permissions?.initPermissions?.(); } catch (e) { /* fail open */ }
+            openCompanyModal(company);
+        }
+    }
 
     // Close any open W9/COI doc badge dropdown on an outside click, Escape,
     // or the page scrolling/resizing (same pattern as the Manage Tags "?"

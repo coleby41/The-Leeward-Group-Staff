@@ -16965,3 +16965,672 @@ body.inv-form-open { overflow: hidden; }
     scrollbar-color: #b8c4cf var(--surface-alt);
   }
 }
+
+
+/* =====================================================================
+   BID INVITES (beta)
+   Vendors › More Actions › Generate A Invite Bid (js/bid-invites.js),
+   a project's Bid Invites tab (pages/project-bid-invites.html,
+   js/project-bid-invites.js). Vendors respond in the separate Vendor
+   Portal site, not here.
+   Everything else on these screens reuses existing classes (.popup,
+   .project-wizard-popup, .wizard-progress, .auth-field, .chip, .card,
+   .dash-queue-table, .stats-grid, .auth-button, .form-toggle-row …).
+   ===================================================================== */
+
+/* More Actions item + "Beta" pill */
+.vendor-toolbar-menu-item--with-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.bid-beta-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--purple-soft);
+    color: var(--purple);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+h2 .bid-beta-pill,
+h1 .bid-beta-pill {
+    margin-left: 8px;
+    position: relative;
+    top: -2px;
+}
+
+/* Wider than .project-wizard-popup's 620px -- step 2 is a vendor table and
+   step 3 a full email preview. */
+.bid-invite-popup {
+    width: min(94vw, 820px);
+}
+
+.bid-step[hidden] {
+    display: none !important;
+}
+
+.bid-step {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.bid-required {
+    color: var(--danger);
+}
+
+.bid-field-hint {
+    margin: -6px 0 0;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-soft);
+}
+
+/* datetime/date/time inputs inherit .auth-field input; make them fill */
+.bid-step .auth-field input,
+.bid-step .auth-field select {
+    width: 100%;
+    font-family: inherit;
+    color: var(--text);
+}
+
+/* --- Step 1: plans & specs -------------------------------------------- */
+.bid-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.bid-file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    font-size: 0.9rem;
+}
+
+.bid-file-row-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bid-file-row-source {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    white-space: nowrap;
+}
+
+.bid-file-row-remove {
+    border: none;
+    background: none;
+    color: var(--text-soft);
+    font: inherit;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 6px;
+}
+
+.bid-file-row-remove:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+}
+
+.bid-file-empty {
+    margin: 0;
+    font-size: 0.86rem;
+    color: var(--text-soft);
+}
+
+.bid-file-add-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bid-file-add-btn {
+    flex: 1 1 180px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 12px;
+    border: 1px dashed #9fb0c0;
+    border-radius: var(--radius-sm);
+    background: var(--surface-alt);
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.bid-file-add-btn:hover {
+    background: var(--accent-soft);
+}
+
+.bid-file-picker {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bid-file-picker-list {
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bid-file-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.bid-file-picker-item input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    flex: 0 0 auto;
+}
+
+.bid-file-picker-item small {
+    margin-left: auto;
+    color: var(--text-soft);
+    font-size: 0.76rem;
+    white-space: nowrap;
+}
+
+/* --- Step 2: vendor picker -------------------------------------------- */
+.bid-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.bid-filter-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-soft);
+}
+
+.bid-filter-chip {
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.bid-filter-select {
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px dashed #9fb0c0;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.82rem;
+    font-weight: 600;
+    max-width: 220px;
+}
+
+.bid-filter-row .workbook-search-input {
+    margin-left: auto;
+    min-width: 200px;
+    max-width: 260px;
+    box-shadow: none;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.bid-vendor-table-wrap {
+    max-height: 46vh;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+}
+
+.bid-vendor-table {
+    min-width: 640px;
+}
+
+.bid-vendor-table th {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+}
+
+.bid-vendor-table td,
+.bid-tracker-table td {
+    padding: 11px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.bid-vendor-table tr:last-child td,
+.bid-tracker-table tr:last-child td {
+    border-bottom: none;
+}
+
+.bid-vendor-table tr.is-disabled td {
+    opacity: 0.55;
+}
+
+.bid-vendor-table input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+}
+
+.bid-vendor-table select {
+    width: 100%;
+    max-width: 260px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font: inherit;
+    font-size: 0.84rem;
+    color: var(--text);
+}
+
+.bid-cell-sub {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-soft);
+    margin-top: 2px;
+}
+
+.bid-selected-count {
+    margin-right: auto;
+    align-self: center;
+    font-weight: 700;
+}
+
+/* --- Step 3: review & send --------------------------------------------- */
+.bid-review-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+@media (max-width: 760px) {
+    .bid-review-grid { grid-template-columns: 1fr; }
+}
+
+.bid-email-preview {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--surface);
+}
+
+.bid-email-preview-meta {
+    padding: 12px 14px;
+    background: var(--surface-alt);
+    border-bottom: 1px solid var(--border);
+    font-size: 0.82rem;
+    color: var(--text-soft);
+    display: grid;
+    gap: 3px;
+}
+
+.bid-email-preview-meta strong {
+    color: var(--text);
+}
+
+.bid-email-preview iframe {
+    display: block;
+    width: 100%;
+    height: 460px;
+    border: 0;
+    background: #ffffff;
+}
+
+.bid-email-preview-fallback {
+    padding: 18px;
+    font-size: 0.88rem;
+    color: var(--text-soft);
+}
+
+.bid-side-panel {
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-alt);
+    font-size: 0.88rem;
+}
+
+.bid-side-panel-title {
+    margin: 0;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+}
+
+.bid-side-panel ul {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 4px;
+}
+
+/* --- Done step ------------------------------------------------------------ */
+.bid-done-summary {
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--success-soft);
+    color: var(--text);
+    font-weight: 600;
+}
+
+.bid-done-summary.is-warning {
+    background: var(--warning-soft);
+}
+
+.bid-done-failures {
+    margin: 0;
+    padding-left: 18px;
+    display: grid;
+    gap: 6px;
+    font-size: 0.88rem;
+}
+
+/* --- Project › Bid Invites tab --------------------------------------------- */
+.bid-package-card + .bid-package-card {
+    margin-top: 18px;
+}
+
+.bid-package-card .card-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+}
+
+.card-header-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.card-header-actions .auth-button {
+    margin-top: 0;
+    padding: 9px 14px;
+    font-size: 0.86rem;
+}
+
+.bid-package-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 6px 0 14px;
+    font-size: 0.85rem;
+    color: var(--text-soft);
+}
+
+.bid-tracker-table {
+    min-width: 720px;
+}
+
+/* Compare Bids fits inside its popup instead of scrolling sideways. */
+.bid-compare-table.bid-compare-table {
+    min-width: 0;
+}
+
+.bid-compare-table td .chip {
+    margin-top: 2px;
+}
+
+.bid-amount {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.bid-row-actions {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bid-row-actions .workbook-btn {
+    flex: 0 0 auto;
+    border-color: var(--border);
+    background: var(--surface);
+    color: var(--text);
+}
+
+.bid-row-actions .workbook-btn:hover {
+    background: var(--accent-soft);
+}
+
+.bid-row-actions .workbook-btn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+tr.is-low-bid td {
+    background: var(--success-soft);
+}
+
+.bid-link-btn {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: var(--accent);
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.bid-stat-value {
+    margin: 6px 0 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+}
+
+.bid-compare-stats {
+    margin: 16px 0;
+}
+
+.bid-compare-stats .stat-item {
+    cursor: default;
+}
+
+.bid-money-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bid-money-input > span {
+    font-weight: 700;
+    color: var(--text-soft);
+}
+
+.bid-money-input input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Light textarea in the bid popups (the app default is the dark one). */
+.bid-light-textarea.bid-light-textarea {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    min-height: 90px;
+}
+
+/* =====================================================================
+   VENDOR PAGE (pages/vendor.html, js/vendor-detail.js) and
+   VENDOR APPLICATIONS (vendors.html › More Actions)
+   A plainer, "records screen" layout than the rest of the portal (Coleby,
+   2026-10-19: "make it feel corporate"): flat panels with thin borders,
+   label/value rows, real tables. Colors all come from the :root tokens;
+   the one green (#1b8a55 on #e3f6ec) is the same green .gm-tone-green uses.
+   ===================================================================== */
+
+.vd-page { padding-bottom: 48px; }
+.vd-crumbs { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--text-soft); margin: 0 0 10px; }
+.vd-crumbs a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.vd-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 0 0 18px; border-bottom: 1px solid var(--border); }
+.vd-head h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -.01em; color: var(--text); display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.vd-head__meta { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; font-size: .86rem; color: var(--text-soft); }
+.vd-head__meta strong { color: var(--text); font-weight: 600; }
+.vd-head__actions { display: flex; gap: 8px; }
+.vd-more { display: inline-block; margin-left: 2px; padding: 0 6px; border-radius: 4px; background: var(--surface-alt); border: 1px solid var(--border); font-size: .74rem; font-weight: 700; color: var(--text-soft); cursor: default; }
+.vd-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; font-size: .86rem; font-weight: 600; cursor: pointer; box-shadow: none; white-space: nowrap; text-decoration: none; }
+.vd-btn:hover { border-color: var(--accent); color: var(--accent); }
+.vd-btn--primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.vd-btn--primary:hover { color: #fff; filter: brightness(1.08); }
+.vd-btn:disabled { opacity: .6; cursor: default; }
+.vd-link { border: none; background: none; padding: 0; font: inherit; font-size: .84rem; font-weight: 600; color: var(--accent); cursor: pointer; text-decoration: none; }
+.vd-section-title { margin: 26px 0 10px; font-size: .74rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--text-soft); }
+.vd-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.vd-stack { display: grid; gap: 16px; }
+.vd-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: none; overflow: hidden; }
+.vd-panel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
+.vd-panel__title { margin: 0; font-size: .9rem; font-weight: 700; color: var(--text); display: flex; align-items: center; gap: 8px; }
+.vd-count { font-size: .75rem; font-weight: 700; color: var(--text-soft); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 1px 7px; }
+.vd-panel__actions { display: flex; align-items: center; gap: 16px; }
+.vd-panel__body { padding: 6px 18px; }
+.vd-dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; margin: 0; }
+.vd-dl__row { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: .9rem; }
+.vd-dl__row:nth-last-child(-n+2) { border-bottom: none; }
+.vd-dl:has(.vd-dl__row:last-child:nth-child(odd)) .vd-dl__row:nth-last-child(2) { border-bottom: 1px solid var(--border); }
+.vd-dl dt { color: var(--text-soft); }
+.vd-dl dd { margin: 0; color: var(--text); font-weight: 600; }
+.vd-sub { display: block; margin-top: 3px; font-size: .8rem; font-weight: 400; color: var(--text-soft); }
+.vd-muted { color: var(--text-soft); font-weight: 400; }
+.vd-mask { font-variant-numeric: tabular-nums; letter-spacing: .04em; font-weight: 600; }
+.vd-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.vd-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; background: var(--surface-alt); border: 1px solid var(--border); font-size: .78rem; font-weight: 600; color: var(--text); }
+.vd-status { display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 700; }
+.vd-status:empty { display: none; }
+.vd-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.vd-status--ok { color: #1b8a55; }
+.vd-status--warn { color: var(--warning); }
+.vd-status--bad { color: var(--danger); }
+.vd-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.vd-table th { padding: 10px 18px; text-align: left; font-size: .7rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--text-soft); border-bottom: 1px solid var(--border); background: var(--surface); }
+.vd-table td { padding: 12px 18px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.vd-table tr:last-child td { border-bottom: none; }
+.vd-table td a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.vd-table .is-right { text-align: right; white-space: nowrap; }
+.vd-name { display: flex; align-items: center; gap: 10px; }
+.vd-avatar { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 800; font-size: .74rem; }
+.vd-name__text { display: grid; gap: 3px; }
+.vd-name__line { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-weight: 700; }
+.vd-pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 7px; border-radius: 4px; font-size: .68rem; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.vd-pill--portal { background: var(--accent-soft); color: var(--accent); }
+.vd-pill--portal::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.vd-pill--holder { background: #e3f6ec; color: #1b8a55; }
+.vd-pill--none { background: var(--surface-alt); color: var(--text-soft); }
+.vd-pill--dup { background: var(--warning-soft); color: var(--warning); }
+.vd-icon-btn { width: 30px; height: 30px; display: inline-grid; place-items: center; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text-soft); cursor: pointer; vertical-align: middle; }
+.vd-icon-btn + .vd-icon-btn { margin-left: 4px; }
+.vd-icon-btn:hover { color: var(--accent); border-color: var(--accent); }
+.vd-merge-btn { display: inline-flex; align-items: center; height: 30px; padding: 0 10px; margin-right: 4px; border: 1px solid var(--warning); border-radius: 6px; background: var(--surface); color: var(--warning); font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer; vertical-align: middle; }
+.vd-merge-btn:hover { background: var(--warning-soft); }
+.vd-dup-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 18px; background: var(--warning-soft); border-bottom: 1px solid var(--border); font-size: .86rem; color: var(--text); }
+.vd-dup-bar strong { color: var(--warning); }
+.vd-proj { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.vd-proj:last-child { border-bottom: none; }
+.vd-proj__top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.vd-proj__name { font-weight: 700; color: var(--text); font-size: .9rem; text-decoration: none; }
+a.vd-proj__name:hover { color: var(--accent); }
+.vd-proj__meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: .84rem; color: var(--text-soft); }
+.vd-proj__links { display: flex; gap: 6px; align-items: center; font-size: .84rem; }
+.vd-proj__links a { color: var(--accent); font-weight: 600; text-decoration: none; }
+.vd-empty { margin: 0; padding: 16px 0; color: var(--text-soft); font-size: .88rem; }
+.vd-notes-text { color: var(--text); white-space: pre-wrap; }
+.vd-notes-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin: 8px 0 12px; }
+.vd-notes-actions .auth-message { margin: 0 auto 0 0; }
+#vdNotesEditor .vendor-profile-notes-input { margin-top: 12px; }
+.vd-merge { display: grid; grid-template-columns: 120px minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; font-size: .88rem; margin: 14px 0; }
+.vd-merge > * { padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.vd-merge > *:nth-last-child(-n+3) { border-bottom: none; }
+.vd-merge__h { background: var(--surface-alt); font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--text-soft); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vd-merge__h .vd-pill { text-transform: none; letter-spacing: 0; }
+.vd-merge__f { color: var(--text-soft); background: var(--surface-alt); }
+.vd-opt { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; color: var(--text); font-weight: 600; word-break: break-word; }
+.vd-opt input { margin-top: 3px; accent-color: var(--accent); }
+.vd-opt:has(input:checked) { color: var(--accent); }
+.vd-opt--empty { color: var(--text-soft); font-weight: 400; cursor: default; }
+.vd-opt--locked { color: var(--text); cursor: default; }
+.vd-merge-note { display: grid; gap: 6px; padding: 12px 14px; border-radius: 8px; background: var(--surface-alt); font-size: .84rem; color: var(--text-soft); }
+.vd-merge-note strong { color: var(--text); }
+
+/* Vendor Applications popup */
+.vendor-app-detail .bid-detail-list { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0; padding: 12px 14px; border-radius: var(--radius-sm); background: var(--surface-alt); font-size: .88rem; }
+.vendor-app-detail .bid-detail-list dt { color: var(--text-soft); }
+.vendor-app-detail .bid-detail-list dd { margin: 0; font-weight: 600; color: var(--text); word-break: break-word; }
+@media (max-width: 560px) { .vendor-app-detail .bid-detail-list { grid-template-columns: 1fr; gap: 2px; } .vendor-app-detail .bid-detail-list dd { margin-bottom: 8px; } }
+.vendor-apps-table tbody tr { cursor: pointer; }
+.vendor-apps-table tbody tr.is-selected td { background: var(--accent-soft); }
+.vendor-apps-table tbody tr:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.vendor-apps-count { padding: 2px 8px; }
+
+@media (max-width: 820px) {
+    .vd-layout, .vd-dl { grid-template-columns: minmax(0, 1fr); }
+    .vd-dl__row:nth-last-child(-n+2) { border-bottom: 1px solid var(--border); }
+    .vd-dl__row:last-child { border-bottom: none; }
+    .vd-dl__row { grid-template-columns: 110px minmax(0, 1fr); }
+    .vd-head { align-items: flex-start; }
+    .vd-head h1 { font-size: 1.3rem; }
+    .vd-panel__head { flex-wrap: wrap; }
+    .vd-table thead { display: none; }
+    .vd-table, .vd-table tbody, .vd-table tr, .vd-table td { display: block; width: 100%; box-sizing: border-box; }
+    .vd-table tr { padding: 12px 18px; border-bottom: 1px solid var(--border); position: relative; }
+    .vd-table tr:last-child { border-bottom: none; }
+    .vd-table td { padding: 3px 0; border: none; display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; }
+    .vd-table td::before { content: attr(data-label); color: var(--text-soft); font-size: .8rem; }
+    .vd-table td.vd-td-main { display: block; padding: 0 72px 6px 0; }
+    .vd-table tr:has(.vd-merge-btn) td.vd-td-main { padding-right: 140px; }
+    .vd-table td.vd-td-main::before { content: none; }
+    .vd-table td.is-right { position: absolute; top: 12px; right: 18px; width: auto; display: block; }
+    .vd-table td.is-right::before { content: none; }
+    .vd-merge { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .vd-merge__f { grid-column: 1 / -1; padding: 6px 14px; font-size: .78rem; font-weight: 700; }
+    .vd-merge > .vd-merge__corner { display: none; }
+}

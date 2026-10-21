@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation to Bid – The Leeward Group LLC</title>
+  
+<style type="text/css">
+		*{
+			margin:0;
+			padding:0;
+			box-sizing:border-box;
+		}
+		body{
+			background-color:#ffffff;
+			font-family:'Inter', Arial, sans-serif;
+			-webkit-font-smoothing:antialiased;
+		}
+		.email-wrapper{
+			width:100%;
+			background-color:#ffffff;
+			padding:40px 20px;
+		}
+		.email-container{
+			max-width:620px;
+			margin:0 auto;
+			background-color:#ffffff;
+			border-radius:4px;
+			overflow:hidden;  
+		}
+		.header{
+			background-color:#111314;
+			padding:36px 48px 28px;
+			text-align:center;
+			border-bottom:3px solid #2a7fc1;
+		}
+		.header img{
+			max-width:260px;
+			height:auto;
+			display:inline-block;
+		}
+		.header-tagline{
+			margin-top:10px;
+			font-family:'Inter', sans-serif;
+			font-size:10px;
+			font-weight:500;
+			letter-spacing:0.28em;
+			text-transform:uppercase;
+			color:#2a7fc1;
+		}
+		.award-banner{
+			background:linear-gradient(135deg, #1a5f96 0%, #2a7fc1 100%);
+			padding:16px 48px;
+			text-align:center;
+		}
+		.award-banner p{
+			font-family:'Inter', sans-serif;
+			font-size:10px;
+			font-weight:700;
+			letter-spacing:0.28em;
+			text-transform:uppercase;
+			color:#ffffff;
+		}
+		.body-content{
+			padding:44px 48px 36px;
+			background-color:#ffffff;
+			border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+		}
+		.greeting{
+			font-family:'Playfair Display', Georgia, serif;
+			font-size:28px;
+			font-weight:700;
+			color:#111314;
+			line-height:1.25;
+			margin-bottom:6px;
+		}
+		.greeting-sub{
+			font-size:11px;
+			font-weight:600;
+			letter-spacing:0.18em;
+			text-transform:uppercase;
+			color:#2a7fc1;
+			margin-bottom:24px;
+		}
+		.divider{
+			width:48px;
+			height:3px;
+			background:linear-gradient(90deg, #2a7fc1, #1a5f96);
+			margin-bottom:28px;
+			border-radius:2px;
+		}
+		.body-text{
+			font-size:15px;
+			line-height:1.8;
+			color:#3a3a3a;
+			margin-bottom:18px;
+		}
+		.body-text strong{
+			color:#111314;
+			font-weight:600;
+		}
+		.project-details{
+			background-color:#f8f9fb;
+			border:1px solid #e8edf3;
+			border-radius:4px;
+			padding:20px 24px;
+			margin-bottom:28px;
+		}
+		.project-details p{
+			font-size:14px;
+			line-height:1.9;
+			color:#3a3a3a;
+		}
+		.project-details strong{
+			color:#111314;
+			font-weight:600;
+			display:inline-block;
+			min-width:120px;
+		}
+		.docs-block{
+			border-left:4px solid #2a7fc1;
+			background-color:#f4f8fd;
+			border-radius:0 4px 4px 0;
+			padding:28px 30px;
+			margin:28px 0;
+            border-top-right-radius: 10px;
+            border-bottom-right-radius: 10px;
+		}
+		.docs-block-title{
+			font-size:10px;
+			font-weight:700;
+			letter-spacing:0.22em;
+			text-transform:uppercase;
+			color:#1a5f96;
+			margin-bottom:22px;
+		}
+		.doc-title{
+			font-size:14px;
+			font-weight:600;
+			color:#111314;
+			margin-bottom:3px;
+		}
+		.doc-desc{
+			font-size:12.5px;
+			color:#666;
+			line-height:1.55;
+		}
+		.cta-section{
+			background-color:#111314;
+			border-radius:4px;
+			padding:30px 32px;
+			margin:28px 0;
+			text-align:center;
+            border-bottom-right-radius: 15px;
+            border-top-left-radius: 15px;
+            border-bottom-left-radius: 0px;
+            border-top-right-radius: 0px;
+            
+		}
+		.cta-label{
+			font-size:10px;
+			font-weight:700;
+			letter-spacing:0.22em;
+			text-transform:uppercase;
+			color:#2a7fc1;
+			margin-bottom:10px;
+		}
+		.cta-instruction{
+			font-size:14px;
+			color:#b0bec5;
+			line-height:1.65;
+			margin-bottom:20px;
+		}
+		.cta-email-btn{
+			display:inline-block;
+			background:linear-gradient(135deg, #1a5f96, #2a7fc1);
+			color:#ffffff !important;
+			font-family:'Inter', sans-serif;
+			font-size:12px;
+			font-weight:700;
+			letter-spacing:0.1em;
+			text-transform:uppercase;
+			text-decoration:none;
+			padding:14px 34px;
+			border-radius:20px;
+		}
+
+        .cta-email-btn2{
+			display:inline-block;
+			background:linear-gradient(135deg, #1a5f96, #2a7fc1);
+			color:#ffffff !important;
+			font-family:'Inter', sans-serif;
+			font-size:9px;
+			font-weight:350;
+			letter-spacing:0.1em;
+			text-transform:uppercase;
+			text-decoration:none;
+			padding:8px 20px;
+			border-radius:20px;
+		}
+
+		.closing{
+			font-size:15px;
+			line-height:1.8;
+			color:#3a3a3a;
+			margin-bottom:20px;
+		}
+		.signature{
+			font-family:'Playfair Display', Georgia, serif;
+			font-size:18px;
+			color:#111314;
+			margin-top:28px;
+			margin-bottom:3px;
+		}
+		.signature-title{
+			font-size:11px;
+			color:#2a7fc1;
+			letter-spacing:0.1em;
+			text-transform:uppercase;
+			font-weight:600;
+		}
+		.footer{
+			background-color:#ffffff;
+			padding:28px 48px;
+			text-align:center;
+			border-top:3px solid #2a7fc1;
+		}
+		.footer-logo{
+			max-width:140px;
+			height:auto;
+			margin-bottom:14px;
+		}
+		.footer-tagline{
+			font-family:'Playfair Display', Georgia, serif;
+			font-size:12px;
+			color:#3d6b8a;
+			letter-spacing:0.12em;
+			margin-bottom:12px;
+		}
+		.footer-contact{
+			font-size:12px;
+			color:#637d8f;
+			line-height:2;
+			margin-bottom:14px;
+		}
+		.footer-contact a{
+			color:#2a7fc1;
+			text-decoration:none;
+		}
+		.footer-legal{
+			font-size:10px;
+			color:#364a57;
+			line-height:1.7;
+		}
+		.footer-legal a{
+			color:#3d6b8a;
+			text-decoration:underline;
+		}
+		.alert-banner{
+			background-color:#fdf1f1;
+			border-top:1px solid #f5c6c6;
+			border-bottom:1px solid #f5c6c6;
+			padding:14px 32px;
+			text-align:center;
+		}
+		.alert-banner p{
+			font-family:'Inter', sans-serif;
+			font-size:12.5px;
+			font-weight:500;
+			color:#b03030;
+			line-height:1.6;
+		}
+		.alert-banner strong{
+			font-weight:700;
+			color:#8b1a1a;
+		}
+	@media only screen and (max-width: 480px){
+		.body-content{
+			padding:32px 24px;
+		}
+
+}	@media only screen and (max-width: 480px){
+		.header{
+			padding:28px 24px;
+		}
+
+}	@media only screen and (max-width: 480px){
+		.footer{
+			padding:24px 24px;
+		}
+
+}	@media only screen and (max-width: 480px){
+		.docs-block{
+			padding:22px 20px;
+		}
+
+}	@media only screen and (max-width: 480px){
+		.cta-section{
+			padding:22px 20px;
+		}
+
+}	@media only screen and (max-width: 480px){
+		.greeting{
+			font-size:23px;
+		}
+
+}	@media only screen and (max-width: 480px){
+		.project-details strong{
+			min-width:90px;
+		}
+
+}</style></head>
+<body>
+<div class="email-wrapper">
+  <div class="email-container">
+
+    <div class="award-banner">
+      <p>&#9670;&nbsp;&nbsp; Invitation to Bid &nbsp;&nbsp;&#9670;</p>
+    </div>
+
+<div class="body-content">
+<img src="https://mcusercontent.com/4aafb810487cfbd8b27c5065f/images/c495ee80-60b2-0cc2-671e-629ebcb808de.png" alt="LeeWard Group Logo" width="600" style="max-width: 100%; height: auto; display: block;">
+    </div>
+    <!-- BODY -->
+    <div class="body-content">
+
+      <p class="greeting"><br><span style="color:#2a7fc1;">*|CNAME|*,</span></p>
+
+      <p class="body-text">We are pleased to invite your company to submit a bid for <strong>[Project Name],</strong> a [brief project description, e.g., "new 24-unit multifamily development located in Wilmington, NC"].</p>
+      
+      <div class="divider"></div>
+      
+      <p class="body-text">
+       Please review the bid documents linked below for details on the project scope, plans, and specifications:
+      </p>
+
+	<div class="docs-block">
+        <p class="docs-block-title">project scope, plans, and specifications:</p>
+
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:20px;">
+          <tr>
+            <td width="30" valign="top" style="padding-right:16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="30" bgcolor="#1a5f96" style="background-color:#1a5f96;background:linear-gradient(135deg,#1a5f96,#2a7fc1);border-radius:2px;">
+                <tr>
+                  <td align="center" valign="middle" height="30" style="color:#ffffff;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.03em;">01</td>
+                </tr>
+              </table>
+            </td>
+            <td valign="top">
+              <p class="doc-title">Bid Due Date:</p>
+              <p class="doc-desc"> Due date is, {DATE_HERE}</p>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:20px;">
+          <tr>
+            <td width="30" valign="top" style="padding-right:16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="30" bgcolor="#1a5f96" style="background-color:#1a5f96;background:linear-gradient(135deg,#1a5f96,#2a7fc1);border-radius:2px;">
+                <tr>
+                  <td align="center" valign="middle" height="30" style="color:#ffffff;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.03em;">02</td>
+                </tr>
+              </table>
+            </td>
+            <td valign="top">
+              <p class="doc-title">Location:</p>
+              <p class="doc-desc">Project location is, [Location]</p>
+            </td>
+          </tr>
+        </table>
+
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:0;">
+          <tr>
+            <td width="30" valign="top" style="padding-right:16px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="30" bgcolor="#1a5f96" style="background-color:#1a5f96;background:linear-gradient(135deg,#1a5f96,#2a7fc1);border-radius:2px;">
+                <tr>
+                  <td align="center" valign="middle" height="30" style="color:#ffffff;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.03em;">03</td>
+                </tr>
+              </table>
+            </td>
+            <td valign="top">
+              <p class="doc-title">Contact Person:</p>
+              <p class="doc-desc">Name: Barry Coppedge <br>
+              Email: barry@theleewardgroup.us <br>
+              Phone: (910) 367-9782
+              </p>
+            </td>
+          </tr>
+        </table>
+<br>
+        <a href="https://www.dropbox.com/" class="cta-email-btn2" target="_blank">
+  See All Project Documents
+</a>
+      </div>
+      
+      
+
+      <!-- CTA -->
+      <div class="cta-section">
+        <p class="cta-label">Confirm Your Spot Now</p>
+        <p class="cta-instruction">
+If you intend to submit a bid, please email the address below to confirm your participation.        </p>
+        <a href="mailto:Info@theleewardgroup.us?subject=Award%20Documents%20-%20*|PROJECT_NAME|*" class="cta-email-btn">
+          Info@theleewardgroup.us
+        </a>
+      </div>
+
+      <p class="closing">
+Should you have any questions or require clarification; submit all inquiries no later than <strong>[insert date].
+        </strong></p>
+
+      <p class="closing">
+We appreciate your interest in working with us and look forward to reviewing your proposal.
+    </p>
+
+      <p class="signature">The Leeward Group LLC</p>
+      <p class="signature-title">Construction &amp; Development</p>
+
+    </div>
+
+<div class="footer">
+<div style="text-align: center;">
+  <img src="https://mcusercontent.com/4aafb810487cfbd8b27c5065f/images/c495ee80-60b2-0cc2-671e-629ebcb808de.png" 
+       alt="LeeWard Group Logo" 
+       width="300" 
+       style="max-width: 100%; height: auto;">
+</div>
+      <p class="footer-contact">
+        PO Box 3579, Wilmington, NC 28406<br>
+        <a href="tel:9105245130">910-524-5130</a>&nbsp;&nbsp;&bull;&nbsp;&nbsp;
+        <a href="mailto:Info@theleewardgroup.us">Info@theleewardgroup.us</a><br>
+        <a href="https://www.theleewardgroup.us" target="_blank">www.theleewardgroup.us</a>
+      </p>
+
+      <p class="footer-legal">
+        &copy; 2026 The Leeward Group LLC. All Rights Reserved.<br>
+        You are receiving this email because you submitted a bid or have an active relationship with The Leeward Group.<br>
+        <a href="*|UNSUB|*">Unsubscribe</a>&nbsp;&nbsp;|&nbsp;&nbsp;
+        <a href="*|UPDATE_PROFILE|*">Update Preferences</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

@@ -115,7 +115,11 @@ window.ProjectFields = (function () {
                         { key: "vpo_without_signature", label: "VPO Without Signature" }
                     ]
                 },
-                { key: "insurance_bonds", label: "Insurance & Bonds" }
+                { key: "insurance_bonds", label: "Insurance & Bonds" },
+                // Bid Invites (beta): plans/specs uploaded with an Invitation
+                // to Bid, and the proposals logged from vendors' replies
+                // (js/bid-invites.js, js/project-bid-invites.js).
+                { key: "bids", label: "Bids" }
             ]
         },
         {

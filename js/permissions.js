@@ -135,15 +135,29 @@ async function loadWorkgroupPermissionsMap() {
 // Call once, early (nav-access.js does this). Safe to call more than once --
 // subsequent calls are no-ops once loaded, or once a failure has been seen
 // (so a missing migration doesn't retry-loop on every permission check).
-async function initPermissions() {
-    if (permissionsCatalogCache || permissionsLoadFailed) return;
-    if (!window.supabaseClient) return;
-    try {
-        await Promise.all([loadPermissionsCatalog(), loadWorkgroupPermissionsMap()]);
-    } catch (error) {
-        console.warn("permissions.js: permissions/workgroup_permissions not available yet, every check will fail open until the migration runs.", error);
-        permissionsLoadFailed = true;
+//
+// 2026-10-14: every caller now waits on the SAME load. Before, a second
+// caller arriving while the first load was still in flight returned as soon
+// as the permission catalog came back -- before the workgroup grants had --
+// and hasPermission() fails open while those are missing, so it briefly
+// answered "yes" for everyone (seen as the Bid Invites tab flashing on for
+// workgroups without it).
+let permissionsInitPromise = null;
+
+function initPermissions() {
+    if ((permissionsCatalogCache && workgroupPermissionsCache) || permissionsLoadFailed) return Promise.resolve();
+    if (!window.supabaseClient) return Promise.resolve();
+    if (!permissionsInitPromise) {
+        permissionsInitPromise = (async () => {
+            try {
+                await Promise.all([loadPermissionsCatalog(), loadWorkgroupPermissionsMap()]);
+            } catch (error) {
+                console.warn("permissions.js: permissions/workgroup_permissions not available yet, every check will fail open until the migration runs.", error);
+                permissionsLoadFailed = true;
+            }
+        })();
     }
+    return permissionsInitPromise;
 }
 
 // The core check. Synchronous -- call initPermissions() and await it once on
