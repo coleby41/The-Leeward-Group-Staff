@@ -959,12 +959,8 @@ function openCompanyModal(company) {
             existingW9Note.style.display = "none";
         }
 
-        if (company.COIFilePath) {
-            existingCoiNote.style.display = "block";
-            existingCoiNote.textContent = "A COI is already on file. Uploading a new one will replace it.";
-        } else {
-            existingCoiNote.style.display = "none";
-        }
+        // COI PDFs are filed per project (vendor page), not on the vendor.
+        existingCoiNote.style.display = "none";
     } else {
         title.textContent = "Add Vendor";
         subtitle.textContent = "Enter the Vendor's details below.";

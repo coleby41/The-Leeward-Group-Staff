@@ -538,7 +538,7 @@
             <h2 id="vdProjectsTitle">Manage Projects</h2>
             <button type="button" class="menu-btn" id="vdProjectsCloseBtn" aria-label="Close">✕</button>
         </div>
-        <p class="auth-inline-copy">Add this vendor to a project without sending a Bid Invite. They get the project's folder in the Vendor Portal (COI template and COI upload), same as an awarded bid.</p>
+        <p class="auth-inline-copy">Add this vendor to a project without sending a Bid Invite — including projects that already started. They get the project's folder in the Vendor Portal (COI template and COI upload), same as an awarded bid.</p>
         <div class="table-wrap">
             <table class="dash-queue-table bid-tracker-table">
                 <thead><tr><th>Project</th><th>How</th><th>COI</th><th></th></tr></thead>
@@ -551,6 +551,11 @@
                 <label class="auth-field"><span>Project <span class="bid-required">*</span></span><select id="vdProjectSelect"></select></label>
                 <label class="auth-field">Scope (optional)<input type="text" id="vdProjectScope" maxlength="200" placeholder="e.g. Windows & Glazing"></label>
             </div>
+            <div class="wizard-field-grid" id="vdProjectCoiRow">
+                <label class="auth-field">COI PDF (if you already have it)<input type="file" id="vdProjectCoiFile" accept="application/pdf,.pdf"></label>
+                <label class="auth-field">COI expiration date<input type="date" id="vdProjectCoiDate"></label>
+            </div>
+            <p class="auth-inline-copy" id="vdProjectCoiNote" style="margin-top:-6px">For a project that's already started: attach the COI you have and it's filed as On file — no email needed.</p>
             <label class="form-toggle-row" id="vdProjectEmailRow">
                 <input type="checkbox" id="vdProjectEmail" checked>
                 <span>Email the vendor to upload their COI for this project

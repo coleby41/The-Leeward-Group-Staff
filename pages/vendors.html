@@ -621,10 +621,9 @@
             <div id="companyCoiSection">
                 <p class="company-form-section-title">Certificate of Insurance (COI)</p>
 
-                <label class="auth-field">
-                    Upload COI (PDF)
-                    <input type="file" id="companyCoiInput" name="coi" accept="application/pdf">
-                </label>
+                <!-- COI PDFs are per project now (vendor page › Projects › Upload COI). -->
+                <input type="file" id="companyCoiInput" name="coi" accept="application/pdf" hidden>
+                <p class="auth-inline-copy" style="margin:0">COIs are filed <strong>per project</strong>. Upload them on the vendor's page › Projects › <strong>Upload COI</strong> (or Manage Projects to add a project). Only the expiration date lives here — it's what keeps the vendor Approved.</p>
 
                 <label class="auth-field">
                     COI expiration date

@@ -261,8 +261,11 @@
         $("vdProjects").innerHTML = head + (projects.length
             ? projects.map(p => {
                 const pc = projectCoi(p);
-                const links = pc.file
-                    ? `<span class="vd-proj__links"><a href="#" data-act="view-proj-coi" data-file="${esc(pc.file.id)}">View</a>·<a href="#" data-act="download-proj-coi" data-file="${esc(pc.file.id)}">Download</a></span>`
+                // Staff upload a project's COI right here (COIs are per project, unlike the W-9).
+                const canUpload = can("vendors.add_edit_vendor") && !company.COIExempt && p.source !== "invoice";
+                const upload = canUpload ? `<a href="#" data-act="upload-proj-coi" data-project="${esc(p.project_id)}">${pc.file ? "Replace" : "Upload COI"}</a>` : "";
+                const links = pc.file || upload
+                    ? `<span class="vd-proj__links">${pc.file ? `<a href="#" data-act="view-proj-coi" data-file="${esc(pc.file.id)}">View</a>·<a href="#" data-act="download-proj-coi" data-file="${esc(pc.file.id)}">Download</a>` : ""}${pc.file && upload ? "·" : ""}${upload}</span>`
                     : "";
                 return `
                 <div class="vd-proj">
@@ -287,8 +290,11 @@
         $("vdProjectMessage").textContent = "";
         $("vdProjectMessage").className = "auth-message";
         $("vdProjectScope").value = "";
+        $("vdProjectCoiFile").value = "";
+        $("vdProjectCoiDate").value = company.COIExpiresOn || "";
         $("vdProjectEmail").checked = !company.COIExempt;
-        $("vdProjectEmailRow").classList.toggle("hidden", Boolean(company.COIExempt));
+        $("vdProjectEmail").disabled = false;
+        ["vdProjectEmailRow", "vdProjectCoiRow", "vdProjectCoiNote"].forEach(id => $(id).classList.toggle("hidden", Boolean(company.COIExempt)));
         if (!allProjects) {
             $("vdProjectSelect").innerHTML = `<option value="">Loading…</option>`;
             const { data, error } = await client().from("projects").select("id, name, is_active").order("name", { ascending: true });
@@ -312,8 +318,8 @@
                 <td><strong>${esc(p.project_name || "Project")}</strong>${a && a.added_by_name ? `<span class="bid-cell-sub">Added ${esc(dateOnly(String(a.created_at).slice(0, 10)))} by ${esc(a.added_by_name)}</span>` : ""}</td>
                 <td>${esc(how)}</td>
                 <td>${pc.label ? `<span class="vd-status ${pc.cls}">${esc(pc.label)}</span>` : ""}</td>
-                <td><div class="bid-row-actions">${a ? `
-                    ${company.COIExempt ? "" : `<button type="button" class="workbook-btn" data-proj-act="email" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>${a.coi_requested_at ? "Re-send COI Request" : "Request COI"}</button>`}
+                <td><div class="bid-row-actions">${!company.COIExempt && p.source !== "invoice" ? `<button type="button" class="workbook-btn" data-proj-act="upload" data-project="${esc(p.project_id)}" ${projectBusy ? "disabled" : ""} title="Upload a COI you already have for this project">${pc.file ? "Replace COI" : "Upload COI"}</button>` : ""}${a ? `
+                    ${company.COIExempt || pc.file ? "" : `<button type="button" class="workbook-btn" data-proj-act="email" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>${a.coi_requested_at ? "Re-send COI Request" : "Request COI"}</button>`}
                     <button type="button" class="workbook-btn workbook-btn--danger" data-proj-act="remove" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>Remove</button>` : ""}</div></td>
             </tr>`;
         }).join("");
@@ -371,23 +377,109 @@
             return;
         }
         let note = `Added to ${projectName}.`;
-        if ($("vdProjectEmail").checked && !company.COIExempt) {
+        const coiFile = !company.COIExempt && $("vdProjectCoiFile").files && $("vdProjectCoiFile").files[0];
+        if (coiFile) {
+            projectMessage("Uploading the COI…");
+            await load(company.id);   // picks up the new assignment row
+            const up = await uploadProjectCoi(projectId, coiFile, $("vdProjectCoiDate").value);
+            note = up.error ? `Added to ${projectName}, but the COI didn't upload: ${up.error}` : `Added to ${projectName} with the COI on file.`;
+        } else if ($("vdProjectEmail").checked && !company.COIExempt) {
             const res = await emailProjectCoi(projectId);
             note = res.error ? `Added to ${projectName}, but the email didn't send: ${res.error}` : `Added to ${projectName} and emailed ${res.data.sent_to} to upload their COI.`;
         }
         projectBusy = false; $("vdProjectAddBtn").disabled = false;
         $("vdProjectScope").value = "";
+        $("vdProjectCoiFile").value = "";
+        $("vdProjectEmail").disabled = false;
         await reloadProjects();
         projectMessage(note, note.includes("didn't") ? "error" : "success");
         toast(note.includes("didn't") ? note : `Added to ${projectName}`, note.includes("didn't") ? "error" : undefined);
     }
 
+    // Back-fill: staff upload a COI they already have for a project. Filed in the
+    // project's Files › Contracts & Procurement › Vendors (same as a vendor's
+    // upload) and marked On file on the assignment / awarded bid invite(s).
+    async function uploadProjectCoi(projectId, file, expiresOn) {
+        if (!/\.pdf$/i.test(file.name)) return { error: "The COI has to be a PDF." };
+        const db = client();
+        const me = profile();
+        const safe = file.name.replace(/[^a-zA-Z0-9_.-]/g, "_");
+        const path = `${projectId}/contracts_procurement/vendors/${Date.now()}-coi-${company.id}-${safe}`;
+        const { error: upErr } = await db.storage.from("project-documents").upload(path, file, { upsert: false, contentType: "application/pdf" });
+        if (upErr) return { error: upErr.message };
+        const fileName = `${company.Name || "Vendor"} - COI - ${file.name}`.replace(/[\\/]/g, "-").slice(0, 200);
+        const { data: row, error: rowErr } = await db.from("project_files").insert({
+            project_id: projectId, category: "contracts_procurement", subfolder: "vendors", sub_subfolder: null,
+            bucket: "project-documents", storage_path: path, file_name: fileName, source: "bid",
+            uploaded_by_name: (me && (me.full_name || me.username)) || "Staff",
+        }).select("id").single();
+        if (rowErr) { db.storage.from("project-documents").remove([path]).catch(() => {}); return { error: rowErr.message }; }
+        const now = new Date().toISOString();
+        const a = assignments.find(x => String(x.project_id) === String(projectId));
+        if (a) {
+            const { error } = await db.from("vendor_project_assignments").update({ coi_file_id: row.id, coi_received_at: now }).eq("id", a.id);
+            if (error) return { error: error.message };
+        }
+        if (projects.some(p => String(p.project_id) === String(projectId) && p.source === "awarded")) {
+            const { data: pkgs } = await db.from("bid_packages").select("id").eq("project_id", projectId);
+            const ids = (pkgs || []).map(p => p.id);
+            if (ids.length) {
+                const { error } = await db.from("bid_invites").update({ coi_file_id: row.id, coi_received_at: now })
+                    .eq("company_id", Number(company.id)).eq("status", "awarded").in("package_id", ids);
+                if (error) return { error: `${error.message} (updating the awarded bid needs Manage Bid Invites)` };
+            }
+        }
+        if (expiresOn && expiresOn !== company.COIExpiresOn) {
+            const { error } = await db.from("Companies").update({ COIExpiresOn: expiresOn }).eq("id", company.id);
+            if (error) return { error: error.message };
+        }
+        return { ok: true };
+    }
+
+    // Projects card › Upload COI: pick the PDF, file it on that project.
+    function pickProjectCoi(projectId) {
+        if (projectBusy) return;
+        const name = projects.find(p => String(p.project_id) === String(projectId))?.project_name || "this project";
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/pdf,.pdf";
+        input.addEventListener("change", async () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            projectBusy = true;
+            toast(`Uploading the COI for ${name}…`);
+            const up = await uploadProjectCoi(projectId, file, "");
+            projectBusy = false;
+            await load(company.id);
+            renderProjects();
+            toast(up.error ? `The COI didn't upload: ${up.error}` : `COI on file for ${name}`, up.error ? "error" : undefined);
+        });
+        input.click();
+    }
+
     async function projectAction(btn) {
         if (projectBusy) return;
         const projectId = btn.dataset.project;
+        const name = projects.find(p => String(p.project_id) === String(projectId))?.project_name || "this project";
+        if (btn.dataset.projAct === "upload") {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = "application/pdf,.pdf";
+            input.addEventListener("change", async () => {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                projectBusy = true; renderProjectsManager();
+                projectMessage(`Uploading the COI for ${name}…`);
+                const up = await uploadProjectCoi(projectId, file, "");
+                projectBusy = false;
+                await reloadProjects();
+                projectMessage(up.error ? `The COI didn't upload: ${up.error}` : `COI on file for ${name}.`, up.error ? "error" : "success");
+            });
+            input.click();
+            return;
+        }
         const a = assignments.find(x => String(x.project_id) === String(projectId));
         if (!a) return;
-        const name = projects.find(p => String(p.project_id) === String(projectId))?.project_name || "this project";
         if (btn.dataset.projAct === "remove") {
             if (btn.dataset.confirm !== "1") { btn.dataset.confirm = "1"; btn.textContent = "Confirm remove"; return; }
             projectBusy = true; renderProjectsManager();
@@ -808,6 +900,7 @@
             if (act === "reveal-tax") { revealTax = !revealTax; renderTax(); }
             else if (act === "view-doc" || act === "download-doc") { e.preventDefault(); openDoc(el.dataset.doc, act === "download-doc"); }
             else if (act === "view-proj-coi" || act === "download-proj-coi") { e.preventDefault(); openProjectCoi(el.dataset.file, act === "download-proj-coi"); }
+            else if (act === "upload-proj-coi") { e.preventDefault(); pickProjectCoi(el.dataset.project); }
             else if (act === "vcf") {
                 const c = contacts.find(x => String(x.id) === String(el.dataset.contact));
                 if (c) downloadVcf(vcardFor(c), `${c.Name || "Contact"}.vcf`);
@@ -823,6 +916,11 @@
         $("vdProjectsCloseBtn").addEventListener("click", closeProjectsManager);
         $("vdProjectsDoneBtn").addEventListener("click", closeProjectsManager);
         $("vdProjectAddForm").addEventListener("submit", addProject);
+        $("vdProjectCoiFile").addEventListener("change", () => {
+            const has = Boolean($("vdProjectCoiFile").files && $("vdProjectCoiFile").files.length);
+            $("vdProjectEmail").checked = !has && !company.COIExempt;
+            $("vdProjectEmail").disabled = has;
+        });
         $("vdProjectsOverlay").addEventListener("click", e => {
             if (e.target === $("vdProjectsOverlay")) { closeProjectsManager(); return; }
             const btn = e.target.closest("[data-proj-act]");
