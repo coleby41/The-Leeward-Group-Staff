@@ -41,6 +41,7 @@
     let categories = [];      // all tag categories
     let projects = [];
     let projectCoiFiles = new Map();
+    let projectSources = new Map();  // project_id -> Set of sources (awarded / assigned / invoice)
     let assignments = [];     // vendor_project_assignments rows (Manage Projects)
     let allProjects = null;   // active projects for the Manage Projects picker
     let projectBusy = false;
@@ -148,7 +149,10 @@
         categories = catsRes.data || [];
         tags = (companyTagsRes.data || []).map(r => (Array.isArray(r.vendor_tags) ? r.vendor_tags[0] : r.vendor_tags)).filter(Boolean);
         const seen = new Set();
-        projects = (projectsRes.error ? [] : projectsRes.data || []).filter(p => !seen.has(p.project_id) && seen.add(p.project_id));
+        const allRows = projectsRes.error ? [] : projectsRes.data || [];
+        projectSources = new Map();
+        allRows.forEach(p => { const k = String(p.project_id); if (!projectSources.has(k)) projectSources.set(k, new Set()); projectSources.get(k).add(p.source); });
+        projects = allRows.filter(p => !seen.has(p.project_id) && seen.add(p.project_id));
         const { data: asg, error: asgErr } = await db.from("vendor_project_assignments").select("*").eq("company_id", Number(id));
         assignments = asgErr ? [] : asg || [];
         // Each awarded project's COI PDF (filed in that project's Contracts & Procurement › Vendors).
@@ -294,7 +298,8 @@
         $("vdProjectCoiDate").value = company.COIExpiresOn || "";
         $("vdProjectEmail").checked = !company.COIExempt;
         $("vdProjectEmail").disabled = false;
-        ["vdProjectEmailRow", "vdProjectCoiRow", "vdProjectCoiNote"].forEach(id => $(id).classList.toggle("hidden", Boolean(company.COIExempt)));
+        $("vdProjectCoiDateField").classList.add("hidden");
+        ["vdProjectEmailRow", "vdProjectCoiRow"].forEach(id => $(id).classList.toggle("hidden", Boolean(company.COIExempt)));
         if (!allProjects) {
             $("vdProjectSelect").innerHTML = `<option value="">Loading…</option>`;
             const { data, error } = await client().from("projects").select("id, name, is_active").order("name", { ascending: true });
@@ -312,15 +317,13 @@
     function renderProjectsManager() {
         const rows = projects.map(p => {
             const a = assignments.find(x => String(x.project_id) === String(p.project_id));
-            const how = p.source === "awarded" ? "Awarded bid" : p.source === "invoice" ? "Invoice" : `Added by Leeward${a && a.scope ? ` · ${a.scope}` : ""}`;
+            const how = p.source === "awarded" ? "Awarded bid" : p.source === "invoice" ? "Invoice" : "Added by Leeward";
             const pc = projectCoi(p);
             return `<tr>
-                <td><strong>${esc(p.project_name || "Project")}</strong>${a && a.added_by_name ? `<span class="bid-cell-sub">Added ${esc(dateOnly(String(a.created_at).slice(0, 10)))} by ${esc(a.added_by_name)}</span>` : ""}</td>
-                <td>${esc(how)}</td>
+                <td data-label="Project"><strong>${esc(p.project_name || "Project")}</strong>${a && a.scope ? `<span class="bid-cell-sub">${esc(a.scope)}</span>` : ""}</td>
+                <td class="vd-muted vd-pm-source">${esc(how)}</td>
                 <td>${pc.label ? `<span class="vd-status ${pc.cls}">${esc(pc.label)}</span>` : ""}</td>
-                <td><div class="bid-row-actions">${!company.COIExempt && p.source !== "invoice" ? `<button type="button" class="workbook-btn" data-proj-act="upload" data-project="${esc(p.project_id)}" ${projectBusy ? "disabled" : ""} title="Upload a COI you already have for this project">${pc.file ? "Replace COI" : "Upload COI"}</button>` : ""}${a ? `
-                    ${company.COIExempt || pc.file ? "" : `<button type="button" class="workbook-btn" data-proj-act="email" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>${a.coi_requested_at ? "Re-send COI Request" : "Request COI"}</button>`}
-                    <button type="button" class="workbook-btn workbook-btn--danger" data-proj-act="remove" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>Remove</button>` : ""}</div></td>
+                <td><div class="vd-pm-actions">${!company.COIExempt && p.source !== "invoice" ? `<button type="button" class="vd-link-btn" data-proj-act="upload" data-project="${esc(p.project_id)}" ${projectBusy ? "disabled" : ""}>${pc.file ? "Replace COI" : "Upload COI"}</button>` : ""}${a ? `${company.COIExempt || pc.file ? "" : `<button type="button" class="vd-link-btn" data-proj-act="email" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>${a.coi_requested_at ? "Re-send request" : "Request COI"}</button>`}` : ""}<button type="button" class="vd-link-btn vd-link-btn--danger" data-proj-act="remove" data-project="${esc(p.project_id)}" ${projectBusy ? "disabled" : ""}>Remove</button></div></td>
             </tr>`;
         }).join("");
         $("vdProjectsTableBody").innerHTML = rows || `<tr><td colspan="4" class="vd-muted">Not on any projects yet.</td></tr>`;
@@ -365,12 +368,16 @@
         $("vdProjectAddBtn").disabled = true;
         projectMessage("Adding…");
         const me = profile();
-        const { error } = await client().from("vendor_project_assignments").insert({
-            company_id: Number(company.id), project_id: projectId,
+        const fields = {
             scope: $("vdProjectScope").value.trim() || null,
             added_by: (me && (me.id || me.uid)) || null,
             added_by_name: (me && (me.full_name || me.username)) || "Staff",
-        });
+        };
+        // A project removed earlier still has its (hidden) row — bring it back.
+        const removed = assignments.find(x => String(x.project_id) === String(projectId) && x.hidden);
+        const { error } = removed
+            ? await client().from("vendor_project_assignments").update({ ...fields, hidden: false, created_at: new Date().toISOString() }).eq("id", removed.id)
+            : await client().from("vendor_project_assignments").insert({ company_id: Number(company.id), project_id: projectId, ...fields });
         if (error) {
             projectBusy = false; $("vdProjectAddBtn").disabled = false;
             projectMessage(`Couldn't add it: ${error.message}`, "error");
@@ -390,6 +397,7 @@
         projectBusy = false; $("vdProjectAddBtn").disabled = false;
         $("vdProjectScope").value = "";
         $("vdProjectCoiFile").value = "";
+        $("vdProjectCoiDateField").classList.add("hidden");
         $("vdProjectEmail").disabled = false;
         await reloadProjects();
         projectMessage(note, note.includes("didn't") ? "error" : "success");
@@ -479,17 +487,30 @@
             return;
         }
         const a = assignments.find(x => String(x.project_id) === String(projectId));
-        if (!a) return;
         if (btn.dataset.projAct === "remove") {
             if (btn.dataset.confirm !== "1") { btn.dataset.confirm = "1"; btn.textContent = "Confirm remove"; return; }
             projectBusy = true; renderProjectsManager();
-            const { error } = await client().from("vendor_project_assignments").delete().eq("id", a.id);
+            // Added by Leeward only → delete the row. From a bid or invoice → keep those
+            // records and just hide the project from this vendor.
+            const sources = projectSources.get(String(projectId)) || new Set();
+            const onlyAssigned = a && [...sources].every(s => s === "assigned");
+            const me = profile();
+            const { error } = onlyAssigned
+                ? await client().from("vendor_project_assignments").delete().eq("id", a.id)
+                : a
+                    ? await client().from("vendor_project_assignments").update({ hidden: true }).eq("id", a.id)
+                    : await client().from("vendor_project_assignments").insert({
+                        company_id: Number(company.id), project_id: projectId, hidden: true,
+                        added_by: (me && (me.id || me.uid)) || null,
+                        added_by_name: (me && (me.full_name || me.username)) || "Staff",
+                    });
             projectBusy = false;
             if (error) { projectMessage(`Couldn't remove it: ${error.message}`, "error"); renderProjectsManager(); return; }
             await reloadProjects();
             projectMessage(`Removed from ${name}. Any COI they uploaded stays in that project's Files.`, "success");
             return;
         }
+        if (!a) return;
         if (btn.dataset.projAct === "email") {
             projectBusy = true; btn.textContent = "Sending…"; btn.disabled = true;
             const res = await emailProjectCoi(projectId);
@@ -920,6 +941,7 @@
             const has = Boolean($("vdProjectCoiFile").files && $("vdProjectCoiFile").files.length);
             $("vdProjectEmail").checked = !has && !company.COIExempt;
             $("vdProjectEmail").disabled = has;
+            $("vdProjectCoiDateField").classList.toggle("hidden", !has);
         });
         $("vdProjectsOverlay").addEventListener("click", e => {
             if (e.target === $("vdProjectsOverlay")) { closeProjectsManager(); return; }

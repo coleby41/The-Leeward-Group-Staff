@@ -441,12 +441,14 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   const pkgById = new Map((pkgs || []).map((p: Row) => [p.id, p]));
   // Projects Leeward added this vendor to directly (vendor page › Manage Projects).
   const { data: assigned } = await ctx.admin.from("vendor_project_assignments")
-    .select("id, project_id, scope, created_at, coi_requested_at, coi_received_at, coi_file_id")
+    .select("id, project_id, scope, created_at, coi_requested_at, coi_received_at, coi_file_id, hidden")
     .eq("company_id", ctx.company!.id);
+  // Projects Leeward removed from this vendor (Manage Projects › Remove) stay out of the portal.
+  const hiddenIds = new Set((assigned || []).filter((a: Row) => a.hidden).map((a: Row) => a.project_id));
   const projectIds = [...new Set([
     ...(pkgs || []).map((p: Row) => p.project_id),
     ...(assigned || []).map((a: Row) => a.project_id),
-  ])].filter((id) => !onlyProjectId || id === onlyProjectId);
+  ])].filter((id) => !hiddenIds.has(id) && (!onlyProjectId || id === onlyProjectId));
   const { data: projects } = projectIds.length
     ? await ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds)
     : { data: [] };

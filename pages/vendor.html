@@ -538,33 +538,31 @@
             <h2 id="vdProjectsTitle">Manage Projects</h2>
             <button type="button" class="menu-btn" id="vdProjectsCloseBtn" aria-label="Close">✕</button>
         </div>
-        <p class="auth-inline-copy">Add this vendor to a project without sending a Bid Invite — including projects that already started. They get the project's folder in the Vendor Portal (COI template and COI upload), same as an awarded bid.</p>
-        <div class="table-wrap">
+        <p class="vd-pm-intro">Projects this vendor is on. Add one without sending a Bid Invite.</p>
+        <div class="table-wrap vd-pm-table">
             <table class="dash-queue-table bid-tracker-table">
-                <thead><tr><th>Project</th><th>How</th><th>COI</th><th></th></tr></thead>
+                <thead><tr><th>Project</th><th>Source</th><th>COI</th><th></th></tr></thead>
                 <tbody id="vdProjectsTableBody"></tbody>
             </table>
         </div>
-        <form class="auth-form vd-proj-add" id="vdProjectAddForm" novalidate>
+        <form class="auth-form vd-proj-add vd-pm-add" id="vdProjectAddForm" novalidate>
             <p class="company-form-section-title">Add to a project</p>
             <div class="wizard-field-grid">
                 <label class="auth-field"><span>Project <span class="bid-required">*</span></span><select id="vdProjectSelect"></select></label>
-                <label class="auth-field">Scope (optional)<input type="text" id="vdProjectScope" maxlength="200" placeholder="e.g. Windows & Glazing"></label>
+                <label class="auth-field">Scope<input type="text" id="vdProjectScope" maxlength="200" placeholder="Optional"></label>
             </div>
             <div class="wizard-field-grid" id="vdProjectCoiRow">
-                <label class="auth-field">COI PDF (if you already have it)<input type="file" id="vdProjectCoiFile" accept="application/pdf,.pdf"></label>
-                <label class="auth-field">COI expiration date<input type="date" id="vdProjectCoiDate"></label>
+                <label class="auth-field">COI PDF<input type="file" id="vdProjectCoiFile" accept="application/pdf,.pdf"></label>
+                <label class="auth-field hidden" id="vdProjectCoiDateField">COI expiration date<input type="date" id="vdProjectCoiDate"></label>
             </div>
-            <p class="auth-inline-copy" id="vdProjectCoiNote" style="margin-top:-6px">For a project that's already started: attach the COI you have and it's filed as On file — no email needed.</p>
-            <label class="form-toggle-row" id="vdProjectEmailRow">
+            <p class="hidden" id="vdProjectCoiNote"></p>
+            <label class="vd-pm-check" id="vdProjectEmailRow">
                 <input type="checkbox" id="vdProjectEmail" checked>
-                <span>Email the vendor to upload their COI for this project
-                    <p class="auth-inline-copy">Sends their account holder a sign-in link that opens the project's folder.</p>
-                </span>
+                <span>Email the vendor a link to upload their COI</span>
             </label>
             <p class="auth-message" id="vdProjectMessage" role="status"></p>
-            <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--secondary" id="vdProjectsDoneBtn">Done</button>
+            <div class="vd-pm-footer">
+                <button type="button" class="workbook-btn" id="vdProjectsDoneBtn">Close</button>
                 <button type="submit" class="auth-button" id="vdProjectAddBtn">Add to Project</button>
             </div>
         </form>

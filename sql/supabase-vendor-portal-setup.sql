@@ -519,6 +519,10 @@ create table if not exists public.vendor_project_assignments (
   coi_file_id uuid references public.project_files(id) on delete set null,
   unique (company_id, project_id)
 );
+-- hidden = staff removed this project from the vendor (Manage Projects › Remove)
+-- even though it came from an awarded bid or an invoice. Keeps the bid/invoice
+-- itself untouched; just takes it off the vendor's list and portal.
+alter table public.vendor_project_assignments add column if not exists hidden boolean not null default false;
 create index if not exists vendor_project_assignments_project_idx on public.vendor_project_assignments (project_id);
 
 alter table public.vendor_project_assignments enable row level security;
@@ -568,6 +572,8 @@ begin
     join public.bid_packages bp on bp.id = bi.package_id
     join public.projects p on p.id = bp.project_id
     where bi.company_id = p_company_id and bi.status = 'awarded'
+      and not exists (select 1 from public.vendor_project_assignments h
+                       where h.company_id = p_company_id and h.project_id = p.id and h.hidden)
     group by p.id, p.name;
 
   -- Projects staff added the vendor to directly (Manage Projects).
@@ -575,14 +581,16 @@ begin
     select p.id, p.name, 'assigned'::text, a.coi_file_id, a.coi_requested_at, a.coi_received_at
     from public.vendor_project_assignments a
     join public.projects p on p.id = a.project_id
-    where a.company_id = p_company_id;
+    where a.company_id = p_company_id and not a.hidden;
 
   if to_regclass('public.project_invoices') is not null then
     return query execute
       'select distinct p.id, p.name, ''invoice''::text, null::uuid, null::timestamptz, null::timestamptz
          from public.project_invoices pi
          join public.projects p on p.id = pi.project_id
-        where pi.vendor_id = $1::text'
+        where pi.vendor_id = $1::text
+          and not exists (select 1 from public.vendor_project_assignments h
+                           where h.company_id = $1 and h.project_id = p.id and h.hidden)'
       using p_company_id;
   end if;
 end;
