@@ -500,6 +500,42 @@ create trigger vendor_users_touch_updated_at
   for each row execute function public.touch_bid_updated_at();
 
 
+-- 8b. vendor_project_assignments (2026-10-24) ---------------------------------------
+-- Staff add a vendor to a project straight from the vendor page ("Manage
+-- Projects") -- for work that wasn't awarded through a Bid Invite. The vendor
+-- then gets that project's folder in the Vendor Portal (COI template + COI
+-- upload), same as an awarded bid. The COI columns mirror bid_invites'.
+
+create table if not exists public.vendor_project_assignments (
+  id uuid primary key default gen_random_uuid(),
+  company_id bigint not null references public."Companies"(id) on delete cascade,
+  project_id uuid not null references public.projects(id) on delete cascade,
+  scope text,                                 -- e.g. "Windows & Glazing" (optional)
+  added_by uuid,
+  added_by_name text,
+  created_at timestamptz not null default now(),
+  coi_requested_at timestamptz,
+  coi_received_at timestamptz,
+  coi_file_id uuid references public.project_files(id) on delete set null,
+  unique (company_id, project_id)
+);
+create index if not exists vendor_project_assignments_project_idx on public.vendor_project_assignments (project_id);
+
+alter table public.vendor_project_assignments enable row level security;
+revoke all on public.vendor_project_assignments from anon, authenticated;
+grant select, insert, update, delete on public.vendor_project_assignments to authenticated;
+grant all on public.vendor_project_assignments to service_role;
+
+drop policy if exists vendor_project_assignments_select on public.vendor_project_assignments;
+create policy vendor_project_assignments_select on public.vendor_project_assignments
+  for select to authenticated using (public.is_active_staff());
+drop policy if exists vendor_project_assignments_write on public.vendor_project_assignments;
+create policy vendor_project_assignments_write on public.vendor_project_assignments
+  for all to authenticated
+  using (public.has_permission('vendors.add_edit_vendor'))
+  with check (public.has_permission('vendors.add_edit_vendor'));
+
+
 -- 9. vendor_projects(): the vendor page's "Projects" card ------------------------------
 -- Projects a vendor works on: ones they were awarded a bid on, plus ones
 -- with an invoice from them. Any staff member can see the list (just
@@ -533,6 +569,13 @@ begin
     join public.projects p on p.id = bp.project_id
     where bi.company_id = p_company_id and bi.status = 'awarded'
     group by p.id, p.name;
+
+  -- Projects staff added the vendor to directly (Manage Projects).
+  return query
+    select p.id, p.name, 'assigned'::text, a.coi_file_id, a.coi_requested_at, a.coi_received_at
+    from public.vendor_project_assignments a
+    join public.projects p on p.id = a.project_id
+    where a.company_id = p_company_id;
 
   if to_regclass('public.project_invoices') is not null then
     return query execute

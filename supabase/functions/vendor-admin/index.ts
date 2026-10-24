@@ -8,12 +8,16 @@
 //   { action: "reject", application_id, reason? }
 //       Marks it rejected and emails the applicant (with the reason, if given).
 //   { action: "w9_url", application_id }   -> a short-lived link to view the W-9
+//   { action: "request_project_coi", company_id, project_id }   (vendors.add_edit_vendor)
+//       After staff add a vendor to a project (vendor page › Manage Projects):
+//       emails the vendor's account holder a 72-hour sign-in link that opens
+//       that project's folder in the Vendor Portal to upload the COI.
 //
 // Deploy:  supabase functions deploy vendor-admin
 
 import { CORS_HEADERS, json, requireStaffPermission, sendEmail, serviceClient } from "../_shared/bid-common.ts";
-import { renderApprovedEmail, renderRejectedEmail } from "../_shared/bid-email.ts";
-import { type Row, TEAM_INVITE_LINK_HOURS, clean, createLoginLink, lang } from "../_shared/vendor-common.ts";
+import { renderApprovedEmail, renderProjectCoiEmail, renderRejectedEmail } from "../_shared/bid-email.ts";
+import { type Row, TEAM_INVITE_LINK_HOURS, clean, createLoginLink, lang, normalizeEmail } from "../_shared/vendor-common.ts";
 
 const APPROVE = "vendors.approve_applications";
 
@@ -130,18 +134,60 @@ async function w9Url(body: Row) {
   return json({ ok: true, url: data.signedUrl });
 }
 
+// Who gets the email: the account holder, else any active login, else the
+// vendor's first contact with an email (given a login, like a bid invite does).
+async function recipientFor(admin: Row, companyId: number) {
+  const { data: logins } = await admin.from("vendor_users").select("*").eq("company_id", companyId).eq("status", "active");
+  const holder = (logins || []).find((u: Row) => u.role === "holder") || (logins || [])[0];
+  if (holder) return holder;
+  const { data: contacts } = await admin.from("Contacts").select("id, Name, Title, Email, MobilePhone, WorkPhone").eq("company_id", companyId).order("id");
+  const c = (contacts || []).find((x: Row) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(x.Email || "").trim()));
+  if (!c) return null;
+  const email = normalizeEmail(c.Email);
+  const { data: existing } = await admin.from("vendor_users").select("*").eq("email", email).maybeSingle();
+  if (existing) return existing.company_id === companyId && existing.status !== "rejected" ? existing : null;
+  const { data: created, error } = await admin.from("vendor_users").insert({
+    email, name: c.Name || null, title: c.Title || null, phone: c.MobilePhone || c.WorkPhone || null,
+    company_id: companyId, contact_id: c.id, role: "holder", status: "active", added_by: "staff",
+  }).select().single();
+  if (error) throw error;
+  return created;
+}
+
+async function requestProjectCoi(body: Row) {
+  const admin = serviceClient();
+  const companyId = Number(body.company_id);
+  const projectId = String(body.project_id || "");
+  const { data: asg } = await admin.from("vendor_project_assignments").select("id").eq("company_id", companyId).eq("project_id", projectId).maybeSingle();
+  if (!asg) return json({ ok: false, error: "Add the vendor to this project first." }, 404);
+  const [{ data: company }, { data: project }] = await Promise.all([
+    admin.from("Companies").select("id, Name, FriendlyName").eq("id", companyId).maybeSingle(),
+    admin.from("projects").select("id, name").eq("id", projectId).maybeSingle(),
+  ]);
+  if (!company || !project) return json({ ok: false, error: "That vendor or project doesn't exist anymore." }, 404);
+  const user = await recipientFor(admin, companyId);
+  if (!user) return json({ ok: false, error: "This vendor has no contact with an email address to send it to." }, 400);
+  const link = await createLoginLink(admin, user.id, { redirectTo: `project.html?id=${project.id}`, minutes: TEAM_INVITE_LINK_HOURS * 60 });
+  const mail = renderProjectCoiEmail(lang(user.language), user.name || company.Name, company.Name, project.name, link, TEAM_INVITE_LINK_HOURS);
+  const sent = await sendEmail({ to: user.email, subject: mail.subject, html: mail.html, text: mail.text });
+  if (!sent.ok) return json({ ok: false, error: sent.error || "The email didn't send." }, 502);
+  await admin.from("vendor_project_assignments").update({ coi_requested_at: new Date().toISOString() }).eq("id", asg.id);
+  return json({ ok: true, sent_to: user.email });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
   let body: Row;
   try { body = await req.json(); } catch { return json({ ok: false, error: "Invalid JSON body" }, 400); }
   const action = String(body?.action || "");
-  if (!["approve", "reject", "w9_url"].includes(action)) return json({ ok: false, error: `Unknown action "${action}"` }, 400);
+  if (!["approve", "reject", "w9_url", "request_project_coi"].includes(action)) return json({ ok: false, error: `Unknown action "${action}"` }, 400);
 
-  const auth = await requireStaffPermission(req, APPROVE);
+  const auth = await requireStaffPermission(req, action === "request_project_coi" ? "vendors.add_edit_vendor" : APPROVE);
   if (auth.error) return auth.error;
 
   try {
+    if (action === "request_project_coi") return await requestProjectCoi(body);
     if (action === "approve") return await approve(body, auth.staff);
     if (action === "reject") return await reject(body, auth.staff);
     return await w9Url(body);

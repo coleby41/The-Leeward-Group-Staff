@@ -41,6 +41,9 @@
     let categories = [];      // all tag categories
     let projects = [];
     let projectCoiFiles = new Map();
+    let assignments = [];     // vendor_project_assignments rows (Manage Projects)
+    let allProjects = null;   // active projects for the Manage Projects picker
+    let projectBusy = false;
     let duplicatePairs = [];  // [[contactA, contactB], ...]
     let revealTax = false;
     let mergePair = null;
@@ -146,6 +149,8 @@
         tags = (companyTagsRes.data || []).map(r => (Array.isArray(r.vendor_tags) ? r.vendor_tags[0] : r.vendor_tags)).filter(Boolean);
         const seen = new Set();
         projects = (projectsRes.error ? [] : projectsRes.data || []).filter(p => !seen.has(p.project_id) && seen.add(p.project_id));
+        const { data: asg, error: asgErr } = await db.from("vendor_project_assignments").select("*").eq("company_id", Number(id));
+        assignments = asgErr ? [] : asg || [];
         // Each awarded project's COI PDF (filed in that project's Contracts & Procurement › Vendors).
         const fileIds = projects.map(p => p.coi_file_id).filter(Boolean);
         projectCoiFiles = new Map();
@@ -242,7 +247,7 @@
         const file = p.coi_file_id ? projectCoiFiles.get(String(p.coi_file_id)) : null;
         // Either on file or not (Coleby, 2026-10-21).
         if (file) return { cls: "vd-status--ok", label: "COI on file", file, when: dateOnly(String(p.coi_received_at || "").slice(0, 10)) };
-        if (p.source === "awarded") return { cls: "vd-status--bad", label: "COI not on file", file: null };
+        if (p.source === "awarded" || p.source === "assigned") return { cls: "vd-status--bad", label: "COI not on file", file: null };
         return { cls: "", label: "", file: null };
     }
 
@@ -251,6 +256,7 @@
         const expires = company.COIExpiresOn ? `Company COI expires ${dateOnly(company.COIExpiresOn)}` : coi.state === "exempt" ? "Exempt from the COI requirement" : "No COI expiration on file";
         const dateCls = coi.state === "ok" || coi.state === "exempt" ? "vd-status--ok" : coi.state === "expiring" ? "vd-status--warn" : "vd-status--bad";
         $("vdProjectsCount").textContent = String(projects.length);
+        $("vdManageProjectsBtn").classList.toggle("hidden", !can("vendors.add_edit_vendor"));
         const head = `<div class="vd-proj__meta" style="padding-bottom:8px;"><span class="vd-status ${dateCls}">${esc(expires)}</span></div>`;
         $("vdProjects").innerHTML = head + (projects.length
             ? projects.map(p => {
@@ -261,10 +267,145 @@
                 return `
                 <div class="vd-proj">
                     <div class="vd-proj__top"><a class="vd-proj__name" href="/pages/project-home.html?id=${encodeURIComponent(p.project_id)}">${esc(p.project_name || "Project")}</a>${pc.label ? `<span class="vd-status ${pc.cls}">${esc(pc.label)}</span>` : ""}</div>
-                    <div class="vd-proj__meta"><span>${esc(pc.file ? `COI PDF · uploaded ${pc.when}` : p.source === "awarded" ? "Project COI PDF" : "Invoice on this project")}</span>${links}</div>
+                    <div class="vd-proj__meta"><span>${esc(pc.file ? `COI PDF · uploaded ${pc.when}` : p.source === "invoice" ? "Invoice on this project" : "Project COI PDF")}</span>${links}</div>
                 </div>`;
             }).join("")
-            : `<p class="vd-empty">No projects yet — projects show here once this vendor is awarded a bid or has an invoice on a project.</p>`);
+            : `<p class="vd-empty">No projects yet — projects show here once this vendor is awarded a bid, has an invoice on a project, or is added with Manage Projects.</p>`);
+    }
+
+    /* ---------- Manage Projects ---------- */
+
+    function profile() {
+        if (window.currentSupabaseProfile) return window.currentSupabaseProfile;
+        try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch (e) { return null; }
+    }
+
+    async function openProjectsManager() {
+        if (!can("vendors.add_edit_vendor")) return;
+        $("vdProjectsOverlay").classList.remove("hidden");
+        document.body.classList.add("popup-active");
+        $("vdProjectMessage").textContent = "";
+        $("vdProjectMessage").className = "auth-message";
+        $("vdProjectScope").value = "";
+        $("vdProjectEmail").checked = !company.COIExempt;
+        $("vdProjectEmailRow").classList.toggle("hidden", Boolean(company.COIExempt));
+        if (!allProjects) {
+            $("vdProjectSelect").innerHTML = `<option value="">Loading…</option>`;
+            const { data, error } = await client().from("projects").select("id, name, is_active").order("name", { ascending: true });
+            allProjects = error ? [] : (data || []).filter(p => p.is_active !== false);
+        }
+        renderProjectsManager();
+    }
+
+    function closeProjectsManager() {
+        if (projectBusy) return;
+        $("vdProjectsOverlay").classList.add("hidden");
+        if (!document.querySelector(".popup-overlay:not(.hidden)")) document.body.classList.remove("popup-active");
+    }
+
+    function renderProjectsManager() {
+        const rows = projects.map(p => {
+            const a = assignments.find(x => String(x.project_id) === String(p.project_id));
+            const how = p.source === "awarded" ? "Awarded bid" : p.source === "invoice" ? "Invoice" : `Added by Leeward${a && a.scope ? ` · ${a.scope}` : ""}`;
+            const pc = projectCoi(p);
+            return `<tr>
+                <td><strong>${esc(p.project_name || "Project")}</strong>${a && a.added_by_name ? `<span class="bid-cell-sub">Added ${esc(dateOnly(String(a.created_at).slice(0, 10)))} by ${esc(a.added_by_name)}</span>` : ""}</td>
+                <td>${esc(how)}</td>
+                <td>${pc.label ? `<span class="vd-status ${pc.cls}">${esc(pc.label)}</span>` : ""}</td>
+                <td><div class="bid-row-actions">${a ? `
+                    ${company.COIExempt ? "" : `<button type="button" class="workbook-btn" data-proj-act="email" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>${a.coi_requested_at ? "Re-send COI Request" : "Request COI"}</button>`}
+                    <button type="button" class="workbook-btn workbook-btn--danger" data-proj-act="remove" data-project="${esc(a.project_id)}" ${projectBusy ? "disabled" : ""}>Remove</button>` : ""}</div></td>
+            </tr>`;
+        }).join("");
+        $("vdProjectsTableBody").innerHTML = rows || `<tr><td colspan="4" class="vd-muted">Not on any projects yet.</td></tr>`;
+        const taken = new Set(projects.map(p => String(p.project_id)));
+        const options = (allProjects || []).filter(p => !taken.has(String(p.id)));
+        $("vdProjectSelect").innerHTML = `<option value="">Choose a project</option>` + options.map(p => `<option value="${esc(p.id)}">${esc(p.name || "Untitled project")}</option>`).join("");
+    }
+
+    function projectMessage(text, type) {
+        $("vdProjectMessage").textContent = text || "";
+        $("vdProjectMessage").className = `auth-message ${type || ""}`.trim();
+    }
+
+    async function emailProjectCoi(projectId) {
+        try {
+            const { data, error } = await client().functions.invoke("vendor-admin", { body: { action: "request_project_coi", company_id: Number(company.id), project_id: projectId } });
+            if (error) {
+                let message = error.message || "The email didn't send.";
+                try { const payload = error.context && typeof error.context.json === "function" ? await error.context.json() : null; if (payload && payload.error) message = payload.error; } catch (e) { /* keep */ }
+                return { error: message };
+            }
+            if (data && data.ok === false) return { error: data.error || "The email didn't send." };
+            return { data };
+        } catch (err) {
+            return { error: err && err.message ? err.message : "The email didn't send." };
+        }
+    }
+
+    async function reloadProjects() {
+        await load(company.id);
+        renderProjects();
+        renderProjectsManager();
+    }
+
+    async function addProject(e) {
+        e.preventDefault();
+        if (projectBusy) return;
+        const projectId = $("vdProjectSelect").value;
+        if (!projectId) { projectMessage("Choose a project.", "error"); return; }
+        const projectName = (allProjects || []).find(p => String(p.id) === String(projectId))?.name || "the project";
+        projectBusy = true;
+        $("vdProjectAddBtn").disabled = true;
+        projectMessage("Adding…");
+        const me = profile();
+        const { error } = await client().from("vendor_project_assignments").insert({
+            company_id: Number(company.id), project_id: projectId,
+            scope: $("vdProjectScope").value.trim() || null,
+            added_by: (me && (me.id || me.uid)) || null,
+            added_by_name: (me && (me.full_name || me.username)) || "Staff",
+        });
+        if (error) {
+            projectBusy = false; $("vdProjectAddBtn").disabled = false;
+            projectMessage(`Couldn't add it: ${error.message}`, "error");
+            return;
+        }
+        let note = `Added to ${projectName}.`;
+        if ($("vdProjectEmail").checked && !company.COIExempt) {
+            const res = await emailProjectCoi(projectId);
+            note = res.error ? `Added to ${projectName}, but the email didn't send: ${res.error}` : `Added to ${projectName} and emailed ${res.data.sent_to} to upload their COI.`;
+        }
+        projectBusy = false; $("vdProjectAddBtn").disabled = false;
+        $("vdProjectScope").value = "";
+        await reloadProjects();
+        projectMessage(note, note.includes("didn't") ? "error" : "success");
+        toast(note.includes("didn't") ? note : `Added to ${projectName}`, note.includes("didn't") ? "error" : undefined);
+    }
+
+    async function projectAction(btn) {
+        if (projectBusy) return;
+        const projectId = btn.dataset.project;
+        const a = assignments.find(x => String(x.project_id) === String(projectId));
+        if (!a) return;
+        const name = projects.find(p => String(p.project_id) === String(projectId))?.project_name || "this project";
+        if (btn.dataset.projAct === "remove") {
+            if (btn.dataset.confirm !== "1") { btn.dataset.confirm = "1"; btn.textContent = "Confirm remove"; return; }
+            projectBusy = true; renderProjectsManager();
+            const { error } = await client().from("vendor_project_assignments").delete().eq("id", a.id);
+            projectBusy = false;
+            if (error) { projectMessage(`Couldn't remove it: ${error.message}`, "error"); renderProjectsManager(); return; }
+            await reloadProjects();
+            projectMessage(`Removed from ${name}. Any COI they uploaded stays in that project's Files.`, "success");
+            return;
+        }
+        if (btn.dataset.projAct === "email") {
+            projectBusy = true; btn.textContent = "Sending…"; btn.disabled = true;
+            const res = await emailProjectCoi(projectId);
+            projectBusy = false;
+            if (res.error) { projectMessage(`The email didn't send: ${res.error}`, "error"); renderProjectsManager(); return; }
+            await reloadProjects();
+            projectMessage(`Emailed ${res.data.sent_to} to upload their COI for ${name}.`, "success");
+        }
     }
 
     async function openProjectCoi(fileId, download) {
@@ -678,6 +819,15 @@
             if (contacts.length) downloadVcf(contacts.map(vcardFor).join("\r\n"), `${company.FriendlyName || company.Name || "Vendor"} contacts.vcf`);
         });
         $("vdAddContactBtn").addEventListener("click", () => openContactForm(null));
+        $("vdManageProjectsBtn").addEventListener("click", openProjectsManager);
+        $("vdProjectsCloseBtn").addEventListener("click", closeProjectsManager);
+        $("vdProjectsDoneBtn").addEventListener("click", closeProjectsManager);
+        $("vdProjectAddForm").addEventListener("submit", addProject);
+        $("vdProjectsOverlay").addEventListener("click", e => {
+            if (e.target === $("vdProjectsOverlay")) { closeProjectsManager(); return; }
+            const btn = e.target.closest("[data-proj-act]");
+            if (btn) projectAction(btn);
+        });
         $("vdContactCloseBtn").addEventListener("click", closeContactForm);
         $("vdContactForm").addEventListener("submit", saveContact);
         $("vdContactDeleteBtn").addEventListener("click", deleteContact);
@@ -692,7 +842,8 @@
         });
         document.addEventListener("keydown", e => {
             if (e.key !== "Escape") return;
-            if (!$("vdMergeOverlay").classList.contains("hidden")) closeMerge();
+            if (!$("vdProjectsOverlay").classList.contains("hidden")) closeProjectsManager();
+            else if (!$("vdMergeOverlay").classList.contains("hidden")) closeMerge();
             else if (!$("vdContactOverlay").classList.contains("hidden")) closeContactForm();
         });
     }

@@ -102,6 +102,7 @@ const S = {
     bannerCoi: "COI Needed",
     subjCoi: (p: string, n: string) => `COI needed – ${p} – ${n}`,
     coiIntro: (c: string, n: string, p: string) => `Before work starts on <b>${n}</b> at <b>${p}</b>, we need a current Certificate of Insurance (COI) for <b>${c}</b>.`,
+    coiProjectIntro: (c: string, p: string) => `The Leeward Group added <b>${c}</b> to <b>${p}</b>. Before work starts, we need a current Certificate of Insurance (COI) for this project.`,
     coiAsk: "Please upload your COI as a PDF in this project's folder in the Leeward Vendor Portal. It must be current and list the coverage required for this project.",
     coiLabel: "Upload your COI",
     coiButton: "Upload COI",
@@ -172,6 +173,7 @@ const S = {
     bannerCoi: "Se Necesita su COI",
     subjCoi: (p: string, n: string) => `Se necesita su COI – ${p} – ${n}`,
     coiIntro: (c: string, n: string, p: string) => `Antes de comenzar el trabajo de <b>${n}</b> en <b>${p}</b>, necesitamos un Certificado de Seguro (COI) vigente de <b>${c}</b>.`,
+    coiProjectIntro: (c: string, p: string) => `The Leeward Group agregó a <b>${c}</b> al proyecto <b>${p}</b>. Antes de comenzar el trabajo, necesitamos un Certificado de Seguro (COI) vigente para este proyecto.`,
     coiAsk: "Suba su COI en formato PDF en la carpeta de este proyecto en el Portal de Proveedores de Leeward. Debe estar vigente e incluir la cobertura requerida para este proyecto.",
     coiLabel: "Suba su COI",
     coiButton: "Subir COI",
@@ -476,4 +478,16 @@ export function renderTeamInviteEmail(lng: Lang, name: string, inviterName: stri
   const paras = [s.teamBody(escapeHtml(inviterName), escapeHtml(companyName))];
   const note = s.approvedNote(hours);
   return { subject: s.subjTeam(companyName), html: simpleEmail(lng, s.bannerTeam, name, paras, link, s.signInButton, note), text: textOf(name, lng, paras, link, note) };
+}
+
+// "You've been added to a project" + COI request (vendor page › Manage Projects).
+export function renderProjectCoiEmail(lng: Lang, name: string, companyName: string, projectName: string, link: string, hours: number): Rendered {
+  const s = strings(lng);
+  const paras = [s.coiProjectIntro(escapeHtml(companyName), escapeHtml(projectName)), s.coiAsk];
+  const note = s.approvedNote(hours);
+  return {
+    subject: s.subjCoi(projectName, companyName),
+    html: simpleEmail(lng, s.bannerCoi, name, paras, link, s.coiButton, note),
+    text: textOf(name, lng, paras, link, note),
+  };
 }

@@ -439,7 +439,14 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
     ? await ctx.admin.from("bid_packages").select("id, name, project_id, awarded_at, contact_name, contact_email, contact_phone").in("id", pkgIds)
     : { data: [] };
   const pkgById = new Map((pkgs || []).map((p: Row) => [p.id, p]));
-  const projectIds = [...new Set((pkgs || []).map((p: Row) => p.project_id))].filter((id) => !onlyProjectId || id === onlyProjectId);
+  // Projects Leeward added this vendor to directly (vendor page › Manage Projects).
+  const { data: assigned } = await ctx.admin.from("vendor_project_assignments")
+    .select("id, project_id, scope, created_at, coi_requested_at, coi_received_at, coi_file_id")
+    .eq("company_id", ctx.company!.id);
+  const projectIds = [...new Set([
+    ...(pkgs || []).map((p: Row) => p.project_id),
+    ...(assigned || []).map((a: Row) => a.project_id),
+  ])].filter((id) => !onlyProjectId || id === onlyProjectId);
   const { data: projects } = projectIds.length
     ? await ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds)
     : { data: [] };
@@ -450,6 +457,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   const templateByProject = new Map((templates || []).map((t: Row) => [t.project_id, t]));
   const fileIds = [...new Set([
     ...(invs || []).flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]),
+    ...(assigned || []).map((a: Row) => a.coi_file_id),
     ...(templates || []).map((t: Row) => t.project_file_id),
   ].filter(Boolean))];
   const { data: files } = fileIds.length
@@ -458,7 +466,9 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   const fileById = new Map((files || []).map((f: Row) => [f.id, f]));
 
   return (projects || []).map((p: Row) => {
-    const mine = (invs || []).filter((r: Row) => (pkgById.get(r.package_id) as Row)?.project_id === p.id);
+    const mineInv = (invs || []).filter((r: Row) => (pkgById.get(r.package_id) as Row)?.project_id === p.id);
+    const mineAsg = (assigned || []).filter((a: Row) => a.project_id === p.id);
+    const mine = [...mineInv, ...mineAsg];   // COI columns are the same on both
     const withCoi = mine.filter((r: Row) => r.coi_file_id).sort((a: Row, b: Row) => String(b.coi_received_at).localeCompare(String(a.coi_received_at)))[0];
     const requested = mine.map((r: Row) => r.coi_requested_at).filter(Boolean).sort().pop() || null;
     const received = withCoi?.coi_received_at || null;
@@ -467,14 +477,20 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
       id: p.id,
       name: p.name,
       location: [p.site_address, [p.site_city, p.site_state].filter(Boolean).join(", "), p.site_zip].filter(Boolean).join(" "),
-      scopes: mine.map((r: Row) => {
-        const pkg: Row = pkgById.get(r.package_id) || {};
-        return {
-          invite_id: r.id, name: pkg.name, amount: r.bid_amount, awarded_at: pkg.awarded_at,
-          contact_name: pkg.contact_name, contact_email: pkg.contact_email, contact_phone: pkg.contact_phone,
-          proposal: r.proposal_file_id && fileById.get(r.proposal_file_id) ? { id: r.proposal_file_id, name: (fileById.get(r.proposal_file_id) as Row).file_name } : null,
-        };
-      }),
+      scopes: [
+        ...mineInv.map((r: Row) => {
+          const pkg: Row = pkgById.get(r.package_id) || {};
+          return {
+            invite_id: r.id, name: pkg.name, amount: r.bid_amount, awarded_at: pkg.awarded_at,
+            contact_name: pkg.contact_name, contact_email: pkg.contact_email, contact_phone: pkg.contact_phone,
+            proposal: r.proposal_file_id && fileById.get(r.proposal_file_id) ? { id: r.proposal_file_id, name: (fileById.get(r.proposal_file_id) as Row).file_name } : null,
+          };
+        }),
+        ...mineAsg.map((a: Row) => ({
+          assignment_id: a.id, name: a.scope || null, amount: null, awarded_at: a.created_at,
+          contact_name: null, contact_email: null, contact_phone: null, proposal: null,
+        })),
+      ],
       coi_template: (() => {
         const t: Row = templateByProject.get(p.id);
         const f: Row = t && fileById.get(t.project_file_id);
@@ -546,22 +562,32 @@ async function saveProjectCoi(ctx: VendorContext, body: Row) {
   if (fileError) throw fileError;
 
   const now = new Date().toISOString();
-  const inviteIds = project.scopes.map((sc: Row) => sc.invite_id);
-  const { error } = await ctx.admin.from("bid_invites").update({ coi_file_id: fileRow.id, coi_received_at: now }).in("id", inviteIds);
-  if (error) throw error;
+  const inviteIds = project.scopes.map((sc: Row) => sc.invite_id).filter(Boolean);
+  const assignmentIds = project.scopes.map((sc: Row) => sc.assignment_id).filter(Boolean);
+  if (inviteIds.length) {
+    const { error } = await ctx.admin.from("bid_invites").update({ coi_file_id: fileRow.id, coi_received_at: now }).in("id", inviteIds);
+    if (error) throw error;
+  }
+  if (assignmentIds.length) {
+    const { error } = await ctx.admin.from("vendor_project_assignments").update({ coi_file_id: fileRow.id, coi_received_at: now }).in("id", assignmentIds);
+    if (error) throw error;
+  }
 
   // Bell for whoever set up those bid packages.
   // (Separate queries: bid_invites → bid_packages has two FKs, so an embed is ambiguous.)
   const { data: invRows } = await ctx.admin.from("bid_invites").select("package_id").in("id", inviteIds);
   const { data: pkgs } = await ctx.admin.from("bid_packages").select("created_by").in("id", [...new Set((invRows || []).map((r: Row) => r.package_id))]);
-  const creators = [...new Set((pkgs || []).map((r: Row) => r.created_by).filter(Boolean))];
+  const { data: asgRows } = assignmentIds.length
+    ? await ctx.admin.from("vendor_project_assignments").select("added_by").in("id", assignmentIds)
+    : { data: [] };
+  const creators = [...new Set([...(pkgs || []).map((r: Row) => r.created_by), ...(asgRows || []).map((r: Row) => r.added_by)].filter(Boolean))];
   if (creators.length) {
     await notifyStaff(ctx.admin, creators, {
       title: "COI received",
       message: `${companyName(ctx)} uploaded their COI for ${project.name}.`,
       type: "vendor_document",
-      link_url: `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${project.id}`,
-      link_label: "View bids",
+      link_url: inviteIds.length ? `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${project.id}` : `${STAFF_PORTAL_URL}/pages/vendor.html?id=${ctx.company!.id}`,
+      link_label: inviteIds.length ? "View bids" : "View vendor",
     });
   }
   return json({ ok: true });
