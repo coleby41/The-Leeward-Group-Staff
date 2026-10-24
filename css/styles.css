@@ -17638,3 +17638,36 @@ a.vd-proj__name:hover { color: var(--accent); }
 /* Add/Edit Vendor: the W-9 and COI groups (hidden when exempt) keep the
    form's normal spacing between their title, file input and notes. */
 #companyW9Section, #companyCoiSection { display: grid; gap: 14px; }
+
+/* Manage Projects popup — compact, corporate */
+#vdProjectsOverlay .vd-pm-intro { margin: 0 0 14px; color: var(--text-soft); font-size: .9rem; }
+#vdProjectsOverlay .vd-pm-table td, #vdProjectsOverlay .vd-pm-table th { padding: 10px 12px; font-size: .9rem; vertical-align: middle; }
+#vdProjectsOverlay .vd-pm-table .vd-status { font-size: .82rem; font-weight: 600; }
+.vd-pm-actions { display: flex; gap: 16px; justify-content: flex-end; white-space: nowrap; }
+.vd-link-btn { background: none; border: 0; padding: 0; font: inherit; font-size: .85rem; font-weight: 600; color: var(--accent); cursor: pointer; }
+.vd-link-btn:hover { text-decoration: underline; }
+.vd-link-btn--danger { color: var(--danger); }
+.vd-link-btn:disabled { opacity: .5; cursor: default; text-decoration: none; }
+.vd-pm-add { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--border, #e3e8ef); gap: 12px; }
+.vd-pm-check { display: flex; align-items: center; gap: 10px; font-size: .9rem; color: var(--text); cursor: pointer; }
+.vd-pm-check input { width: 16px; height: 16px; margin: 0; }
+.vd-pm-check:has(input:disabled) { opacity: .5; }
+.vd-pm-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.vd-pm-footer .auth-button { width: auto; padding-left: 22px; padding-right: 22px; }
+@media (max-width: 640px) {
+  .vd-pm-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .vd-pm-footer > * { flex: 1 1 0; }
+}
+.vd-pm-footer > * { flex: 0 0 auto; min-width: 0; }
+.vd-pm-footer .workbook-btn { padding: 0 20px; }
+#vdProjectMessage:empty { display: none; }
+@media (max-width: 640px) { .vd-pm-footer > * { flex: 1 1 0; } }
+@media (max-width: 640px) {
+  #vdProjectsOverlay .vd-pm-table thead { display: none; }
+  #vdProjectsOverlay .vd-pm-table table, #vdProjectsOverlay .vd-pm-table tbody { display: block; width: 100%; min-width: 0; }
+  #vdProjectsOverlay .vd-pm-table tr { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 0; border-bottom: 1px solid var(--border, #e3e8ef); }
+  #vdProjectsOverlay .vd-pm-table td { display: block; padding: 0; border: 0; }
+  #vdProjectsOverlay .vd-pm-table .vd-pm-source { grid-column: 1; font-size: .82rem; }
+  #vdProjectsOverlay .vd-pm-table td:nth-child(3) { grid-column: 2; grid-row: 1; text-align: right; }
+  #vdProjectsOverlay .vd-pm-table td:last-child { grid-column: 1 / -1; }
+}
