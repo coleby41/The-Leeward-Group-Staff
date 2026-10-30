@@ -2,6 +2,13 @@
    BID INVITES (beta) — Vendors page wizard
    More Actions › Generate A Invite Bid
 
+   First page: two cards (same look as Generate A Report) —
+           "Start A New Invite Bid" runs the 3 steps below;
+           "Continue With An Invite" picks a project, then one of its open
+           invites, and goes straight to picking vendors to add to it.
+           An invite belongs to a project (one bid_packages row); the
+           vendors are just who it's sent to (bid_invites rows).
+
    Step 1  Bid details: project, package name, trade tag, scope, dates,
            contact person (who vendors' questions go to), plans & specs (picked
            from the project's files or uploaded — uploads are saved to the
@@ -32,6 +39,9 @@
     const BIDS_SUBFOLDER = "bids";
     const CONTACT_STORAGE_KEY = "bidInviteContact";
     const STEP_LABELS = { 1: "Bid details", 2: "Pick vendors", 3: "Review & send" };
+    const CONTINUE_LABELS = { 2: "Add vendors", 3: "Review & send" };
+    const START_COPY = "Here you can start a new invite bid for a project or continue with an invite you've already sent.";
+    const PICK_COPY = "Pick the project, then the invite you want to add vendors to. Vendors already invited stay as they are.";
 
     const $ = id => document.getElementById(id);
 
@@ -44,6 +54,11 @@
     let autoSelectedForTag = null;  // so going back/forward doesn't re-tick vendors you un-ticked
     let sending = false;
     let doneProjectId = null;
+    let mode = "new";               // "new" or "continue" (adding vendors to an existing invite)
+    let existingPkg = null;         // the bid_packages row being continued
+    let alreadyInvited = new Set(); // company ids (string) already on existingPkg
+    let allPackages = [];           // bid_packages rows for the Continue list
+    let packageInviteCounts = {};   // package id -> vendors invited
 
     /* ---------- small helpers ---------- */
 
@@ -141,6 +156,9 @@
         sending = false;
         doneProjectId = null;
         projectFiles = [];
+        mode = "new";
+        existingPkg = null;
+        alreadyInvited = new Set();
 
         $("bidInviteForm").reset();
         $("bidDueTime").value = "14:00";
@@ -167,7 +185,8 @@
         resetForm();
         $("bidInviteOverlay").classList.remove("hidden");
         document.body.classList.add("popup-active");
-        showStep(1);
+        // The project tab's "+ New Invite" link skips the first page.
+        showStep(preselectProjectId ? 1 : "start");
 
         await Promise.all([loadProjects(), ensureVendorData()]);
         populateTradeTags();
@@ -175,6 +194,146 @@
             $("bidProjectSelect").value = String(preselectProjectId);
             onProjectChange();
         }
+    }
+
+    /* ---------- first page + Continue With An Invite ---------- */
+
+    function startNew() {
+        resetForm();
+        populateTradeTags();
+        showStep(1);
+    }
+
+    function fmtDue(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + ", " +
+            d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    }
+
+    // ISO -> values for <input type="date">, "time" and "datetime-local" (local time).
+    function isoToLocalParts(iso) {
+        if (!iso) return { date: "", time: "", local: "" };
+        const d = new Date(iso);
+        const pad = n => String(n).padStart(2, "0");
+        const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        return { date, time, local: `${date}T${time}` };
+    }
+
+    async function startContinue() {
+        resetForm();
+        populateTradeTags();
+        mode = "continue";
+        showStep("pick");
+        const select = $("bidContinueProjectSelect");
+        const list = $("bidContinueList");
+        select.innerHTML = `<option value="">Loading…</option>`;
+        list.innerHTML = "";
+
+        const { data, error } = await client()
+            .from("bid_packages")
+            .select("id, project_id, name, status, due_at, created_at")
+            .order("created_at", { ascending: false });
+        if (error) {
+            console.error("bid-invites: couldn't load invites", error);
+            select.innerHTML = `<option value="">Couldn't load invites</option>`;
+            return;
+        }
+        allPackages = data || [];
+        packageInviteCounts = {};
+        if (allPackages.length) {
+            const { data: inv } = await client().from("bid_invites").select("package_id").in("package_id", allPackages.map(p => p.id));
+            (inv || []).forEach(r => { packageInviteCounts[r.package_id] = (packageInviteCounts[r.package_id] || 0) + 1; });
+        }
+        if (!projects.length) await loadProjects();
+
+        // Only projects that have an invite.
+        const withInvites = projects.filter(p => allPackages.some(pkg => String(pkg.project_id) === String(p.id)));
+        if (!withInvites.length) {
+            select.innerHTML = `<option value="">No invites yet</option>`;
+            list.innerHTML = `<div class="empty-state">No invites have been sent yet. Go back and choose <strong>Start A New Invite Bid</strong>.</div>`;
+            return;
+        }
+        select.innerHTML = `<option value="">Choose a project</option>` + withInvites.map(p => {
+            const n = allPackages.filter(pkg => String(pkg.project_id) === String(p.id)).length;
+            return `<option value="${esc(p.id)}">${esc(p.name || "Untitled project")}${p.project_code ? ` (${esc(p.project_code)})` : ""} · ${n} invite${n === 1 ? "" : "s"}</option>`;
+        }).join("");
+        if (withInvites.length === 1) select.value = String(withInvites[0].id);
+        renderContinueList();
+    }
+
+    function packageBlocker(pkg) {
+        if (pkg.status === "awarded") return "Awarded";
+        if (pkg.status === "closed") return "Closed";
+        if (pkg.due_at && new Date(pkg.due_at).getTime() <= Date.now()) return "Bids already due";
+        return "";
+    }
+
+    function renderContinueList() {
+        const projectId = $("bidContinueProjectSelect").value;
+        const list = $("bidContinueList");
+        if (!projectId) { list.innerHTML = ""; return; }
+        const pkgs = allPackages.filter(p => String(p.project_id) === String(projectId));
+        list.innerHTML = pkgs.map(pkg => {
+            const blocked = packageBlocker(pkg);
+            const n = packageInviteCounts[pkg.id] || 0;
+            return `
+            <div class="bid-continue-item${blocked ? " is-disabled" : ""}">
+                <div class="bid-continue-item-text">
+                    <strong>${esc(pkg.name)}</strong>
+                    <span class="bid-cell-sub">Bids due ${esc(fmtDue(pkg.due_at))} · ${n} vendor${n === 1 ? "" : "s"} invited</span>
+                </div>
+                ${blocked
+                    ? `<span class="chip chip--muted">${esc(blocked)}</span>`
+                    : `<button type="button" class="auth-button auth-button--secondary" data-continue-pkg="${esc(pkg.id)}">Add Vendors</button>`}
+            </div>`;
+        }).join("");
+    }
+
+    async function choosePackage(packageId) {
+        setMessage("Loading the invite…", "");
+        const [pkgRes, filesRes, invRes] = await Promise.all([
+            client().from("bid_packages").select("*").eq("id", packageId).single(),
+            client().from("bid_package_files").select("sort_order, project_files(id, file_name)").eq("package_id", packageId).order("sort_order", { ascending: true }),
+            client().from("bid_invites").select("company_id").eq("package_id", packageId),
+        ]);
+        if (pkgRes.error || !pkgRes.data) {
+            setMessage(`Couldn't load the invite: ${pkgRes.error ? pkgRes.error.message : "not found"}.`, "error");
+            return;
+        }
+        const pkg = pkgRes.data;
+        const blocked = packageBlocker(pkg);
+        if (blocked) { setMessage(`This invite can't take more vendors (${blocked.toLowerCase()}).`, "error"); return; }
+
+        existingPkg = pkg;
+        alreadyInvited = new Set((invRes.data || []).map(r => String(r.company_id)).filter(id => id && id !== "null"));
+        chosenFiles = (filesRes.data || []).filter(r => r.project_files).map(r => ({ kind: "project", file: r.project_files }));
+
+        // Fill the (hidden) step 1 fields from the invite so the email
+        // preview and draft() read exactly what was sent before.
+        $("bidProjectSelect").value = String(pkg.project_id);
+        $("bidPackageName").value = pkg.name || "";
+        $("bidTradeTag").value = pkg.trade_tag_id ? String(pkg.trade_tag_id) : "";
+        $("bidScope").value = pkg.scope || "";
+        $("bidLocation").value = pkg.location || "";
+        const due = isoToLocalParts(pkg.due_at);
+        $("bidDueDate").value = due.date;
+        $("bidDueTime").value = due.time;
+        $("bidQuestionsDue").value = isoToLocalParts(pkg.questions_due_at).local;
+        $("bidWalkthroughToggle").checked = !!pkg.walkthrough_at;
+        $("bidWalkthroughFields").classList.toggle("hidden", !pkg.walkthrough_at);
+        $("bidWalkthroughAt").value = isoToLocalParts(pkg.walkthrough_at).local;
+        $("bidWalkthroughLocation").value = pkg.walkthrough_location || "Project site";
+        $("bidContactName").value = pkg.contact_name || "";
+        $("bidContactEmail").value = pkg.contact_email || "";
+        $("bidContactPhone").value = pkg.contact_phone || "";
+        $("bidRemindNoResponse").checked = pkg.remind_no_response !== false;
+        $("bidRemindBeforeDue").checked = pkg.remind_before_due !== false;
+        renderFiles();
+
+        showStep(2);
+        enterVendorStep();
     }
 
     function closeWizard() {
@@ -316,6 +475,7 @@
 
     // Approved + has an email contact = can be invited.
     function vendorState(company) {
+        if (alreadyInvited.has(String(company.id))) return { ok: false, invited: true, label: "Already invited", detail: "" };
         const missing = vendorMissing(company);
         if (missing.length) return { ok: false, label: "Not Approved", detail: `Missing: ${missing.join(", ")}` };
         if (!emailContacts(company.id).length) return { ok: false, label: "No email", detail: "Add a contact with an email on the vendor's card" };
@@ -365,7 +525,7 @@
                                ${contacts.map(c => `<option value="${esc(c.id)}" ${String(c.id) === chosenContact ? "selected" : ""}>${esc(c.Name || "Contact")} · ${esc(c.Email)}</option>`).join("")}
                            </select>`
                         : `<span class="bid-cell-sub">No contact email</span>`}</td>
-                    <td><span class="chip ${state.ok ? "chip--success" : "chip--danger"}" title="${esc(state.detail)}">${esc(state.label)}</span>${state.ok ? "" : `<span class="bid-cell-sub">${esc(state.detail)}</span>`}</td>
+                    <td><span class="chip ${state.ok ? "chip--success" : state.invited ? "chip--muted" : "chip--danger"}" title="${esc(state.detail)}">${esc(state.label)}</span>${state.ok || state.invited ? "" : `<span class="bid-cell-sub">${esc(state.detail)}</span>`}</td>
                 </tr>`;
             }).join("");
         }
@@ -375,7 +535,7 @@
         all.disabled = !invitable.length;
         all.checked = invitable.length > 0 && invitable.every(c => selected.has(String(c.id)));
 
-        const notOk = rows.filter(c => !vendorState(c).ok).length;
+        const notOk = rows.filter(c => { const st = vendorState(c); return !st.ok && !st.invited; }).length;
         $("bidVendorHint").textContent = notOk
             ? `${notOk} vendor${notOk === 1 ? "" : "s"} shown can't be invited until they're Approved and have a contact email.`
             : "";
@@ -397,6 +557,7 @@
             autoSelectedForTag = trade;
             if (trade) {
                 tagFilters = [String(trade)];
+                if (mode === "continue") { renderTagFilters(); renderVendors(); return; }
                 vendors().forEach(company => {
                     const hasTag = vendorTags(company.id).some(t => String(t.id) === String(trade));
                     if (hasTag && vendorState(company).ok && !selected.has(String(company.id))) {
@@ -494,17 +655,31 @@
         document.querySelectorAll("#bidInviteForm [data-bid-step]").forEach(section => {
             section.hidden = String(section.dataset.bidStep) !== String(next);
         });
+        const isMenu = next === "start" || next === "pick";
+        const cont = mode === "continue";
         const dots = document.querySelectorAll("#bidInviteProgress .wizard-progress-dot");
+        $("bidInviteProgress").classList.toggle("hidden", isMenu);
+        // Continuing skips bid details, so it's a 2-step flow.
+        if (dots[0]) dots[0].style.display = cont ? "none" : "";
         const n = next === "done" ? 4 : next;
         dots.forEach((dot, i) => {
             dot.classList.toggle("is-complete", i + 1 < n);
             dot.classList.toggle("is-current", i + 1 === n);
         });
-        $("bidInviteStepLabel").textContent = next === "done" ? "Sent" : `Step ${next} of 3 · ${STEP_LABELS[next]}`;
-        $("bidInviteBackBtn").style.display = next === 2 || next === 3 ? "" : "none";
+        $("bidInviteStepLabel").textContent =
+            next === "start" ? START_COPY
+            : next === "pick" ? PICK_COPY
+            : next === "done" ? "Sent"
+            : cont ? `Step ${next - 1} of 2 · ${CONTINUE_LABELS[next]}`
+            : `Step ${next} of 3 · ${STEP_LABELS[next]}`;
+        $("bidVendorStepNumber").textContent = cont ? "1" : "2";
+        $("bidReviewStepNumber").textContent = cont ? "2" : "3";
+        $("bidVendorStepTitle").textContent = cont && existingPkg ? `Add vendors to ${existingPkg.name}` : "Pick vendors";
+        $("bidInviteBackBtn").style.display = next === "pick" || next === 1 || next === 2 || next === 3 ? "" : "none";
         $("bidInviteCancelBtn").style.display = next === "done" ? "none" : "";
         $("bidOpenTrackerBtn").classList.toggle("hidden", next !== "done");
         const nextBtn = $("bidInviteNextBtn");
+        nextBtn.classList.toggle("hidden", isMenu);
         nextBtn.disabled = false;
         nextBtn.textContent = next === "done" ? "Close" : next === 3 ? "Send" : "Next";
         setMessage("");
@@ -534,7 +709,9 @@
 
     function onBack() {
         if (sending) return;
-        if (step === 2) showStep(1);
+        if (step === "pick" || step === 1) { resetForm(); showStep("start"); }
+        else if (step === 2 && mode === "continue") { existingPkg = null; alreadyInvited = new Set(); showStep("pick"); renderContinueList(); }
+        else if (step === 2) showStep(1);
         else if (step === 3) { showStep(2); renderTagFilters(); renderVendors(); }
     }
 
@@ -573,7 +750,71 @@
         }
     }
 
+    async function sendMore() {
+        const invites = selectedInvites().filter(i => !alreadyInvited.has(String(i.company.id)));
+        if (!invites.length) { showStep(2); enterVendorStep(); setMessage("Pick at least one vendor to add.", "error"); return; }
+        if (packageBlocker(existingPkg)) { setMessage("Bids for this invite are already due, so no more vendors can be added.", "error"); return; }
+
+        const pkg = existingPkg;
+        const nextBtn = $("bidInviteNextBtn");
+        sending = true;
+        nextBtn.disabled = true;
+        nextBtn.textContent = "Sending…";
+        setMessage("Adding vendors to the invite…", "");
+
+        const remind = { remind_no_response: $("bidRemindNoResponse").checked, remind_before_due: $("bidRemindBeforeDue").checked };
+        if (remind.remind_no_response !== (pkg.remind_no_response !== false) || remind.remind_before_due !== (pkg.remind_before_due !== false)) {
+            await client().from("bid_packages").update(remind).eq("id", pkg.id).then(() => {}, () => {});
+        }
+
+        const { error: invitesError } = await client().from("bid_invites").insert(invites.map(i => ({
+            package_id: pkg.id,
+            company_id: i.company.id,
+            company_name: String(i.company.Name || "").trim() || "Vendor",
+            contact_name: i.contact.Name || null,
+            contact_email: String(i.contact.Email).trim(),
+        })));
+        if (invitesError) {
+            console.error("bid-invites: adding vendors failed", invitesError);
+            sending = false;
+            nextBtn.disabled = false;
+            updateSelectedCount();
+            setMessage(`Couldn't add the vendors: ${invitesError.message || invitesError}. Nothing was sent.`, "error");
+            return;
+        }
+
+        setMessage(`Emailing ${invites.length} vendor${invites.length === 1 ? "" : "s"}…`, "");
+        // "send" only emails this invite's pending/failed vendors, so the
+        // ones already sent don't get it twice.
+        const { data, error } = await callBidFunction({ action: "send", package_id: pkg.id });
+        sending = false;
+        finishSend(pkg.project_id, pkg.name, data, error);
+    }
+
+    function finishSend(projectId, packageName, data, error) {
+        doneProjectId = projectId;
+        $("bidOpenTrackerBtn").href = `/pages/project-bid-invites.html?id=${encodeURIComponent(projectId)}`;
+        const summary = $("bidDoneSummary");
+        const failuresEl = $("bidDoneFailures");
+        failuresEl.innerHTML = "";
+        showStep("done");
+
+        if (error) {
+            summary.classList.add("is-warning");
+            summary.textContent = `The invite was saved, but the emails didn't go out: ${error}. Use "Retry" on the project's Bid Invites tab once that's fixed.`;
+            return;
+        }
+        const failed = data.failed || [];
+        summary.classList.toggle("is-warning", failed.length > 0);
+        summary.textContent = failed.length
+            ? `Sent to ${data.sent} of ${data.sent + failed.length} vendors. These didn't go out — fix the email and retry from the Bid Invites tab:`
+            : `Invitation to Bid sent to ${data.sent} vendor${data.sent === 1 ? "" : "s"} for ${packageName}.`;
+        failuresEl.innerHTML = failed.map(f => `<li><strong>${esc(f.company_name)}</strong> — ${esc(f.error)}</li>`).join("");
+        if (!failed.length && typeof window.showToast === "function") window.showToast("Bid invites sent");
+    }
+
     async function send() {
+        if (mode === "continue") { await sendMore(); return; }
         const problem = validateStep1();
         if (problem) { showStep(1); setMessage(problem, "error"); return; }
         const invites = selectedInvites();
@@ -640,26 +881,7 @@
         setMessage(`Emailing ${invites.length} vendor${invites.length === 1 ? "" : "s"}…`, "");
         const { data, error } = await callBidFunction({ action: "send", package_id: packageId });
         sending = false;
-        doneProjectId = project.id;
-        $("bidOpenTrackerBtn").href = `/pages/project-bid-invites.html?id=${encodeURIComponent(project.id)}`;
-
-        const summary = $("bidDoneSummary");
-        const failuresEl = $("bidDoneFailures");
-        failuresEl.innerHTML = "";
-        showStep("done");
-
-        if (error) {
-            summary.classList.add("is-warning");
-            summary.textContent = `The invite was saved, but the emails didn't go out: ${error}. Use "Retry" on the project's Bid Invites tab once that's fixed.`;
-            return;
-        }
-        const failed = data.failed || [];
-        summary.classList.toggle("is-warning", failed.length > 0);
-        summary.textContent = failed.length
-            ? `Sent to ${data.sent} of ${data.sent + failed.length} vendors. These didn't go out — fix the email and retry from the Bid Invites tab:`
-            : `Invitation to Bid sent to ${data.sent} vendor${data.sent === 1 ? "" : "s"} for ${d.name}.`;
-        failuresEl.innerHTML = failed.map(f => `<li><strong>${esc(f.company_name)}</strong> — ${esc(f.error)}</li>`).join("");
-        if (!failed.length && typeof window.showToast === "function") window.showToast("Bid invites sent");
+        finishSend(project.id, d.name, data, error);
     }
 
     /* ---------- wiring ---------- */
@@ -673,6 +895,13 @@
         $("bidInviteBackBtn").addEventListener("click", onBack);
         $("bidInviteNextBtn").addEventListener("click", onNext);
         $("bidInviteForm").addEventListener("submit", e => e.preventDefault());
+        $("bidStartNewBtn").addEventListener("click", startNew);
+        $("bidContinueBtn").addEventListener("click", startContinue);
+        $("bidContinueProjectSelect").addEventListener("change", renderContinueList);
+        $("bidContinueList").addEventListener("click", e => {
+            const btn = e.target.closest("[data-continue-pkg]");
+            if (btn) choosePackage(btn.dataset.continuePkg);
+        });
         document.addEventListener("keydown", e => {
             if (e.key === "Escape" && !$("bidInviteOverlay").classList.contains("hidden")) closeWizard();
         });
