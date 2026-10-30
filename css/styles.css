@@ -17742,3 +17742,79 @@ a.vd-proj__name:hover { color: var(--accent); }
   color: var(--danger);
   cursor: pointer;
 }
+
+/* ===========================================================
+   "Portal Member(s)" gold pill — next to a vendor's name when it has an
+   active Vendor Portal login (vendor page header + Vendors list cards/rows).
+=========================================================== */
+.portal-member-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  vertical-align: middle;
+  margin-left: 6px;
+  padding: 3px 10px 3px 8px;
+  border: 1px solid #d79e12;
+  border-radius: 999px;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.4;
+  text-transform: uppercase;
+  color: #5a3d00;
+  background: linear-gradient(135deg, #fff3c4 0%, #f6cf57 45%, #e0a91c 100%);
+  box-shadow: 0 0 0 3px rgba(246, 196, 60, 0.2), 0 0 12px rgba(240, 180, 30, 0.5);
+  animation: portalPillGlow 2.6s ease-in-out infinite;
+}
+
+/* crown */
+.portal-member-pill::before {
+  content: "";
+  flex-shrink: 0;
+  width: 11px;
+  height: 11px;
+  background: #5a3d00;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+/* shine sweep */
+.portal-member-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.75) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: portalPillShine 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* Vendors list cards/rows: its own line under the name, so long names wrap cleanly */
+.company-card-name .portal-member-pill {
+  display: flex;
+  width: fit-content;
+  margin: 6px 0 2px;
+}
+
+.vd-head h1 .portal-member-pill {
+  margin-left: 0;
+  font-size: 0.72rem;
+  padding: 4px 11px 4px 9px;
+}
+
+@keyframes portalPillGlow {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(246, 196, 60, 0.18), 0 0 10px rgba(240, 180, 30, 0.4); }
+  50%      { box-shadow: 0 0 0 4px rgba(246, 196, 60, 0.3), 0 0 20px rgba(240, 180, 30, 0.75); }
+}
+
+@keyframes portalPillShine {
+  0%, 60% { transform: translateX(-120%); }
+  100%    { transform: translateX(120%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-member-pill, .portal-member-pill::after { animation: none; }
+}

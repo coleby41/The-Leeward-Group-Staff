@@ -32,6 +32,8 @@ let allTags = [];          // [{ id, category_id, name }]
 let allCompanyTags = [];   // [{ id, company_id, tag_id }]
 
 let allCompanies = [];
+// company id (string) -> names of that vendor's active Vendor Portal logins.
+let portalMembersByCompany = new Map();
 
 // All contacts for every vendor, loaded once up front (same "load
 // everything, filter in memory" pattern as allCompanyTags above) so the
@@ -444,10 +446,13 @@ async function loadCompanies() {
     if (loadingState) loadingState.style.display = "block";
     if (emptyState) emptyState.style.display = "none";
 
-    const { data, error } = await window.supabaseClient
-        .from(COMPANIES_TABLE)
-        .select("*")
-        .order("Name", { ascending: true });
+    const [{ data, error }] = await Promise.all([
+        window.supabaseClient
+            .from(COMPANIES_TABLE)
+            .select("*")
+            .order("Name", { ascending: true }),
+        loadPortalMembers(),
+    ]);
 
     if (loadingState) loadingState.style.display = "none";
 
@@ -466,6 +471,33 @@ async function loadCompanies() {
     }
 
     renderCompanies(allCompanies);
+}
+
+// Active Vendor Portal logins per vendor, for the gold "Portal Member(s)"
+// pill next to the name (Coleby, 2026-10-29). vendor_users only exists once
+// sql/supabase-vendor-portal-setup.sql has run, so a failure just means no pills.
+async function loadPortalMembers() {
+    portalMembersByCompany = new Map();
+    try {
+        const { data, error } = await window.supabaseClient
+            .from("vendor_users")
+            .select("company_id, name, email")
+            .eq("status", "active")
+            .not("company_id", "is", null);
+        if (error) return;
+        (data || []).forEach(u => {
+            const k = String(u.company_id);
+            if (!portalMembersByCompany.has(k)) portalMembersByCompany.set(k, []);
+            portalMembersByCompany.get(k).push(u.name || u.email || "Member");
+        });
+    } catch (e) { /* no pills */ }
+}
+
+function portalMemberPillHtml(companyId) {
+    const names = portalMembersByCompany.get(String(companyId)) || [];
+    if (!names.length) return "";
+    const label = names.length === 1 ? "Portal Member" : "Portal Members";
+    return ` <span class="portal-member-pill" title="Vendor Portal logins: ${escapeHtmlCompanies(names.join(", "))}">${label}</span>`;
 }
 
 // Builds a visually-hidden span carrying everything about this vendor
@@ -526,7 +558,7 @@ function renderCompanies(companies) {
                     <span class="company-edit-icon"></span>
                 </button>
 
-                <h3 class="company-card-name">${escapeHtmlCompanies(company.Name || "Unnamed company")}</h3>
+                <h3 class="company-card-name">${escapeHtmlCompanies(company.Name || "Unnamed company")}${portalMemberPillHtml(company.id)}</h3>
 
                 <div class="company-card-address">
                     ${address.street ? `<p>${escapeHtmlCompanies(address.street)}</p>` : ""}

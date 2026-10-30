@@ -186,6 +186,18 @@
         $("vdCrumbName").textContent = company.Name || "Vendor";
         $("vdName").textContent = company.Name || "Unnamed vendor";
 
+        // Gold "Portal Member(s)" pill when the vendor has an active Vendor Portal login (Coleby, 2026-10-29).
+        document.getElementById("vdPortalPill")?.remove();
+        const members = logins.filter(l => l.status === "active");
+        if (members.length) {
+            const pill = document.createElement("span");
+            pill.id = "vdPortalPill";
+            pill.className = "portal-member-pill";
+            pill.textContent = members.length === 1 ? "Portal Member" : "Portal Members";
+            pill.title = `Vendor Portal logins: ${members.map(m => m.name || m.email).join(", ")}`;
+            $("vdHeadStatus").before(pill);
+        }
+
         const approved = missingRequirements().length === 0;
         const status = $("vdHeadStatus");
         status.textContent = approved ? "Approved" : "Not Approved";
