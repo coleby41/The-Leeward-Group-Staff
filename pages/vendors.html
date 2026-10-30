@@ -1158,7 +1158,7 @@
                             <span class="report-card-icon-glyph report-card-icon-glyph--new-invite"></span>
                         </div>
                         <h3>Start A New Invite Bid</h3>
-                        <p>Set up an invite for a project &mdash; scope, due date and plans &mdash; then pick the vendors to send it to.</p>
+                        <p>Set up an invite for a project &mdash; scope, due date and plans &mdash; then pick the vendors to send it to. Save it as a draft any time.</p>
                         <button type="button" class="auth-button auth-button--secondary" id="bidStartNewBtn">
                             Start Invite
                         </button>
@@ -1169,7 +1169,7 @@
                             <span class="report-card-icon-glyph report-card-icon-glyph--continue-invite"></span>
                         </div>
                         <h3>Continue With An Invite</h3>
-                        <p>Pick a project's invite you already sent and add more vendors to it.</p>
+                        <p>Pick up an invite that was started but not sent yet, right where it was left.</p>
                         <button type="button" class="auth-button auth-button--secondary" id="bidContinueBtn">
                             Continue Invite
                         </button>
@@ -1178,13 +1178,9 @@
                 </div>
             </section>
 
-            <!-- Continue: pick the project, then its invite -->
+            <!-- Continue: a card for every invite started but not sent yet -->
             <section class="bid-step" data-bid-step="pick" hidden>
-                <label class="auth-field">
-                    Project
-                    <select id="bidContinueProjectSelect"><option value="">Loading…</option></select>
-                </label>
-                <div class="bid-continue-list" id="bidContinueList"></div>
+                <div class="bid-draft-grid" id="bidDraftList"></div>
             </section>
 
             <!-- Step 1: bid details -->
@@ -1298,9 +1294,9 @@
             <!-- Step 2: pick vendors -->
             <section class="bid-step" data-bid-step="2" hidden>
                 <div class="wizard-step-header">
-                    <span class="wizard-step-number" id="bidVendorStepNumber">2</span>
+                    <span class="wizard-step-number">2</span>
                     <div>
-                        <p class="wizard-step-header-title" id="bidVendorStepTitle">Pick vendors</p>
+                        <p class="wizard-step-header-title">Pick vendors</p>
                         <p class="wizard-step-header-hint">Only Approved vendors with a contact email can be invited. Each one gets their own email.</p>
                     </div>
                 </div>
@@ -1331,7 +1327,7 @@
             <!-- Step 3: review & send -->
             <section class="bid-step" data-bid-step="3" hidden>
                 <div class="wizard-step-header">
-                    <span class="wizard-step-number" id="bidReviewStepNumber">3</span>
+                    <span class="wizard-step-number">3</span>
                     <div>
                         <p class="wizard-step-header-title">This is the email each vendor gets</p>
                         <p class="wizard-step-header-hint">Sent separately — vendors don't see each other. The button signs them into the Vendor Portal to bid; replies go to your contact person.</p>
@@ -1378,6 +1374,7 @@
 
         <div class="wizard-actions-primary" id="bidInviteActions">
             <span class="bid-selected-count hidden" id="bidSelectedCount"></span>
+            <button type="button" class="auth-button auth-button--secondary hidden" id="bidSaveDraftBtn">Save Draft</button>
             <a href="#" class="auth-button auth-button--secondary hidden" id="bidOpenTrackerBtn" style="text-decoration:none; text-align:center;">Open Bid Invites</a>
             <button type="button" class="auth-button" id="bidInviteNextBtn">Next</button>
         </div>

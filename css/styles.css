@@ -17685,40 +17685,60 @@ a.vd-proj__name:hover { color: var(--accent); }
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='m3 7 9 6 9-6'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 
-.bid-continue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* Generate A Invite Bid — Continue With An Invite: draft cards */
+.bid-draft-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  margin-top: 8px;
 }
 
-.bid-continue-item {
+.bid-draft-grid > .empty-state {
+  grid-column: 1 / -1;
+}
+
+.bid-draft-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-alt);
 }
 
-.bid-continue-item.is-disabled {
-  opacity: 0.6;
+.bid-draft-card h3 {
+  margin: 0 0 4px;
+  font-size: 0.98rem;
 }
 
-.bid-continue-item-text {
+.bid-draft-card-project {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #085c98;
+}
+
+.bid-draft-card-actions {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
-.bid-continue-item .auth-button {
-  width: auto;
-  flex-shrink: 0;
+.bid-draft-card-actions .auth-button {
+  flex: 1;
 }
 
-@media (max-width: 600px) {
-  .bid-continue-item { flex-direction: column; align-items: stretch; }
-  .bid-continue-item .auth-button { width: 100%; }
+.bid-draft-delete {
+  border: 0;
+  background: none;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--danger);
+  cursor: pointer;
 }

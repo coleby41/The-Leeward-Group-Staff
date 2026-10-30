@@ -186,6 +186,20 @@ create table if not exists public.bid_packages (
 
 create index if not exists bid_packages_project_id_idx on public.bid_packages (project_id);
 
+-- Drafts (2026-10-29): Generate A Invite Bid › Save Draft saves the invite
+-- with status 'draft' and the picked vendors in draft_vendors
+-- ([{company_id, contact_id}]). Drafts have no bid_invites rows, so vendors,
+-- reminders and the project's Bid Invites tab never see them. A draft may
+-- not have its due date or contact yet, so those can be empty until it's
+-- sent (the wizard requires them before sending).
+alter table public.bid_packages add column if not exists draft_vendors jsonb;
+alter table public.bid_packages alter column due_at drop not null;
+alter table public.bid_packages alter column contact_name drop not null;
+alter table public.bid_packages alter column contact_email drop not null;
+alter table public.bid_packages drop constraint if exists bid_packages_status_check;
+alter table public.bid_packages add constraint bid_packages_status_check
+  check (status in ('draft', 'open', 'awarded', 'closed'));
+
 create table if not exists public.bid_package_files (
   id uuid primary key default gen_random_uuid(),
   package_id uuid not null references public.bid_packages(id) on delete cascade,

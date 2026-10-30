@@ -184,6 +184,7 @@
             .from("bid_packages")
             .select("*")
             .eq("project_id", project.id)
+            .neq("status", "draft") // drafts aren't sent yet; they live in Vendors › Generate A Invite Bid › Continue
             .order("created_at", { ascending: false });
         if (error) {
             $("bidLoading").style.display = "none";

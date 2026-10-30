@@ -4,8 +4,13 @@
 
    First page: two cards (same look as Generate A Report) —
            "Start A New Invite Bid" runs the 3 steps below;
-           "Continue With An Invite" picks a project, then one of its open
-           invites, and goes straight to picking vendors to add to it.
+           "Continue With An Invite" shows a card for every invite that was
+           started but not sent yet (bid_packages.status = 'draft') and
+           reopens it where it was left.
+           "Save Draft" (steps 1–3) saves the invite as a draft. A draft has
+           no bid_invites rows — the picked vendors are kept in
+           bid_packages.draft_vendors — so vendors, reminders and the
+           project's Bid Invites tab never see it.
            An invite belongs to a project (one bid_packages row); the
            vendors are just who it's sent to (bid_invites rows).
 
@@ -39,9 +44,8 @@
     const BIDS_SUBFOLDER = "bids";
     const CONTACT_STORAGE_KEY = "bidInviteContact";
     const STEP_LABELS = { 1: "Bid details", 2: "Pick vendors", 3: "Review & send" };
-    const CONTINUE_LABELS = { 2: "Add vendors", 3: "Review & send" };
     const START_COPY = "Here you can start a new invite bid for a project or continue with an invite you've already sent.";
-    const PICK_COPY = "Pick the project, then the invite you want to add vendors to. Vendors already invited stay as they are.";
+    const PICK_COPY = "These invites were started but haven't been sent yet. Pick one to keep going.";
 
     const $ = id => document.getElementById(id);
 
@@ -54,11 +58,8 @@
     let autoSelectedForTag = null;  // so going back/forward doesn't re-tick vendors you un-ticked
     let sending = false;
     let doneProjectId = null;
-    let mode = "new";               // "new" or "continue" (adding vendors to an existing invite)
-    let existingPkg = null;         // the bid_packages row being continued
-    let alreadyInvited = new Set(); // company ids (string) already on existingPkg
-    let allPackages = [];           // bid_packages rows for the Continue list
-    let packageInviteCounts = {};   // package id -> vendors invited
+    let draftId = null;             // bid_packages id when this invite has been saved as a draft
+    let drafts = [];                // draft bid_packages rows for the Continue cards
 
     /* ---------- small helpers ---------- */
 
@@ -156,9 +157,7 @@
         sending = false;
         doneProjectId = null;
         projectFiles = [];
-        mode = "new";
-        existingPkg = null;
-        alreadyInvited = new Set();
+        draftId = null;
 
         $("bidInviteForm").reset();
         $("bidDueTime").value = "14:00";
@@ -196,7 +195,7 @@
         }
     }
 
-    /* ---------- first page + Continue With An Invite ---------- */
+    /* ---------- first page + Continue With An Invite (drafts) ---------- */
 
     function startNew() {
         resetForm();
@@ -209,6 +208,11 @@
         const d = new Date(iso);
         return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) + ", " +
             d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    }
+
+    function fmtSaved(iso) {
+        if (!iso) return "";
+        return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
     }
 
     // ISO -> values for <input type="date">, "time" and "datetime-local" (local time).
@@ -224,116 +228,115 @@
     async function startContinue() {
         resetForm();
         populateTradeTags();
-        mode = "continue";
         showStep("pick");
-        const select = $("bidContinueProjectSelect");
-        const list = $("bidContinueList");
-        select.innerHTML = `<option value="">Loading…</option>`;
-        list.innerHTML = "";
+        const list = $("bidDraftList");
+        list.innerHTML = `<div class="empty-state">Loading drafts…</div>`;
 
         const { data, error } = await client()
             .from("bid_packages")
-            .select("id, project_id, name, status, due_at, created_at")
-            .order("created_at", { ascending: false });
+            .select("id, project_id, name, due_at, draft_vendors, created_by_name, updated_at")
+            .eq("status", "draft")
+            .order("updated_at", { ascending: false });
         if (error) {
-            console.error("bid-invites: couldn't load invites", error);
-            select.innerHTML = `<option value="">Couldn't load invites</option>`;
+            console.error("bid-invites: couldn't load drafts", error);
+            list.innerHTML = `<div class="empty-state">Couldn't load drafts: ${esc(error.message)}. Has the latest vendor portal SQL been run?</div>`;
             return;
         }
-        allPackages = data || [];
-        packageInviteCounts = {};
-        if (allPackages.length) {
-            const { data: inv } = await client().from("bid_invites").select("package_id").in("package_id", allPackages.map(p => p.id));
-            (inv || []).forEach(r => { packageInviteCounts[r.package_id] = (packageInviteCounts[r.package_id] || 0) + 1; });
-        }
+        drafts = data || [];
         if (!projects.length) await loadProjects();
+        renderDrafts();
+    }
 
-        // Only projects that have an invite.
-        const withInvites = projects.filter(p => allPackages.some(pkg => String(pkg.project_id) === String(p.id)));
-        if (!withInvites.length) {
-            select.innerHTML = `<option value="">No invites yet</option>`;
-            list.innerHTML = `<div class="empty-state">No invites have been sent yet. Go back and choose <strong>Start A New Invite Bid</strong>.</div>`;
+    function renderDrafts() {
+        const list = $("bidDraftList");
+        if (!drafts.length) {
+            list.innerHTML = `<div class="empty-state">No drafts. Invites you save with <strong>Save Draft</strong> show up here until they're sent.</div>`;
             return;
         }
-        select.innerHTML = `<option value="">Choose a project</option>` + withInvites.map(p => {
-            const n = allPackages.filter(pkg => String(pkg.project_id) === String(p.id)).length;
-            return `<option value="${esc(p.id)}">${esc(p.name || "Untitled project")}${p.project_code ? ` (${esc(p.project_code)})` : ""} · ${n} invite${n === 1 ? "" : "s"}</option>`;
-        }).join("");
-        if (withInvites.length === 1) select.value = String(withInvites[0].id);
-        renderContinueList();
-    }
-
-    function packageBlocker(pkg) {
-        if (pkg.status === "awarded") return "Awarded";
-        if (pkg.status === "closed") return "Closed";
-        if (pkg.due_at && new Date(pkg.due_at).getTime() <= Date.now()) return "Bids already due";
-        return "";
-    }
-
-    function renderContinueList() {
-        const projectId = $("bidContinueProjectSelect").value;
-        const list = $("bidContinueList");
-        if (!projectId) { list.innerHTML = ""; return; }
-        const pkgs = allPackages.filter(p => String(p.project_id) === String(projectId));
-        list.innerHTML = pkgs.map(pkg => {
-            const blocked = packageBlocker(pkg);
-            const n = packageInviteCounts[pkg.id] || 0;
+        list.innerHTML = drafts.map(pkg => {
+            const project = projects.find(p => String(p.id) === String(pkg.project_id));
+            const n = Array.isArray(pkg.draft_vendors) ? pkg.draft_vendors.length : 0;
             return `
-            <div class="bid-continue-item${blocked ? " is-disabled" : ""}">
-                <div class="bid-continue-item-text">
-                    <strong>${esc(pkg.name)}</strong>
-                    <span class="bid-cell-sub">Bids due ${esc(fmtDue(pkg.due_at))} · ${n} vendor${n === 1 ? "" : "s"} invited</span>
+            <div class="bid-draft-card">
+                <span class="bid-draft-card-project">${esc(project ? project.name : "Project")}</span>
+                <h3>${esc(pkg.name || "Untitled invite")}</h3>
+                <span class="bid-cell-sub">${pkg.due_at ? `Bids due ${esc(fmtDue(pkg.due_at))}` : "No due date yet"}</span>
+                <span class="bid-cell-sub">${n} vendor${n === 1 ? "" : "s"} picked</span>
+                <span class="bid-cell-sub">Saved ${esc(fmtSaved(pkg.updated_at))}${pkg.created_by_name ? ` · started by ${esc(pkg.created_by_name)}` : ""}</span>
+                <div class="bid-draft-card-actions">
+                    <button type="button" class="auth-button auth-button--secondary" data-open-draft="${esc(pkg.id)}">Continue</button>
+                    <button type="button" class="bid-draft-delete" data-delete-draft="${esc(pkg.id)}">Delete</button>
                 </div>
-                ${blocked
-                    ? `<span class="chip chip--muted">${esc(blocked)}</span>`
-                    : `<button type="button" class="auth-button auth-button--secondary" data-continue-pkg="${esc(pkg.id)}">Add Vendors</button>`}
             </div>`;
         }).join("");
     }
 
-    async function choosePackage(packageId) {
-        setMessage("Loading the invite…", "");
-        const [pkgRes, filesRes, invRes] = await Promise.all([
+    // Delete takes two clicks (no browser confirm dialog).
+    async function deleteDraft(btn) {
+        if (btn.dataset.armed !== "1") {
+            btn.dataset.armed = "1";
+            btn.textContent = "Click again to delete";
+            setTimeout(() => { if (btn.isConnected) { btn.dataset.armed = ""; btn.textContent = "Delete"; } }, 4000);
+            return;
+        }
+        const id = btn.dataset.deleteDraft;
+        // Files stay in the project; only the draft (and its file links) goes.
+        const { error } = await client().from("bid_packages").delete().eq("id", id).eq("status", "draft");
+        if (error) { setMessage(`Couldn't delete the draft: ${error.message}`, "error"); return; }
+        drafts = drafts.filter(d => String(d.id) !== String(id));
+        renderDrafts();
+        if (typeof window.showToast === "function") window.showToast("Draft deleted");
+    }
+
+    async function openDraft(packageId) {
+        setMessage("Loading the draft…", "");
+        const [pkgRes, filesRes] = await Promise.all([
             client().from("bid_packages").select("*").eq("id", packageId).single(),
-            client().from("bid_package_files").select("sort_order, project_files(id, file_name)").eq("package_id", packageId).order("sort_order", { ascending: true }),
-            client().from("bid_invites").select("company_id").eq("package_id", packageId),
+            client().from("bid_package_files").select("sort_order, project_files(id, file_name, category, subfolder, sub_subfolder, bucket, storage_path, created_at)").eq("package_id", packageId).order("sort_order", { ascending: true }),
         ]);
         if (pkgRes.error || !pkgRes.data) {
-            setMessage(`Couldn't load the invite: ${pkgRes.error ? pkgRes.error.message : "not found"}.`, "error");
+            setMessage(`Couldn't load the draft: ${pkgRes.error ? pkgRes.error.message : "not found"}.`, "error");
             return;
         }
         const pkg = pkgRes.data;
-        const blocked = packageBlocker(pkg);
-        if (blocked) { setMessage(`This invite can't take more vendors (${blocked.toLowerCase()}).`, "error"); return; }
+        if (pkg.status !== "draft") { setMessage("This invite has already been sent.", "error"); return; }
 
-        existingPkg = pkg;
-        alreadyInvited = new Set((invRes.data || []).map(r => String(r.company_id)).filter(id => id && id !== "null"));
+        draftId = pkg.id;
+        $("bidProjectSelect").value = String(pkg.project_id);
+        await onProjectChange(); // loads the project's files for the picker
         chosenFiles = (filesRes.data || []).filter(r => r.project_files).map(r => ({ kind: "project", file: r.project_files }));
 
-        // Fill the (hidden) step 1 fields from the invite so the email
-        // preview and draft() read exactly what was sent before.
-        $("bidProjectSelect").value = String(pkg.project_id);
         $("bidPackageName").value = pkg.name || "";
         $("bidTradeTag").value = pkg.trade_tag_id ? String(pkg.trade_tag_id) : "";
         $("bidScope").value = pkg.scope || "";
         $("bidLocation").value = pkg.location || "";
+        $("bidLocation").dataset.auto = "0";
         const due = isoToLocalParts(pkg.due_at);
         $("bidDueDate").value = due.date;
-        $("bidDueTime").value = due.time;
+        $("bidDueTime").value = due.time || "14:00";
         $("bidQuestionsDue").value = isoToLocalParts(pkg.questions_due_at).local;
         $("bidWalkthroughToggle").checked = !!pkg.walkthrough_at;
         $("bidWalkthroughFields").classList.toggle("hidden", !pkg.walkthrough_at);
         $("bidWalkthroughAt").value = isoToLocalParts(pkg.walkthrough_at).local;
         $("bidWalkthroughLocation").value = pkg.walkthrough_location || "Project site";
-        $("bidContactName").value = pkg.contact_name || "";
-        $("bidContactEmail").value = pkg.contact_email || "";
-        $("bidContactPhone").value = pkg.contact_phone || "";
+        if (pkg.contact_name) $("bidContactName").value = pkg.contact_name;
+        if (pkg.contact_email) $("bidContactEmail").value = pkg.contact_email;
+        if (pkg.contact_phone) $("bidContactPhone").value = pkg.contact_phone;
         $("bidRemindNoResponse").checked = pkg.remind_no_response !== false;
         $("bidRemindBeforeDue").checked = pkg.remind_before_due !== false;
-        renderFiles();
 
-        showStep(2);
-        enterVendorStep();
+        // Picked vendors — skip any that were deleted since.
+        selected = new Map();
+        (Array.isArray(pkg.draft_vendors) ? pkg.draft_vendors : []).forEach(v => {
+            const id = String(v.company_id);
+            if (vendors().some(c => String(c.id) === id)) selected.set(id, String(v.contact_id || ""));
+        });
+        // Don't re-tick vendors for the trade tag; the draft already has its picks.
+        autoSelectedForTag = $("bidTradeTag").value;
+
+        renderFiles();
+        renderFilePicker();
+        showStep(1);
     }
 
     function closeWizard() {
@@ -475,7 +478,6 @@
 
     // Approved + has an email contact = can be invited.
     function vendorState(company) {
-        if (alreadyInvited.has(String(company.id))) return { ok: false, invited: true, label: "Already invited", detail: "" };
         const missing = vendorMissing(company);
         if (missing.length) return { ok: false, label: "Not Approved", detail: `Missing: ${missing.join(", ")}` };
         if (!emailContacts(company.id).length) return { ok: false, label: "No email", detail: "Add a contact with an email on the vendor's card" };
@@ -525,7 +527,7 @@
                                ${contacts.map(c => `<option value="${esc(c.id)}" ${String(c.id) === chosenContact ? "selected" : ""}>${esc(c.Name || "Contact")} · ${esc(c.Email)}</option>`).join("")}
                            </select>`
                         : `<span class="bid-cell-sub">No contact email</span>`}</td>
-                    <td><span class="chip ${state.ok ? "chip--success" : state.invited ? "chip--muted" : "chip--danger"}" title="${esc(state.detail)}">${esc(state.label)}</span>${state.ok || state.invited ? "" : `<span class="bid-cell-sub">${esc(state.detail)}</span>`}</td>
+                    <td><span class="chip ${state.ok ? "chip--success" : "chip--danger"}" title="${esc(state.detail)}">${esc(state.label)}</span>${state.ok ? "" : `<span class="bid-cell-sub">${esc(state.detail)}</span>`}</td>
                 </tr>`;
             }).join("");
         }
@@ -535,7 +537,7 @@
         all.disabled = !invitable.length;
         all.checked = invitable.length > 0 && invitable.every(c => selected.has(String(c.id)));
 
-        const notOk = rows.filter(c => { const st = vendorState(c); return !st.ok && !st.invited; }).length;
+        const notOk = rows.filter(c => !vendorState(c).ok).length;
         $("bidVendorHint").textContent = notOk
             ? `${notOk} vendor${notOk === 1 ? "" : "s"} shown can't be invited until they're Approved and have a contact email.`
             : "";
@@ -557,7 +559,6 @@
             autoSelectedForTag = trade;
             if (trade) {
                 tagFilters = [String(trade)];
-                if (mode === "continue") { renderTagFilters(); renderVendors(); return; }
                 vendors().forEach(company => {
                     const hasTag = vendorTags(company.id).some(t => String(t.id) === String(trade));
                     if (hasTag && vendorState(company).ok && !selected.has(String(company.id))) {
@@ -656,11 +657,8 @@
             section.hidden = String(section.dataset.bidStep) !== String(next);
         });
         const isMenu = next === "start" || next === "pick";
-        const cont = mode === "continue";
         const dots = document.querySelectorAll("#bidInviteProgress .wizard-progress-dot");
         $("bidInviteProgress").classList.toggle("hidden", isMenu);
-        // Continuing skips bid details, so it's a 2-step flow.
-        if (dots[0]) dots[0].style.display = cont ? "none" : "";
         const n = next === "done" ? 4 : next;
         dots.forEach((dot, i) => {
             dot.classList.toggle("is-complete", i + 1 < n);
@@ -670,11 +668,9 @@
             next === "start" ? START_COPY
             : next === "pick" ? PICK_COPY
             : next === "done" ? "Sent"
-            : cont ? `Step ${next - 1} of 2 · ${CONTINUE_LABELS[next]}`
-            : `Step ${next} of 3 · ${STEP_LABELS[next]}`;
-        $("bidVendorStepNumber").textContent = cont ? "1" : "2";
-        $("bidReviewStepNumber").textContent = cont ? "2" : "3";
-        $("bidVendorStepTitle").textContent = cont && existingPkg ? `Add vendors to ${existingPkg.name}` : "Pick vendors";
+            : `Step ${next} of 3 · ${STEP_LABELS[next]}${draftId ? " · Draft" : ""}`;
+        $("bidSaveDraftBtn").classList.toggle("hidden", !(next === 1 || next === 2 || next === 3));
+        $("bidSaveDraftBtn").disabled = false;
         $("bidInviteBackBtn").style.display = next === "pick" || next === 1 || next === 2 || next === 3 ? "" : "none";
         $("bidInviteCancelBtn").style.display = next === "done" ? "none" : "";
         $("bidOpenTrackerBtn").classList.toggle("hidden", next !== "done");
@@ -710,7 +706,6 @@
     function onBack() {
         if (sending) return;
         if (step === "pick" || step === 1) { resetForm(); showStep("start"); }
-        else if (step === 2 && mode === "continue") { existingPkg = null; alreadyInvited = new Set(); showStep("pick"); renderContinueList(); }
         else if (step === 2) showStep(1);
         else if (step === 3) { showStep(2); renderTagFilters(); renderVendors(); }
     }
@@ -750,47 +745,6 @@
         }
     }
 
-    async function sendMore() {
-        const invites = selectedInvites().filter(i => !alreadyInvited.has(String(i.company.id)));
-        if (!invites.length) { showStep(2); enterVendorStep(); setMessage("Pick at least one vendor to add.", "error"); return; }
-        if (packageBlocker(existingPkg)) { setMessage("Bids for this invite are already due, so no more vendors can be added.", "error"); return; }
-
-        const pkg = existingPkg;
-        const nextBtn = $("bidInviteNextBtn");
-        sending = true;
-        nextBtn.disabled = true;
-        nextBtn.textContent = "Sending…";
-        setMessage("Adding vendors to the invite…", "");
-
-        const remind = { remind_no_response: $("bidRemindNoResponse").checked, remind_before_due: $("bidRemindBeforeDue").checked };
-        if (remind.remind_no_response !== (pkg.remind_no_response !== false) || remind.remind_before_due !== (pkg.remind_before_due !== false)) {
-            await client().from("bid_packages").update(remind).eq("id", pkg.id).then(() => {}, () => {});
-        }
-
-        const { error: invitesError } = await client().from("bid_invites").insert(invites.map(i => ({
-            package_id: pkg.id,
-            company_id: i.company.id,
-            company_name: String(i.company.Name || "").trim() || "Vendor",
-            contact_name: i.contact.Name || null,
-            contact_email: String(i.contact.Email).trim(),
-        })));
-        if (invitesError) {
-            console.error("bid-invites: adding vendors failed", invitesError);
-            sending = false;
-            nextBtn.disabled = false;
-            updateSelectedCount();
-            setMessage(`Couldn't add the vendors: ${invitesError.message || invitesError}. Nothing was sent.`, "error");
-            return;
-        }
-
-        setMessage(`Emailing ${invites.length} vendor${invites.length === 1 ? "" : "s"}…`, "");
-        // "send" only emails this invite's pending/failed vendors, so the
-        // ones already sent don't get it twice.
-        const { data, error } = await callBidFunction({ action: "send", package_id: pkg.id });
-        sending = false;
-        finishSend(pkg.project_id, pkg.name, data, error);
-    }
-
     function finishSend(projectId, packageName, data, error) {
         doneProjectId = projectId;
         $("bidOpenTrackerBtn").href = `/pages/project-bid-invites.html?id=${encodeURIComponent(projectId)}`;
@@ -813,8 +767,90 @@
         if (!failed.length && typeof window.showToast === "function") window.showToast("Bid invites sent");
     }
 
+    function packageRow(status) {
+        const tradeTagId = $("bidTradeTag").value || null;
+        return {
+            ...draft(),
+            trade_tag_id: tradeTagId,
+            trade_tag_name: tradeTagId ? tagName(tradeTagId) : null,
+            remind_no_response: $("bidRemindNoResponse").checked,
+            remind_before_due: $("bidRemindBeforeDue").checked,
+            status,
+            // Drafts keep the picked vendors here; sent invites use bid_invites rows.
+            draft_vendors: status === "draft"
+                ? Array.from(selected.entries()).map(([company_id, contact_id]) => ({ company_id, contact_id }))
+                : null,
+        };
+    }
+
+    // Writes the bid_packages row (insert, or update the draft) and its file
+    // links. Fills `out` as it goes so a failure can be cleaned up.
+    async function savePackage(status, project, out) {
+        out.uploaded = await uploadNewFiles(project);
+        const row = packageRow(status);
+        if (draftId) {
+            const { error } = await client().from("bid_packages").update(row).eq("id", draftId).eq("status", "draft");
+            if (error) throw error;
+            out.id = draftId;
+        } else {
+            const { data, error } = await client().from("bid_packages").insert({ ...row, created_by_name: staffName() }).select("id").single();
+            if (error) throw error;
+            out.id = data.id;
+            out.inserted = true;
+        }
+        const fileIds = [
+            ...chosenFiles.filter(f => f.kind === "project").map(f => f.file.id),
+            ...out.uploaded.map(u => u.projectFileId),
+        ];
+        const { error: delError } = await client().from("bid_package_files").delete().eq("package_id", out.id);
+        if (delError) throw delError;
+        if (fileIds.length) {
+            const { error: filesError } = await client().from("bid_package_files").insert(
+                fileIds.map((id, i) => ({ package_id: out.id, project_file_id: id, sort_order: i }))
+            );
+            if (filesError) throw filesError;
+        }
+    }
+
+    async function saveDraft() {
+        if (sending) return;
+        const project = currentProject();
+        if (!project) { showStep(1); setMessage("Choose a project before saving a draft.", "error"); return; }
+        if (!$("bidPackageName").value.trim()) { showStep(1); setMessage("Give the bid package a name before saving a draft.", "error"); return; }
+
+        const btn = $("bidSaveDraftBtn");
+        sending = true;
+        btn.disabled = true;
+        btn.textContent = "Saving…";
+        const out = {};
+        try {
+            await savePackage("draft", project, out);
+        } catch (err) {
+            console.error("bid-invites: saving draft failed", err);
+            if (out.uploaded && out.uploaded.length) await cleanup(out.inserted ? out.id : null, out.uploaded);
+            else if (out.inserted) await cleanup(out.id, []);
+            sending = false;
+            btn.disabled = false;
+            btn.textContent = "Save Draft";
+            setMessage(`Couldn't save the draft: ${err && err.message ? err.message : err}`, "error");
+            return;
+        }
+        draftId = out.id;
+        // Uploaded files now live in the project — treat them as project files from here on.
+        const uploads = chosenFiles.filter(f => f.kind === "upload");
+        chosenFiles = chosenFiles.filter(f => f.kind === "project").concat(
+            uploads.map((f, i) => ({ kind: "project", file: { id: out.uploaded[i].projectFileId, file_name: f.file.name, category: BIDS_CATEGORY, subfolder: BIDS_SUBFOLDER } }))
+        );
+        renderFiles();
+        sending = false;
+        btn.disabled = false;
+        btn.textContent = "Save Draft";
+        $("bidInviteStepLabel").textContent = `Step ${step} of 3 · ${STEP_LABELS[step]} · Draft`;
+        setMessage("Draft saved. Pick it up any time from Continue With An Invite.", "success");
+        if (typeof window.showToast === "function") window.showToast("Draft saved");
+    }
+
     async function send() {
-        if (mode === "continue") { await sendMore(); return; }
         const problem = validateStep1();
         if (problem) { showStep(1); setMessage(problem, "error"); return; }
         const invites = selectedInvites();
@@ -829,32 +865,11 @@
         setMessage("Saving the invite…", "");
 
         let packageId = null;
-        let uploaded = [];
+        const out = {};
         try {
-            uploaded = await uploadNewFiles(project);
-
-            const tradeTagId = $("bidTradeTag").value || null;
-            const { data: pkg, error: pkgError } = await client().from("bid_packages").insert({
-                ...d,
-                trade_tag_id: tradeTagId,
-                trade_tag_name: tradeTagId ? tagName(tradeTagId) : null,
-                remind_no_response: $("bidRemindNoResponse").checked,
-                remind_before_due: $("bidRemindBeforeDue").checked,
-                    created_by_name: staffName(),
-            }).select("id").single();
-            if (pkgError) throw pkgError;
-            packageId = pkg.id;
-
-            const fileIds = [
-                ...chosenFiles.filter(f => f.kind === "project").map(f => f.file.id),
-                ...uploaded.map(u => u.projectFileId),
-            ];
-            if (fileIds.length) {
-                const { error: filesError } = await client().from("bid_package_files").insert(
-                    fileIds.map((id, i) => ({ package_id: packageId, project_file_id: id, sort_order: i }))
-                );
-                if (filesError) throw filesError;
-            }
+            // A draft becomes a real (open) invite; otherwise a new one is made.
+            await savePackage("open", project, out);
+            packageId = out.id;
 
             const { error: invitesError } = await client().from("bid_invites").insert(invites.map(i => ({
                 package_id: packageId,
@@ -866,7 +881,13 @@
             if (invitesError) throw invitesError;
         } catch (err) {
             console.error("bid-invites: saving failed", err);
-            await cleanup(packageId, uploaded);
+            if (out.inserted) {
+                await cleanup(out.id, out.uploaded || []);
+            } else {
+                // Was a draft: put it back as a draft, drop only this attempt's uploads.
+                if (draftId) await client().from("bid_packages").update({ status: "draft", draft_vendors: packageRow("draft").draft_vendors }).eq("id", draftId).then(() => {}, () => {});
+                await cleanup(null, out.uploaded || []);
+            }
             sending = false;
             nextBtn.disabled = false;
             updateSelectedCount();
@@ -897,10 +918,12 @@
         $("bidInviteForm").addEventListener("submit", e => e.preventDefault());
         $("bidStartNewBtn").addEventListener("click", startNew);
         $("bidContinueBtn").addEventListener("click", startContinue);
-        $("bidContinueProjectSelect").addEventListener("change", renderContinueList);
-        $("bidContinueList").addEventListener("click", e => {
-            const btn = e.target.closest("[data-continue-pkg]");
-            if (btn) choosePackage(btn.dataset.continuePkg);
+        $("bidSaveDraftBtn").addEventListener("click", saveDraft);
+        $("bidDraftList").addEventListener("click", e => {
+            const open = e.target.closest("[data-open-draft]");
+            if (open) { openDraft(open.dataset.openDraft); return; }
+            const del = e.target.closest("[data-delete-draft]");
+            if (del) deleteDraft(del);
         });
         document.addEventListener("keydown", e => {
             if (e.key === "Escape" && !$("bidInviteOverlay").classList.contains("hidden")) closeWizard();
