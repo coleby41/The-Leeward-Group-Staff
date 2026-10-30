@@ -560,12 +560,15 @@ create policy vendor_project_assignments_write on public.vendor_project_assignme
 -- project names -- no bid amounts, which stay limited to the bid
 -- permissions above).
 
--- Return columns changed (2026-10-21: per-project COI), so drop first.
+-- Return columns changed (2026-10-21: per-project COI; 2026-10-29: scope),
+-- so drop first. scope = the awarded bid package name(s) ("Windows &
+-- Glazing"), or the scope typed in Manage Projects.
 drop function if exists public.vendor_projects(bigint);
 create function public.vendor_projects(p_company_id bigint)
 returns table (
   project_id uuid, project_name text, source text,
-  coi_file_id uuid, coi_requested_at timestamptz, coi_received_at timestamptz
+  coi_file_id uuid, coi_requested_at timestamptz, coi_received_at timestamptz,
+  scope text
 )
 language plpgsql
 stable
@@ -581,7 +584,8 @@ begin
   return query
     select p.id, p.name, 'awarded'::text,
            (array_agg(bi.coi_file_id order by bi.coi_received_at desc nulls last))[1],
-           max(bi.coi_requested_at), max(bi.coi_received_at)
+           max(bi.coi_requested_at), max(bi.coi_received_at),
+           string_agg(distinct bp.name, ', ')
     from public.bid_invites bi
     join public.bid_packages bp on bp.id = bi.package_id
     join public.projects p on p.id = bp.project_id
@@ -592,14 +596,14 @@ begin
 
   -- Projects staff added the vendor to directly (Manage Projects).
   return query
-    select p.id, p.name, 'assigned'::text, a.coi_file_id, a.coi_requested_at, a.coi_received_at
+    select p.id, p.name, 'assigned'::text, a.coi_file_id, a.coi_requested_at, a.coi_received_at, a.scope
     from public.vendor_project_assignments a
     join public.projects p on p.id = a.project_id
     where a.company_id = p_company_id and not a.hidden;
 
   if to_regclass('public.project_invoices') is not null then
     return query execute
-      'select distinct p.id, p.name, ''invoice''::text, null::uuid, null::timestamptz, null::timestamptz
+      'select distinct p.id, p.name, ''invoice''::text, null::uuid, null::timestamptz, null::timestamptz, null::text
          from public.project_invoices pi
          join public.projects p on p.id = pi.project_id
         where pi.vendor_id = $1::text

@@ -42,6 +42,7 @@
     let projects = [];
     let projectCoiFiles = new Map();
     let projectSources = new Map();  // project_id -> Set of sources (awarded / assigned / invoice)
+    let projectScopes = new Map();   // project_id -> Set of scope names (awarded bid packages + Manage Projects scope)
     let assignments = [];     // vendor_project_assignments rows (Manage Projects)
     let allProjects = null;   // active projects for the Manage Projects picker
     let projectBusy = false;
@@ -152,6 +153,13 @@
         const allRows = projectsRes.error ? [] : projectsRes.data || [];
         projectSources = new Map();
         allRows.forEach(p => { const k = String(p.project_id); if (!projectSources.has(k)) projectSources.set(k, new Set()); projectSources.get(k).add(p.source); });
+        projectScopes = new Map();
+        allRows.forEach(p => {
+            if (!p.scope) return;
+            const k = String(p.project_id);
+            if (!projectScopes.has(k)) projectScopes.set(k, new Set());
+            String(p.scope).split(",").map(x => x.trim()).filter(Boolean).forEach(x => projectScopes.get(k).add(x));
+        });
         projects = allRows.filter(p => !seen.has(p.project_id) && seen.add(p.project_id));
         const { data: asg, error: asgErr } = await db.from("vendor_project_assignments").select("*").eq("company_id", Number(id));
         assignments = asgErr ? [] : asg || [];
@@ -255,6 +263,22 @@
         return { cls: "", label: "", file: null };
     }
 
+    // The line under a project's name: the vendor's scope on it (Coleby,
+    // 2026-10-29 — replaces the old "Project COI PDF" text).
+    function projectScopeLine(p, pc) {
+        const k = String(p.project_id);
+        const scopes = new Set();
+        // vendor_projects() returns one row per source; collect every scope for this project.
+        projectScopes.get(k)?.forEach(sc => scopes.add(sc));
+        const a = assignments.find(x => String(x.project_id) === k);
+        if (a && a.scope) scopes.add(a.scope.trim());
+        let text = scopes.size ? Array.from(scopes).join(", ")
+            : p.source === "invoice" ? "Invoice on this project"
+            : "No scope listed";
+        if (pc.file && pc.when) text += ` · COI uploaded ${pc.when}`;
+        return text;
+    }
+
     function renderProjects() {
         const coi = coiState();
         const expires = company.COIExpiresOn ? `Company COI expires ${dateOnly(company.COIExpiresOn)}` : coi.state === "exempt" ? "Exempt from the COI requirement" : "No COI expiration on file";
@@ -274,7 +298,7 @@
                 return `
                 <div class="vd-proj">
                     <div class="vd-proj__top"><a class="vd-proj__name" href="/pages/project-home.html?id=${encodeURIComponent(p.project_id)}">${esc(p.project_name || "Project")}</a>${pc.label ? `<span class="vd-status ${pc.cls}">${esc(pc.label)}</span>` : ""}</div>
-                    <div class="vd-proj__meta"><span>${esc(pc.file ? `COI PDF · uploaded ${pc.when}` : p.source === "invoice" ? "Invoice on this project" : "Project COI PDF")}</span>${links}</div>
+                    <div class="vd-proj__meta"><span>${esc(projectScopeLine(p, pc))}</span>${links}</div>
                 </div>`;
             }).join("")
             : `<p class="vd-empty">No projects yet — projects show here once this vendor is awarded a bid, has an invoice on a project, or is added with Manage Projects.</p>`);
