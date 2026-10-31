@@ -38,6 +38,37 @@
         return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     }
 
+    let companies = [];          // existing vendors, for "merge into"
+    const mergeChoice = new Map(); // application id -> company id ("" = new vendor)
+    const normName = v => String(v || "").toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
+    const vendorId = id => `V-${String(id).padStart(4, "0")}`;
+
+    // A vendor already on file with the same name (legal or friendly). Name only.
+    function nameMatch(app) {
+        const names = [app.legal_name, app.friendly_name].map(normName).filter(Boolean);
+        return companies.find(c => [c.Name, c.FriendlyName].map(normName).some(n => n && names.includes(n))) || null;
+    }
+
+    function renderMerge(app) {
+        const match = nameMatch(app);
+        if (!mergeChoice.has(app.id)) mergeChoice.set(app.id, match ? String(match.id) : "");
+        const chosen = mergeChoice.get(app.id);
+        const label = c => `${c.Name || c.FriendlyName || "Vendor"} (${vendorId(c.id)})`;
+        const others = companies.filter(c => !match || c.id !== match.id);
+        $("vendorAppMergeSelect").innerHTML =
+            `<option value="">A new vendor</option>` +
+            (match ? `<option value="${esc(match.id)}">Existing vendor: ${esc(label(match))} — same name</option>` : "") +
+            (others.length ? `<optgroup label="Merge into another existing vendor">${others.map(c => `<option value="${esc(c.id)}">${esc(label(c))}</option>`).join("")}</optgroup>` : "");
+        $("vendorAppMergeSelect").value = chosen;
+        const target = companies.find(c => String(c.id) === chosen);
+        $("vendorAppMergeNote").innerHTML = target
+            ? `<strong>Merging into ${esc(target.Name || "this vendor")} (${esc(vendorId(target.id))}).</strong> The vendor keeps its ID and everything on file — projects, COIs, invoices, contacts, notes. The application only fills in what's blank, and the applicant's login goes on this vendor.`
+            : match
+                ? `<strong>${esc(match.Name)} is already on file as ${esc(vendorId(match.id))}.</strong> Pick it above to merge instead of making a second vendor.`
+                : "Creates a new vendor with a new ID.";
+        $("vendorAppApproveBtn").textContent = target ? "Merge & Send Sign-in Link" : "Approve & Send Sign-in Link";
+    }
+
     function maskTaxId(value) {
         const raw = String(value || "").replace(/[^0-9A-Za-z]/g, "");
         return raw ? `•••••${raw.slice(-4)}` : "—";
@@ -84,6 +115,11 @@
         return true;
     }
 
+    async function loadCompanies() {
+        const { data, error } = await client().from("Companies").select("id, Name, FriendlyName").order("Name", { ascending: true });
+        companies = error ? [] : data || [];
+    }
+
     function updateCount() {
         const count = $("vendorAppsCount");
         if (!count) return;
@@ -128,6 +164,7 @@
         $("vendorAppRevealBtn").addEventListener("click", () => { revealed = !revealed; renderDetail(); });
         const w9Btn = $("vendorAppW9Btn");
         if (w9Btn) w9Btn.addEventListener("click", () => viewW9(app));
+        renderMerge(app);
     }
 
     async function viewW9(app) {
@@ -154,7 +191,7 @@
         $("vendorAppsTableWrap").classList.add("hidden");
         $("vendorAppDetail").classList.add("hidden");
         resetReview();
-        const ok = await load();
+        const [ok] = await Promise.all([load(), loadCompanies()]);
         if (!ok) {
             $("vendorAppsLoading").textContent = "Couldn't load applications. Make sure sql/supabase-vendor-portal-setup.sql has been run, then try again.";
             return;
@@ -174,6 +211,7 @@
         $("vendorAppRejectReason").value = "";
         $("vendorAppRejectBtn").textContent = "Reject";
         $("vendorAppApproveBtn").classList.remove("hidden");
+        $("vendorAppMergeBox").classList.remove("hidden");
         setMessage("");
     }
 
@@ -190,10 +228,13 @@
         if (!app || busy) return;
         setBusy(true);
         setMessage("Approving…");
-        const { data, error } = await callAdmin({ action: "approve", application_id: app.id });
+        const mergeId = mergeChoice.get(app.id) || "";
+        const target = companies.find(c => String(c.id) === mergeId);
+        const { data, error } = await callAdmin({ action: "approve", application_id: app.id, ...(mergeId ? { merge_company_id: Number(mergeId) } : {}) });
         setBusy(false);
         if (error) { setMessage(`Couldn't approve: ${error}`, "error"); return; }
-        window.showToast?.(data.emailed ? `${app.legal_name} approved — sign-in link sent` : `${app.legal_name} approved, but the email didn't send`);
+        const done = target ? `${app.legal_name} merged into ${target.Name} (${vendorId(target.id)})` : `${app.legal_name} approved`;
+        window.showToast?.(data.emailed ? `${done} — sign-in link sent` : `${done}, but the email didn't send`);
         if (!data.emailed) console.warn("Approval email failed:", data.email_error);
         await afterReview();
         // New vendor: refresh the vendor list underneath.
@@ -211,6 +252,7 @@
             box.classList.remove("hidden");
             $("vendorAppRejectBtn").textContent = "Reject & Email Applicant";
             $("vendorAppApproveBtn").classList.add("hidden");
+            $("vendorAppMergeBox").classList.add("hidden");
             $("vendorAppRejectReason").focus();
             return;
         }
@@ -261,6 +303,12 @@
             if (e.key === "Enter") e.target.closest("[data-app]")?.click();
         });
         $("vendorAppApproveBtn").addEventListener("click", approve);
+        $("vendorAppMergeSelect").addEventListener("change", e => {
+            const app = applications.find(a => a.id === selectedId);
+            if (!app) return;
+            mergeChoice.set(app.id, e.target.value);
+            renderMerge(app);
+        });
         $("vendorAppRejectBtn").addEventListener("click", reject);
 
         // Count on the menu item.

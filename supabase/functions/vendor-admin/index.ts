@@ -1,10 +1,14 @@
 // Vendor Portal -- staff actions (called from the staff portal with the
 // signed-in staff member's session; needs vendors.approve_applications).
 //
-//   { action: "approve", application_id }
+//   { action: "approve", application_id, merge_company_id? }
 //       Creates the vendor (Companies), their contact (Contacts), turns on
 //       the applicant's portal login as the company's account holder, and
 //       emails them a sign-in link.
+//       With merge_company_id: the applicant is a vendor Leeward already has
+//       on file. Nothing new is created -- the login goes on that existing
+//       vendor (same ID, projects, COIs, invoices, contacts), and the
+//       application only fills in what's blank on file.
 //   { action: "reject", application_id, reason? }
 //       Marks it rejected and emails the applicant (with the reason, if given).
 //   { action: "w9_url", application_id }   -> a short-lived link to view the W-9
@@ -39,6 +43,8 @@ async function approve(body: Row, staff: Row) {
     .update({ status: "approved", reviewed_by: staff.id, reviewed_by_name: staffName, reviewed_at: now })
     .eq("id", app.id).eq("status", "pending").select("id");
   if (!claimed?.length) return json({ ok: false, error: "Someone else already reviewed this application." }, 409);
+
+  if (body.merge_company_id) return await approveIntoExisting(admin, app, Number(body.merge_company_id), now);
 
   let createdCompanyId: number | null = null;
   try {
@@ -97,6 +103,86 @@ async function approve(body: Row, staff: Row) {
       await admin.from("Companies").delete().eq("id", createdCompanyId);
     }
     await admin.from("vendor_applications").update({ status: "pending", reviewed_by: null, reviewed_by_name: null, reviewed_at: null }).eq("id", app.id);
+    throw error;
+  }
+}
+
+const normName = (v: unknown) => String(v || "").toLowerCase().replace(/[^a-z ]/g, "").replace(/\s+/g, " ").trim();
+const blank = (v: unknown) => v === null || v === undefined || String(v).trim() === "";
+
+// Approve onto a vendor already on file. Keeps the vendor's ID and everything
+// on it; the application only fills in blanks.
+async function approveIntoExisting(admin: Row, app: Row, companyId: number, now: string) {
+  const putBack = () => admin.from("vendor_applications").update({ status: "pending", reviewed_by: null, reviewed_by_name: null, reviewed_at: null }).eq("id", app.id);
+  const { data: company } = await admin.from("Companies").select("*").eq("id", companyId).maybeSingle();
+  if (!company) { await putBack(); return json({ ok: false, error: "That vendor doesn't exist anymore." }, 404); }
+
+  const patch: Row = {};
+  if (blank(company.FriendlyName) && app.friendly_name) patch.FriendlyName = app.friendly_name;
+  if ([company.Street, company.City, company.State, company.Zip].every(blank)) {
+    Object.assign(patch, { Street: app.street, City: app.city, State: app.state, Zip: app.zip });
+  }
+  if (blank(company["SSN/FID"]) && app.ssn_fid) patch["SSN/FID"] = app.ssn_fid;
+  if (blank(company.W9FilePath) && app.w9_path) Object.assign(patch, { W9FilePath: app.w9_path, W9UpdatedAt: app.created_at });
+  if (app.coi_expires_on && (!company.COIExpiresOn || app.coi_expires_on > company.COIExpiresOn)) patch.COIExpiresOn = app.coi_expires_on;
+  const before: Row = {};
+  Object.keys(patch).forEach((k) => { before[k] = company[k]; });
+
+  let newContactId: number | null = null;
+  try {
+    if (Object.keys(patch).length) {
+      const { error } = await admin.from("Companies").update(patch).eq("id", companyId);
+      if (error) throw error;
+    }
+
+    // Same person already a contact? (Matched by name only.)
+    const { data: contacts } = await admin.from("Contacts").select("id, Name, Title, Email, WorkPhone").eq("company_id", companyId);
+    let contact = (contacts || []).find((c: Row) => normName(c.Name) && normName(c.Name) === normName(app.contact_name));
+    if (contact) {
+      const fill: Row = {};
+      if (blank(contact.Title) && app.contact_title) fill.Title = app.contact_title;
+      if (blank(contact.Email) && app.contact_email) fill.Email = app.contact_email;
+      if (blank(contact.WorkPhone) && app.contact_phone) fill.WorkPhone = app.contact_phone;
+      if (Object.keys(fill).length) await admin.from("Contacts").update(fill).eq("id", contact.id);
+    } else {
+      const { data: created, error } = await admin.from("Contacts").insert({
+        company_id: companyId, Name: app.contact_name, Title: app.contact_title, Email: app.contact_email, WorkPhone: app.contact_phone,
+      }).select("id").single();
+      if (error) throw error;
+      contact = created;
+      newContactId = created.id;
+    }
+
+    // Account holder unless the vendor already has one.
+    const { data: holders } = await admin.from("vendor_users").select("id").eq("company_id", companyId).eq("role", "holder").eq("status", "active");
+    const role = holders?.length ? "member" : "holder";
+    const { data: users } = await admin.from("vendor_users").select("id").eq("application_id", app.id);
+    let userId = users?.[0]?.id;
+    if (userId) {
+      const { error } = await admin.from("vendor_users").update({ company_id: companyId, contact_id: contact.id, status: "active", role }).eq("id", userId);
+      if (error) throw error;
+    } else {
+      const { data: created, error } = await admin.from("vendor_users").insert({
+        email: app.contact_email, name: app.contact_name, title: app.contact_title, phone: app.contact_phone,
+        company_id: companyId, contact_id: contact.id, application_id: app.id,
+        role, status: "active", language: app.language, added_by: "application",
+      }).select("id").single();
+      if (error) throw error;
+      userId = created.id;
+    }
+
+    await admin.from("vendor_applications").update({ company_id: companyId }).eq("id", app.id);
+
+    const link = await createLoginLink(admin, userId, { minutes: TEAM_INVITE_LINK_HOURS * 60 });
+    const email = renderApprovedEmail(lang(app.language), app.contact_name, company.Name || app.legal_name, link, TEAM_INVITE_LINK_HOURS);
+    const sent = await sendEmail({ to: app.contact_email, subject: email.subject, html: email.html, text: email.text });
+    return json({ ok: true, company_id: companyId, merged: true, filled: Object.keys(patch), emailed: sent.ok, email_error: sent.ok ? null : sent.error });
+  } catch (error) {
+    // Undo: put the vendor back the way it was and the application back to pending.
+    await admin.from("vendor_users").update({ company_id: null, contact_id: null, status: "pending" }).eq("application_id", app.id);
+    if (newContactId !== null) await admin.from("Contacts").delete().eq("id", newContactId);
+    if (Object.keys(before).length) await admin.from("Companies").update(before).eq("id", companyId);
+    await putBack();
     throw error;
   }
 }

@@ -577,12 +577,9 @@
         for (let i = 0; i < contacts.length; i++) {
             for (let j = i + 1; j < contacts.length; j++) {
                 const a = contacts[i], b = contacts[j];
-                const sameName = normName(a.Name) && normName(a.Name) === normName(b.Name);
-                const emailsA = [a.Email, a.Email2].map(normEmail).filter(Boolean);
-                const sameEmail = [b.Email, b.Email2].map(normEmail).filter(Boolean).some(e => emailsA.includes(e));
-                const phonesA = [a.WorkPhone, a.MobilePhone].map(digits).filter(d => d.length >= 7);
-                const samePhone = [b.WorkPhone, b.MobilePhone].map(digits).filter(d => d.length >= 7).some(d => phonesA.includes(d));
-                if (sameName || sameEmail || samePhone) pairs.push([a, b]);
+                // Only the name decides. Coworkers often share a company phone or
+                // email (office line, info@…), so those never flag a duplicate.
+                if (normName(a.Name) && normName(a.Name) === normName(b.Name)) pairs.push([a, b]);
             }
         }
         return pairs;
@@ -616,7 +613,7 @@
             const vendorName = company.FriendlyName || company.Name;
             const story = loginContact && otherContact && loginFor(loginContact)?.added_by === "vendor"
                 ? `${esc(otherContact.Name || "This person")} was added by Leeward, as a vendor contact, then again by ${esc(vendorName)} when they gave them a dashboard login.`
-                : `${esc(a.Name || "Two contacts")} ${a.Name === b.Name ? "is listed twice" : `and ${esc(b.Name || "another contact")} look like the same person`}.`;
+                : `${esc(a.Name || "This contact")} is listed twice.`;
             bar.innerHTML = `<span><strong>${duplicatePairs.length} possible duplicate${duplicatePairs.length === 1 ? "" : "s"}.</strong> ${story}</span><button type="button" class="vd-link" data-act="merge" data-contact="${esc(a.id)}">Review &amp; merge ›</button>`;
             bar.classList.remove("hidden");
         } else {
