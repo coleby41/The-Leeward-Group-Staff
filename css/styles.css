@@ -17818,3 +17818,19 @@ a.vd-proj__name:hover { color: var(--accent); }
 @media (prefers-reduced-motion: reduce) {
   .portal-member-pill, .portal-member-pill::after { animation: none; }
 }
+
+
+/* ===========================
+   RELEASE NOTES (pages/changelog.html)
+   Linked from the sidebar footer's "Release Notes" link.
+=========================== */
+.changelog-release { display: grid; gap: 16px; max-width: 900px; }
+.changelog-release__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.changelog-release__head h2 { margin: 0; font-size: 1.35rem; color: var(--text); }
+.changelog-release__date { color: var(--text-soft); font-size: 0.9rem; }
+.changelog-list { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--text); line-height: 1.5; }
+.changelog-list li::marker { color: var(--text-soft); }
+.changelog-tag { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
+.changelog-tag--new { background: var(--success-soft); color: var(--accent); }
+.changelog-tag--improved { background: var(--purple-soft); color: var(--purple); }
+.changelog-tag--fixed { background: var(--warning-soft); color: var(--warning); }

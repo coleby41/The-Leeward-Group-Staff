@@ -401,7 +401,7 @@
         </div>
 
 
-        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="/pages/changelog.html">Release Notes</a> - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
 
 
     </div>
@@ -593,6 +593,49 @@
 <script src="/js/mobile-app.js"></script>
 <script src="/js/install-app.js"></script>
 <script src="/js/supabase-config.js"></script>
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/supabase-auth.js"></script>
 <script src="/js/toast.js"></script>

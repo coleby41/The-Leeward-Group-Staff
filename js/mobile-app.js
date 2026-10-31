@@ -223,14 +223,16 @@
     function versionHtml() {
         const el = sidebar.querySelector(".version");
         if (!el) return "";
-        const link = el.querySelector("a[href]");
+        // Every footer link (Release Notes, Report Bug), each keeping its
+        // own target — Release Notes stays in the portal, Report Bug opens Tally.
+        const links = Array.from(el.querySelectorAll("a[href]"));
         const clone = el.cloneNode(true);
         clone.querySelectorAll("a").forEach(a => a.remove());
-        const text = clone.textContent.replace(/\s+/g, " ").replace(/\s*-\s*$/, "").trim();
+        const text = clone.textContent.replace(/\s+/g, " ").replace(/[\s-]+$/, "").trim();
         if (!text) return "";
-        const linkHtml = link
-            ? ` - <a class="mobile-sheet-version-link" href="${esc(link.getAttribute("href"))}" target="_blank" rel="noopener">${esc(link.textContent.trim() || "Report Bug")}</a>`
-            : "";
+        const linkHtml = links.map(link =>
+            ` - <a class="mobile-sheet-version-link" href="${esc(link.getAttribute("href"))}"${linkTarget(link)}>${esc(link.textContent.trim())}</a>`
+        ).join("");
         return `<div class="mobile-sheet-version">${esc(text)}${linkHtml}</div>`;
     }
 

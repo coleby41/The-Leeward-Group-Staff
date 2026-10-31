@@ -1,3 +1,13 @@
+-- ############################################################################
+-- !! WARNING (added 2026-10-31 audit) !!
+-- This script predates the Supabase Auth migration and creates OPEN
+-- "to anon" policies/grants. supabase-rls-lockdown.sql replaced them.
+--   * Existing database: DO NOT re-run this file. It re-opens these tables
+--     to anyone holding the public anon key.
+--   * Fresh database: fine to run for the tables it creates, but run
+--     supabase-rls-lockdown.sql afterward to close the anon access again.
+-- ############################################################################
+
 /* ============================================================================
    supabase-vendor-tags-setup.sql
    Adds two tag groups to the Vendors (Companies) page: "Asset Specialty" and

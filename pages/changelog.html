@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Leeward Staff Portal | Release Notes</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<!-- Header and sidebar below are copied as-is from dashboard.html so this
+     page matches the rest of the portal. If you change the header/sidebar
+     markup in dashboard.html, mirror the change here too. -->
+
+<header class="header">
+    <div class="header-left">
+        <div class="brand-mark">
+            <div class="brand-mark__icon" id="brandInitials">ST</div>
+            <div>
+                <div class="brand-title">The Leeward Group</div>
+                <div class="brand-subtitle">Staff Portal</div>
+            </div>
+        </div>
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">COMPANY WIDE</div>
+    <nav class="sidebar-nav">
+        <a href="/pages/dashboard.html" class="nav-item">
+            <span class="home-nav-icon"></span>
+            <span class="nav-text">Dashboard</span>
+        </a>
+        <div class="nav-item-group" id="companyDocsNavGroup">
+            <a href="#" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">Company docs</span>
+                <span class="nav-arrow"></span>
+            </a>
+            <div class="subnav">
+                <a href="/pages/excel-workbook.html" class="subnav-item"><span class="nav-text">Excel Workbook Templates</span></a>
+                <a href="/pages/form-template.html" class="subnav-item"><span class="nav-text">Form Templates</span></a>
+            </div>
+        </div>
+        <a href="/pages/timesheet.html" class="nav-item">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Staff Finance</span>
+        </a>
+        <a href="/pages/project-home.html" class="nav-item">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Project Overview</span>
+        </a>
+        <a href="https://www.theleewardgroup.us/" class="nav-item" target="_blank">
+            <span class="website-nav-icon"></span>
+            <span class="nav-text">Company site</span>
+        </a>
+
+        <a href="/pages/vendors.html" class="nav-item">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">Vendor Information</span>
+        </a>
+        <a href="/pages/incident-report.html" class="nav-item" id="incidentReportNavItem">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Incident Report</span>
+        </a>
+        <a href="/pages/account-activity.html" class="nav-item" id="accountActivityNavItem">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Account Activity</span>
+            <span class="nav-item-badge" id="accountActivityNavBadge"></span>
+        </a>
+        <a href="/pages/payroll-tools.html" class="nav-item" id="payrollToolsNavItem" style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Payroll Tools</span>
+        </a>
+        <a href="/pages/manage-employees.html" class="nav-item" id="manageEmployeesNavItem" style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Manage Employees</span>
+        </a>
+        <div class="nav-item-group" id="adminNavGroup" style="display:none;">
+            <a href="/pages/admin-users.html" class="nav-item nav-parent" onclick="toggleSubnav(event, this)">
+                <span class="it-tools-nav-icon"></span>
+                <span class="nav-text">IT Tools</span>
+                <span class="nav-arrow"></span>
+            </a>
+            <div class="subnav">
+                <a href="/pages/admin-users.html" class="subnav-item"><span class="nav-text">Create account</span></a>
+                <a href="/pages/staff-users.html" class="subnav-item"><span class="nav-text">Staff users</span></a>
+                <a href="/pages/workgroups.html" class="subnav-item"><span class="nav-text">Workgroups</span></a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="/pages/changelog.html">Release Notes</a> - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <!-- Release notes. Newest release on top; add a new .changelog-release
+         block above this one for each version. Linked from the sidebar
+         footer's "Release Notes" link on every page. -->
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">What's new</p>
+            <h1>Release Notes</h1>
+            <p>Changes to the Leeward Staff Portal, newest first.</p>
+        </div>
+    </section>
+
+    <div class="changelog-release">
+        <div class="changelog-release__head">
+            <h2>Version 1.0.1</h2>
+            <span class="changelog-release__date">October 5 – October 31, 2026</span>
+        </div>
+
+        <div class="card changelog-section">
+            <div class="card-header"><div><h2 class="card-title"><span class="changelog-tag changelog-tag--new">New</span></h2></div></div>
+            <ul class="changelog-list"><li><strong>Bid Invites</strong> — invite approved vendors to bid from inside a project, save invites as drafts and finish them later, with automatic reminder emails.</li><li><strong>Vendor Portal</strong> — vendors can sign in, see the projects they were awarded, and download each project’s COI template. A gold <em>Portal Member</em> pill shows which vendors have an active login.</li><li><strong>Merge vendors</strong> — when approving a vendor application, merge it into an existing vendor instead of creating a duplicate.</li><li><strong>Manage Projects for vendors</strong> — add a vendor to projects straight from the vendor page and request a COI by email.</li><li><strong>Project scopes</strong> now show on the vendor detail page.</li><li><strong>W-9 exemptions</strong> — mark a vendor W-9 exempt; SSN/FID and W-9 requirements adjust to match.</li><li><strong>Project invoices</strong> — new Accounting page, invoice capture from your phone, hardware-store invoices (store + description instead of a vendor), and a per-project edit/delete setting.</li><li><strong>Project photos</strong> — camera button on a project’s Overview on phones.</li><li><strong>Install the app</strong> — add the portal to your phone’s home screen, with a step-by-step iPhone guide and a "Get the app" banner on the Dashboard.</li><li><strong>Change Password</strong> in the bell menu, next to Sign out.</li><li><strong>In-portal file preview</strong> for documents, instead of opening a new tab.</li><li><strong>Form Settings per project</strong> on the Incident Report page, including project-specific BC/VPO Word templates.</li></ul>
+        </div>
+        <div class="card changelog-section">
+            <div class="card-header"><div><h2 class="card-title"><span class="changelog-tag changelog-tag--improved">Improved</span></h2></div></div>
+            <ul class="changelog-list"><li>Phone layout across the portal: bottom tab bar (customizable), a "More" sheet, notification panel, and a menu button on project pages.</li><li>COIs: the expiration date is what counts now; the PDF is only requested once a vendor is awarded a job, and each awarded project keeps its own COI.</li><li>Notifications page redesigned.</li><li>Project members popup rebuilt on Project Overview.</li><li>Files table on project pages: full width, scrolls sideways with a visible scrollbar.</li><li>Report Bug moved to the version line in the sidebar footer.</li><li>Vercel Web Analytics added to every page.</li></ul>
+        </div>
+        <div class="card changelog-section">
+            <div class="card-header"><div><h2 class="card-title"><span class="changelog-tag changelog-tag--fixed">Fixed</span></h2></div></div>
+            <ul class="changelog-list"><li>"Remember this device" now works, and phones / the home-screen app no longer sign you out on reopen or after idling.</li><li>Project switcher dropdown no longer covers the sidebar collapse arrow.</li><li>Incident Report form: field widths, toolbar dropdown, and mobile layout (no more iOS zoom on focus).</li><li>Form Settings no longer fail for projects that didn’t have a settings row yet.</li><li>Legacy forms without a signature are filed into the correct "Without Signature" folder.</li><li>VPO numbering fix.</li><li>Bid invite project list loads even on older databases without project codes.</li><li>Sign out from the bell menu on My Tasks.</li><li>Invoices: existing Project Files sources are kept when the invoice source was added.</li></ul>
+        </div>
+    </div>
+
+</main>
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/mobile-app.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/nav-approvals-badge.js"></script>
+
+
+<script>
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+const brandInitials = document.getElementById("brandInitials");
+const adminNavGroup = document.getElementById("adminNavGroup");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    if (brandInitials) {
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+            : words[0]?.substring(0, 2).toUpperCase() || "ST";
+        brandInitials.textContent = initials;
+    }
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+function updateNavAccess(profile) {
+    const shouldShowAdminNav = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? "block" : "none";
+
+    const payrollToolsNavItem = document.getElementById("payrollToolsNavItem");
+    const shouldShowPayrollTools = window.isSupabaseUserInGroup
+        ? (
+            window.isSupabaseUserInGroup(profile, "Office") ||
+            window.isSupabaseUserInGroup(profile, "Accounting") ||
+            window.isSupabaseUserInGroup(profile, "Super Admin")
+          )
+        : false;
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = shouldShowPayrollTools ? "flex" : "none";
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+        updateNavAccess(parsedProfile);
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+    }
+});
+</script>
+
+</body>
+</html>
