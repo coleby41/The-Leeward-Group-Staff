@@ -244,7 +244,7 @@
     // "Allowed to be on site" — per vendor, per project (project_vendor_contracts.allowed_on_site).
     function onSiteToggle(v) {
         const yes = Boolean(contractFor(v)?.allowed_on_site);
-        return `<button type="button" class="pav-onsite ${yes ? "pav-onsite--yes" : ""}" data-onsite="${esc(v.company_id)}" aria-pressed="${yes}" title="Allowed to be on site — click to change">${yes ? "Yes" : "No"}</button>`;
+        return `<button type="button" class="pav-onsite ${yes ? "pav-onsite--yes" : ""}" data-onsite="${esc(v.company_id)}" aria-pressed="${yes}" title="Cleared for Site — click to change">${yes ? "Yes" : "No"}</button>`;
     }
 
     async function toggleOnSite(companyId) {
