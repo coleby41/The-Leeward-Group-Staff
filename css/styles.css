@@ -18017,3 +18017,34 @@ html:has(body.changelog-page) { height: auto; }
   background: var(--danger-soft); color: var(--danger); cursor: default;
 }
 .pav-onsite--yes { background: #e3f6ec; color: #1b8a55; }
+
+/* ---------- Phone: swipe-down sheets, no close buttons ----------
+   On phones every popup / bottom sheet closes by dragging it down
+   (js/sheet-swipe.js; the More sheet has its own drag in mobile-app.js),
+   or tapping the blurred area behind it. So the X, header "Cancel", and
+   lone "Close" buttons are hidden here. They stay in the page: the swipe
+   script clicks the hidden one so each page's own close logic still runs.
+   Desktop is unchanged. Add .sheet-close to any new text "Close" button
+   that should disappear on phones. */
+@media (max-width: 768px) {
+  .popup-overlay > .popup :is(.sheet-close, .file-preview-close-btn, .pav-close-btn, .permission-editor-close, button[aria-label^="Close"]),
+  .mobile-sheet-close,
+  .photo-sheet-cancel,
+  .inv-head-cancel,
+  .acct-search-cancel {
+    display: none !important;
+  }
+
+  /* A footer that only held "Close" goes away too. */
+  .popup-overlay > .popup .popup-buttons:not(:has(> :not(.sheet-close))) {
+    display: none;
+  }
+
+  /* Let the sheet own vertical drags so iOS doesn't bounce the page. */
+  .popup-overlay > .popup,
+  .photo-sheet,
+  .inv-sheet,
+  .acct-search-sheet {
+    overscroll-behavior-y: contain;
+  }
+}
