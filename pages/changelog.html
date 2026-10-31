@@ -32,22 +32,71 @@
 
 <main class="changelog-main">
     <h1>Release Notes</h1>
-    <p class="changelog-intro">Changes to the Leeward Staff Portal, newest first.</p>
+    <p class="changelog-intro">Welcome to the Leeward Staff Portal. This is everything you can do here, in one place.</p>
 
     <section class="changelog-release">
         <div class="changelog-release__head">
             <h2>Version 1</h2>
-            <span class="changelog-release__date">October 31, 2026 &middot; First release notes</span>
+            <span class="changelog-release__date">October 31, 2026 &middot; First release</span>
         </div>
 
-        <h3 class="changelog-divider changelog-divider--new"><span>New</span></h3>
-        <ul class="changelog-list"><li><strong>Bid Invites</strong> — invite approved vendors to bid from inside a project, save invites as drafts and finish them later, with automatic reminder emails.</li><li><strong>Vendor Portal</strong> — vendors can sign in, see the projects they were awarded, and download each project’s COI template. A gold <em>Portal Member</em> pill shows which vendors have an active login.</li><li><strong>Merge vendors</strong> — when approving a vendor application, merge it into an existing vendor instead of creating a duplicate.</li><li><strong>Manage Projects for vendors</strong> — add a vendor to projects straight from the vendor page and request a COI by email.</li><li><strong>Project scopes</strong> now show on the vendor detail page.</li><li><strong>W-9 exemptions</strong> — mark a vendor W-9 exempt; SSN/FID and W-9 requirements adjust to match.</li><li><strong>Project invoices</strong> — new Accounting page, invoice capture from your phone, hardware-store invoices (store + description instead of a vendor), and a per-project edit/delete setting.</li><li><strong>Project photos</strong> — camera button on a project’s Overview on phones.</li><li><strong>Install the app</strong> — add the portal to your phone’s home screen, with a step-by-step iPhone guide and a "Get the app" banner on the Dashboard.</li><li><strong>Change Password</strong> in the bell menu, next to Sign out.</li><li><strong>In-portal file preview</strong> for documents, instead of opening a new tab.</li><li><strong>Form Settings per project</strong> on the Incident Report page, including project-specific BC/VPO Word templates.</li></ul>
+        <h3 class="changelog-divider changelog-divider--new"><span>Getting started</span></h3>
+        <ul class="changelog-list">
+            <li><strong>Sign in</strong> with the username and password IT gave you. Check <em>Remember this device</em> so you stay signed in.</li>
+            <li><strong>Good Morning</strong>: the first time you open the portal each day, you get a quick summary of what changed since your last visit.</li>
+            <li><strong>Notifications</strong>: the bell in the top right shows anything that needs you. <strong>Change Password</strong> and <strong>Sign out</strong> are in the same menu.</li>
+            <li>The <strong>sidebar</strong> on the left takes you everywhere. You only see the pages your role has access to.</li>
+        </ul>
 
-        <h3 class="changelog-divider changelog-divider--improved"><span>Improved</span></h3>
-        <ul class="changelog-list"><li>Phone layout across the portal: bottom tab bar (customizable), a "More" sheet, notification panel, and a menu button on project pages.</li><li>COIs: the expiration date is what counts now; the PDF is only requested once a vendor is awarded a job, and each awarded project keeps its own COI.</li><li>Notifications page redesigned.</li><li>Project members popup rebuilt on Project Overview.</li><li>Files table on project pages: full width, scrolls sideways with a visible scrollbar.</li><li>Report Bug moved to the version line in the sidebar footer.</li><li>Vercel Web Analytics added to every page.</li></ul>
+        <h3 class="changelog-divider changelog-divider--improved"><span>Dashboard</span></h3>
+        <ul class="changelog-list">
+            <li>Your home base: <strong>My Tasks</strong>, <strong>Quick Links</strong>, <strong>Weather</strong>, a <strong>Project Snapshot</strong>, <strong>Today&rsquo;s Calendar</strong>, <strong>Important Contacts</strong>, and company <strong>Announcements</strong>.</li>
+            <li><strong>To-Do</strong>: every task assigned to you, from you and from your projects, in one list.</li>
+        </ul>
 
-        <h3 class="changelog-divider changelog-divider--fixed"><span>Fixed</span></h3>
-        <ul class="changelog-list"><li>"Remember this device" now works, and phones / the home-screen app no longer sign you out on reopen or after idling.</li><li>Project switcher dropdown no longer covers the sidebar collapse arrow.</li><li>Incident Report form: field widths, toolbar dropdown, and mobile layout (no more iOS zoom on focus).</li><li>Form Settings no longer fail for projects that didn’t have a settings row yet.</li><li>Legacy forms without a signature are filed into the correct "Without Signature" folder.</li><li>VPO numbering fix.</li><li>Bid invite project list loads even on older databases without project codes.</li><li>Sign out from the bell menu on My Tasks.</li><li>Invoices: existing Project Files sources are kept when the invoice source was added.</li></ul>
+        <h3 class="changelog-divider changelog-divider--new"><span>Projects</span></h3>
+        <ul class="changelog-list">
+            <li><strong>Project Overview</strong> lists every project. Start a new one with the <strong>New Project Onboarding</strong> wizard.</li>
+            <li>Each project has its own pages: <strong>Overview</strong>, <strong>Files</strong>, <strong>Timeline</strong> (schedule and milestones), <strong>To-Do</strong>, <strong>Accounts / Contacts</strong>, <strong>Form Logs</strong>, <strong>Accounting</strong>, and <strong>Bid Invites</strong>.</li>
+            <li><strong>Files</strong> open right inside the portal. No downloading just to take a look.</li>
+            <li><strong>Invoices</strong>: add them on the project&rsquo;s Accounting page, or snap a photo of one from your phone. Hardware-store receipts work too.</li>
+            <li><strong>Bid Invites</strong>: invite approved vendors to bid on a project. Save an invite as a draft and finish it later, and vendors get reminder emails automatically.</li>
+            <li><strong>Photos</strong>: take project photos straight from your phone on the project&rsquo;s Overview.</li>
+        </ul>
+
+        <h3 class="changelog-divider changelog-divider--improved"><span>Vendors</span></h3>
+        <ul class="changelog-list">
+            <li><strong>Vendor Information</strong> is the company-wide vendor list: contacts, addresses, W-9s (or W-9 exempt), and COIs.</li>
+            <li>Add a vendor to a project and request their COI by email, right from the vendor&rsquo;s page.</li>
+            <li>Review new <strong>vendor applications</strong>. If the vendor is already on file, merge them instead of creating a duplicate.</li>
+            <li>Vendors get their own <strong>Vendor Portal</strong> login. A gold <em>Portal Member</em> pill shows which vendors are signed up.</li>
+        </ul>
+
+        <h3 class="changelog-divider changelog-divider--fixed"><span>Forms &amp; reports</span></h3>
+        <ul class="changelog-list">
+            <li><strong>Incident Report</strong>: report an issue on any Leeward property from your computer or phone. Approved reports can generate Back Charge and VPO documents for the project.</li>
+            <li><strong>Form Templates</strong>: fill out company forms right in the portal. No downloads needed.</li>
+            <li><strong>Excel Workbook Templates</strong>: preview and download the latest company workbooks.</li>
+            <li><strong>Account Activity</strong>: track every form and incident report you&rsquo;ve submitted and where it stands.</li>
+        </ul>
+
+        <h3 class="changelog-divider changelog-divider--new"><span>Time &amp; pay</span></h3>
+        <ul class="changelog-list">
+            <li><strong>Staff Finance</strong>: fill out and submit your timesheet each pay period.</li>
+            <li>Managers review and approve their team&rsquo;s timesheets in <strong>Manage Employees</strong>. Accounting runs payroll from <strong>Payroll Tools</strong>.</li>
+        </ul>
+
+        <h3 class="changelog-divider changelog-divider--improved"><span>On your phone</span></h3>
+        <ul class="changelog-list">
+            <li>The portal is built for phones too, with a bottom tab bar you can customize and a <strong>More</strong> menu for everything else.</li>
+            <li><strong>Install it like an app</strong>: tap <em>Get the app</em> on the Dashboard and follow the steps to add it to your home screen.</li>
+        </ul>
+
+        <h3 class="changelog-divider changelog-divider--fixed"><span>Need help?</span></h3>
+        <ul class="changelog-list">
+            <li>Found something that isn&rsquo;t working? Click <strong>Report Bug</strong> at the bottom of the sidebar and tell us what happened.</li>
+            <li>Can&rsquo;t see a page you need? Ask IT to check your workgroup&rsquo;s access.</li>
+        </ul>
     </section>
 </main>
 

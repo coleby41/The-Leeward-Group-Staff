@@ -17825,7 +17825,11 @@ a.vd-proj__name:hover { color: var(--accent); }
    Plain page: no header/sidebar, no cards. Section headers are a label
    with a line running across. Linked from the sidebar footer.
 =========================== */
-.changelog-page { background: var(--surface); }
+/* The app's base body rule is height:100% + overflow:hidden (only
+   .main-content scrolls). This page has no .main-content, so let the
+   page itself scroll. */
+html:has(body.changelog-page) { height: auto; }
+.changelog-page { background: var(--surface); height: auto; min-height: 100%; overflow-y: auto; }
 .changelog-main { max-width: 820px; margin: 0 auto; padding: 48px 24px 120px; color: var(--text); }
 .changelog-main h1 { margin: 4px 0 6px; font-size: 2rem; color: var(--text); }
 .changelog-intro { margin: 0 0 32px; color: var(--text-soft); }
