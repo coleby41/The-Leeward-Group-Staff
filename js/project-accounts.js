@@ -241,6 +241,28 @@
         return `<div class="pav-cell">${badge(status.text, status.tone, true)}${status.meta ? `<span class="pav-sub">${esc(status.meta)}</span>` : ""}</div>`;
     }
 
+    // "Allowed to be on site" — per vendor, per project (project_vendor_contracts.allowed_on_site).
+    function onSiteToggle(v) {
+        const yes = Boolean(contractFor(v)?.allowed_on_site);
+        return `<button type="button" class="pav-onsite ${yes ? "pav-onsite--yes" : ""}" data-onsite="${esc(v.company_id)}" aria-pressed="${yes}" title="Allowed to be on site — click to change">${yes ? "Yes" : "No"}</button>`;
+    }
+
+    async function toggleOnSite(companyId) {
+        if (busy) return;
+        const v = vendors.find(x => String(x.company_id) === String(companyId));
+        if (!v) return;
+        busy = true;
+        try {
+            await upsertContract(v.company_id, { allowed_on_site: !contractFor(v)?.allowed_on_site });
+            renderVendors();
+        } catch (err) {
+            console.error("On site update failed:", err);
+            setPageMessage(/allowed_on_site/.test(err?.message || "")
+                ? "Re-run sql/supabase-project-accounts-vendors-setup.sql to turn on \"Allowed on site\"."
+                : (err?.message || "Couldn't save."), "error");
+        } finally { busy = false; }
+    }
+
     function renderVendors() {
         renderStats();
         const rows = filteredVendors();
@@ -264,6 +286,7 @@
                 ${cell(contractStatus(v))}
                 ${cell(w9Status(v))}
                 ${cell(coiStatus(v))}
+                <div class="pav-cell">${onSiteToggle(v)}</div>
                 <div class="pav-cell pav-cell--end">
                     <button type="button" class="all-files-file-menu-btn" data-open-vendor="${esc(v.company_id)}" aria-label="Open ${esc(v.company_name)}">
                         <span class="all-files-file-menu-icon"></span>
@@ -721,6 +744,8 @@
         $("deleteRecordConfirmUnderstandCheckbox").addEventListener("change", updateDeleteBtn);
 
         document.addEventListener("click", e => {
+            const os = e.target.closest("[data-onsite]");
+            if (os) { toggleOnSite(os.dataset.onsite); return; }
             const open = e.target.closest("[data-open-vendor]");
             if (open) { openVendorPopup(open.dataset.openVendor); return; }
             const row = e.target.closest(".pav-row[data-vendor]");

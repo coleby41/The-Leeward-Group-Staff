@@ -17873,8 +17873,8 @@ html:has(body.changelog-page) { height: auto; }
 .pav-list { overflow-x: auto; }
 .all-files-list-header.pav-row,
 .all-files-file-row.pav-row {
-  grid-template-columns: minmax(200px, 1.6fr) 150px 180px 160px 210px 40px;
-  min-width: 960px;
+  grid-template-columns: minmax(200px, 1.6fr) 140px 180px 150px 200px 80px 40px;
+  min-width: 1020px;
 }
 .all-files-file-row.pav-row { cursor: pointer; }
 .pav-row--pending { opacity: 0.55; }
@@ -17973,7 +17973,7 @@ html:has(body.changelog-page) { height: auto; }
   .all-files-file-row.pav-row {
     display: grid;
     grid-template-columns: 1fr auto;
-    grid-template-areas: "name menu" "src src" "c c" "w w" "i i";
+    grid-template-areas: "name menu" "src src" "c c" "w w" "i i" "o o";
     min-width: 0;
     gap: 8px;
     margin-bottom: 12px;
@@ -17989,7 +17989,9 @@ html:has(body.changelog-page) { height: auto; }
   .all-files-file-row.pav-row > :nth-child(3) { grid-area: c; }
   .all-files-file-row.pav-row > :nth-child(4) { grid-area: w; }
   .all-files-file-row.pav-row > :nth-child(5) { grid-area: i; }
-  .all-files-file-row.pav-row > :nth-child(6) { grid-area: menu; }
+  .all-files-file-row.pav-row > :nth-child(6) { grid-area: o; flex-direction: row; align-items: center; gap: 8px; }
+  .all-files-file-row.pav-row > :nth-child(6)::before { content: "On site"; width: 64px; font-size: 0.76rem; font-weight: 700; color: var(--text-soft); }
+  .all-files-file-row.pav-row > :nth-child(7) { grid-area: menu; }
   .pav-row .pav-cell:nth-child(n+3) { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
   .pav-row .pav-cell:nth-child(3)::before { content: "Contract"; }
   .pav-row .pav-cell:nth-child(4)::before { content: "W-9"; }
@@ -18006,5 +18008,11 @@ html:has(body.changelog-page) { height: auto; }
   .pav-toolbar .workbook-search-input { flex: 1 1 100%; }
 }
 
-/* Vendor page › Contacts: "On site" column (Coleby, 2026-10-31) */
-.vd-pill--yes { background: #e3f6ec; color: #1b8a55; }
+/* Accounts › Vendors: "On site" Yes / No toggle */
+.pav-onsite {
+  min-width: 52px; padding: 6px 10px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--surface-alt); color: var(--text-soft);
+  font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+}
+.pav-onsite--yes { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.pav-row--pending .pav-onsite { pointer-events: auto; }

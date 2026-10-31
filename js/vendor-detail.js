@@ -639,7 +639,6 @@
                     <td data-label="Email">${c.Email ? `<a href="mailto:${esc(c.Email)}">${esc(c.Email)}</a>` : `<span class="vd-muted">—</span>`}${email2}</td>
                     <td data-label="Work phone">${c.WorkPhone ? `<a href="${esc(telHref(c.WorkPhone))}">${esc(c.WorkPhone)}</a>` : `<span class="vd-muted">—</span>`}</td>
                     <td data-label="Mobile phone">${c.MobilePhone ? `<a href="${esc(telHref(c.MobilePhone))}">${esc(c.MobilePhone)}</a>` : `<span class="vd-muted">—</span>`}</td>
-                    <td data-label="On site">${c.AllowedOnSite ? `<span class="vd-pill vd-pill--yes">Yes</span>` : `<span class="vd-pill vd-pill--none">No</span>`}</td>
                     <td class="is-right">${dup ? `<button type="button" class="vd-merge-btn" data-act="merge" data-contact="${esc(c.id)}">Merge</button>` : ""}<button type="button" class="vd-icon-btn" data-act="vcf" data-contact="${esc(c.id)}" title="Save to Contacts (.vcf)" aria-label="Save ${esc(c.Name || "contact")} to Contacts">${ICON_SAVE}</button>${canManage ? `<button type="button" class="vd-icon-btn" data-act="edit-contact" data-contact="${esc(c.id)}" title="Edit contact" aria-label="Edit ${esc(c.Name || "contact")}">${ICON_EDIT}</button>` : ""}</td>
                 </tr>`;
         }).join("");
@@ -763,7 +762,6 @@
         $("vdContactWork").value = contact?.WorkPhone || "";
         $("vdContactMobile").value = contact?.MobilePhone || "";
         $("vdContactRole").value = contact?.Role || "";
-        $("vdContactOnSite").value = contact?.AllowedOnSite ? "yes" : "no";
         // The portal login is tied to this email.
         const locked = Boolean(login && normEmail(login.email) === normEmail(contact?.Email));
         $("vdContactEmail").readOnly = locked;
@@ -793,7 +791,6 @@
             WorkPhone: $("vdContactWork").value.trim() || null,
             MobilePhone: $("vdContactMobile").value.trim() || null,
             Role: $("vdContactRole").value.trim() || null,
-            AllowedOnSite: $("vdContactOnSite").value === "yes",
         };
         const msg = $("vdContactMessage");
         if (!payload.Name) { msg.textContent = "Name is required."; msg.className = "auth-message error"; return; }
@@ -806,9 +803,7 @@
         $("vdContactSaveBtn").disabled = false;
         if (error) {
             // Older databases don't have Email2 yet (sql/supabase-vendor-portal-setup.sql adds it).
-            msg.textContent = /Email2/.test(error.message || "") ? "Run sql/supabase-vendor-portal-setup.sql to save a second email."
-                : /AllowedOnSite/.test(error.message || "") ? "Run sql/supabase-contacts-allowed-on-site-setup.sql to save \"Allowed to be on site\"."
-                : "Couldn't save this contact. Try again.";
+            msg.textContent = /Email2/.test(error.message || "") ? "Run sql/supabase-vendor-portal-setup.sql to save a second email." : "Couldn't save this contact. Try again.";
             msg.className = "auth-message error";
             return;
         }
@@ -919,8 +914,6 @@
         const secondary = allEmails.find(e => normEmail(e) !== normEmail(primary)) || null;
         picked.Email = primary;
         picked.Email2 = secondary;
-        // Allowed on site if either record was.
-        picked.AllowedOnSite = Boolean(keep.AllowedOnSite || drop.AllowedOnSite);
 
         $("vdMergeConfirmBtn").disabled = true;
         $("vdMergeMessage").textContent = "Merging…";
