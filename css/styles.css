@@ -17849,3 +17849,159 @@ html:has(body.changelog-page) { height: auto; }
   .changelog-back { top: auto; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); text-align: center; }
   .changelog-main { padding-top: 32px; }
 }
+
+/* ===========================================================
+   PROJECT › ACCOUNTS redesign (Coleby, 2026-10-31) — pages/project-accounts.html
+   Vendors tab (every vendor on the job: Contract / W-9 / COI) and
+   Utility Accounts cards. Reuses .all-files-list, .doc-badge-trigger,
+   .pd-card, .dash-tabs; only layout bits live here (pav- prefix).
+=========================================================== */
+.pav-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.pav-stat { gap: 4px; }
+.pav-stat-label { font-size: 0.78rem; font-weight: 600; color: var(--text-soft); }
+.pav-stat-value { font-size: 1.6rem; font-weight: 700; color: var(--text); }
+.pav-stat-value--danger { color: var(--danger); }
+.pav-stat-value--warning { color: var(--warning); }
+
+.pav-toolbar .auth-button { margin-top: 0; }
+
+.pav-list { overflow-x: auto; }
+.all-files-list-header.pav-row,
+.all-files-file-row.pav-row {
+  grid-template-columns: minmax(200px, 1.6fr) 150px 180px 160px 210px 40px;
+  min-width: 960px;
+}
+.all-files-file-row.pav-row { cursor: pointer; }
+.pav-row--pending { opacity: 0.55; }
+.pav-row--pending:hover { opacity: 0.8; }
+
+.pav-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.pav-cell--end { align-items: flex-end; }
+.pav-name-btn {
+  border: 0; background: none; padding: 0; text-align: left; cursor: pointer;
+  font-weight: 700; color: var(--text); font-size: 0.92rem;
+}
+.pav-name-btn:hover { color: var(--accent); }
+.pav-sub { display: block; font-size: 0.76rem; color: var(--text-soft); font-weight: 500; }
+.pav-source { font-size: 0.8rem; font-weight: 600; color: var(--text-soft); }
+.pav-foot-note { margin: 12px 0 0; font-size: 0.78rem; color: var(--text-soft); }
+.doc-badge-trigger.pav-badge--na { background: transparent; color: var(--text-soft); padding-left: 0; cursor: default; }
+.pav-row .doc-badge-trigger--missing { border: 1px dashed var(--border); }
+
+.pav-status {
+  display: inline-block;
+  font-size: 0.74rem; font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+.pav-status--active { background: var(--accent-soft); color: var(--accent); }
+.pav-status--moved { background: var(--warning-soft); color: var(--warning); }
+.pav-status--closed { background: var(--surface-alt); color: var(--text-soft); border: 1px solid var(--border); }
+
+/* Vendor popup */
+.popup.pav-popup { width: min(92vw, 640px); max-height: 90vh; overflow-y: auto; }
+.pav-popup-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+.pav-popup-head h2 { margin: 0 0 4px; }
+.pav-close-btn {
+  width: 40px; height: 40px; flex: 0 0 auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-soft); cursor: pointer;
+}
+.pav-doc-stack { display: flex; flex-direction: column; gap: 12px; }
+.pav-doc {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--surface);
+}
+.pav-doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.pav-doc-title { display: block; font-size: 0.95rem; font-weight: 700; }
+.pav-file {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--surface-alt); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 0.86rem;
+}
+.pav-file-name { min-width: 0; overflow-wrap: anywhere; }
+.pav-btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pav-btn-row .workbook-btn { flex: 0 0 auto; }
+.pav-btn-row .auth-button { margin-top: 0; }
+.pav-note { margin: 0; font-size: 0.84rem; color: var(--text-soft); line-height: 1.5; }
+.pav-upload { display: flex; flex-direction: column; gap: 10px; }
+.pav-upload-field { margin: 0; }
+.pav-check { display: flex; align-items: center; gap: 8px; font-size: 0.86rem; }
+.pav-popup-foot { justify-content: space-between; align-items: center; }
+.pav-popup-foot > * { flex: 0 0 auto; min-width: 0; }
+.pav-link { color: var(--accent); font-weight: 700; font-size: 0.9rem; }
+.pav-link-btn { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+.workbook-btn.pav-btn--danger { background: var(--danger-soft); color: var(--danger); }
+.pav-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+/* Utility account cards */
+.pav-util-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+.pav-util-card { gap: 12px; }
+.pav-util-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.pav-util-title { display: flex; gap: 10px; align-items: center; }
+.pav-util-icon { width: 30px; height: 30px; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent); flex: 0 0 auto; }
+.pav-util-icon--water { background: var(--info-soft); color: var(--info); }
+.pav-util-icon--electric, .pav-util-icon--gas { background: var(--warning-soft); color: var(--warning); }
+.pav-util-icon--trash, .pav-util-icon--other { background: var(--surface-alt); color: var(--text-soft); }
+.pav-util-type { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
+.pav-fields { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; font-size: 0.88rem; }
+.pav-fields dt { font-size: 0.74rem; color: var(--text-soft); }
+.pav-fields dd { margin: 2px 0 0; font-weight: 600; overflow-wrap: anywhere; }
+.pav-util-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+
+@media (max-width: 900px) {
+  .pav-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Phone: vendor rows become cards; popups here are bottom sheets over a
+   blurred (not darkened) page, same look as the "More" sheet. */
+@media (max-width: 768px) {
+  .popup-overlay.popup-overlay--blur {
+    background: transparent;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .popup-overlay--blur > .popup { box-shadow: 0 -12px 40px rgba(7, 20, 30, 0.16); }
+  .popup.pav-popup { max-height: 92dvh; }
+
+  .pav-list { overflow: visible; background: transparent; border: 0; box-shadow: none; }
+  .all-files-list-header.pav-row { display: none; }
+  .all-files-file-row.pav-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "name menu" "src src" "c c" "w w" "i i";
+    min-width: 0;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+  .all-files-file-row.pav-row:nth-child(even) { background: var(--surface); }
+  .all-files-file-row.pav-row > :nth-child(1) { grid-area: name; }
+  .all-files-file-row.pav-row > :nth-child(2) { grid-area: src; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .all-files-file-row.pav-row > :nth-child(3) { grid-area: c; }
+  .all-files-file-row.pav-row > :nth-child(4) { grid-area: w; }
+  .all-files-file-row.pav-row > :nth-child(5) { grid-area: i; }
+  .all-files-file-row.pav-row > :nth-child(6) { grid-area: menu; }
+  .pav-row .pav-cell:nth-child(n+3) { flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pav-row .pav-cell:nth-child(3)::before { content: "Contract"; }
+  .pav-row .pav-cell:nth-child(4)::before { content: "W-9"; }
+  .pav-row .pav-cell:nth-child(5)::before { content: "COI"; }
+  .pav-row .pav-cell:nth-child(n+3):nth-child(-n+5)::before { width: 64px; font-size: 0.76rem; font-weight: 700; color: var(--text-soft); }
+
+  .pav-util-grid { grid-template-columns: 1fr; }
+  .pav-form-grid { grid-template-columns: 1fr; }
+  .pav-file .pav-btn-row { width: 100%; }
+  .pav-file .pav-btn-row .workbook-btn, .pav-btn-row .auth-button { flex: 1 1 0; min-height: 44px; }
+}
+.pav-doc-head .doc-badge-trigger, .pav-row .doc-badge-trigger { white-space: nowrap; flex: 0 0 auto; }
+@media (max-width: 768px) {
+  .pav-toolbar .workbook-search-input { flex: 1 1 100%; }
+}

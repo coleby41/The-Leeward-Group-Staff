@@ -24,7 +24,14 @@
 //   save_project_coi { project_id, path, file_name }
 //       the COI PDF for that project: filed in the project's Files ›
 //       Contracts & Procurement › Vendors, answers the "COI needed" request
-//   project_file_url { project_id, file_id, download? }   their COI / proposal on that project
+//   project_file_url { project_id, file_id, download? }   their COI / proposal / contract on that project
+//   sign_contract { project_id, name, title?, signature_png, agree }
+//       signs the project's contract in the portal: adds a signature page
+//       (name, title, signature, email, date/time, IP, file fingerprint) to
+//       the PDF, files it in Contracts & Procurement › Vendors.
+//   A project stays LOCKED (no scopes, amounts or proposals) until the
+//   contract is signed, the company has a W-9 on file and this project's
+//   COI is uploaded (exempt / not-needed count as done).
 //   doc_url { kind }           short-lived link to their W-9 / COI on file
 //   team_add { name, email, title?, phone? }    (account holder)
 //   team_remove { id }                          (account holder)
@@ -32,6 +39,7 @@
 // Deploy:  supabase functions deploy vendor-api --no-verify-jwt
 
 import { CORS_HEADERS, formatMoney, json, sendEmail, serviceClient } from "../_shared/bid-common.ts";
+import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { renderTeamInviteEmail } from "../_shared/bid-email.ts";
 import {
   STAFF_PORTAL_URL, TEAM_INVITE_LINK_HOURS, type Row, type VendorContext, clean, createLoginLink,
@@ -457,7 +465,15 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
     ? await ctx.admin.from("project_coi_templates").select("project_id, project_file_id, updated_at").in("project_id", projectIds)
     : { data: [] };
   const templateByProject = new Map((templates || []).map((t: Row) => [t.project_id, t]));
+  // This vendor's contract on each project (staff upload it on the project's Accounts page).
+  const { data: contractRows } = projectIds.length
+    ? await ctx.admin.from("project_vendor_contracts")
+      .select("id, project_id, file_id, signed_file_id, not_needed, signed_at, signed_in_portal, signer_name")
+      .eq("company_id", ctx.company!.id).in("project_id", projectIds)
+    : { data: [] };
+  const contractByProject = new Map((contractRows || []).map((c: Row) => [c.project_id, c]));
   const fileIds = [...new Set([
+    ...(contractRows || []).flatMap((c: Row) => [c.file_id, c.signed_file_id]),
     ...(invs || []).flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]),
     ...(assigned || []).map((a: Row) => a.coi_file_id),
     ...(templates || []).map((t: Row) => t.project_file_id),
@@ -475,7 +491,26 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
     const requested = mine.map((r: Row) => r.coi_requested_at).filter(Boolean).sort().pop() || null;
     const received = withCoi?.coi_received_at || null;
     const outstanding = mine.some((r: Row) => r.coi_requested_at && !r.coi_received_at);
+    const k: Row = contractByProject.get(p.id) || null;
+    const kFile = (id: unknown) => id && fileById.get(id) ? { id, name: (fileById.get(id) as Row).file_name } : null;
+    const contract = {
+      status: k?.not_needed ? "not_needed" : k?.signed_file_id ? "signed" : k?.file_id ? "to_sign" : "waiting",
+      file: kFile(k?.file_id),
+      signed_file: kFile(k?.signed_file_id),
+      signed_at: k?.signed_at || null,
+      signed_in_portal: Boolean(k?.signed_in_portal),
+      signer_name: k?.signer_name || null,
+    };
+    const c = ctx.company!;
+    const checklist = {
+      contract: contract.status === "signed" || contract.status === "not_needed",
+      w9: Boolean(c.W9FilePath) || Boolean(c.W9Exempt),
+      coi: Boolean(withCoi && fileById.get(withCoi.coi_file_id)) || Boolean(c.COIExempt),
+    };
     return {
+      contract,
+      checklist,
+      locked: !(checklist.contract && checklist.w9 && checklist.coi),
       id: p.id,
       name: p.name,
       location: [p.site_address, [p.site_city, p.site_state].filter(Boolean).join(", "), p.site_zip].filter(Boolean).join(" "),
@@ -508,9 +543,15 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   }).sort((a: Row, b: Row) => Number(b.coi.needed) - Number(a.coi.needed) || String(a.name).localeCompare(String(b.name)));
 }
 
+// A locked project shows only its name, location and the paperwork checklist.
+function lockedView(p: Row): Row {
+  return p.locked ? { ...p, scopes: [] } : p;
+}
+
 async function projectsList(ctx: VendorContext) {
   const gate = needsCompany(ctx); if (gate) return gate;
-  return json({ ok: true, projects: await awardedProjects(ctx), coi_exempt: Boolean(ctx.company!.COIExempt) });
+  const projects = (await awardedProjects(ctx)).map(lockedView);
+  return json({ ok: true, projects, coi_exempt: Boolean(ctx.company!.COIExempt) });
 }
 
 function validProjectId(id: unknown): string | null {
@@ -524,7 +565,7 @@ async function projectOne(ctx: VendorContext, body: Row) {
   const [project] = id ? await awardedProjects(ctx, id) : [];
   if (!project) return fail("not_found", 404);
   return json({
-    ok: true, project,
+    ok: true, project: lockedView(project),
     company_coi: { expires_on: ctx.company!.COIExpiresOn || null, exempt: Boolean(ctx.company!.COIExempt) },
   });
 }
@@ -602,13 +643,131 @@ async function projectFileUrl(ctx: VendorContext, body: Row) {
   if (!project) return fail("not_found", 404);
   const fileId = String(body.file_id || "");
   const allowed = project.coi.file?.id === fileId || project.coi_template?.id === fileId
-    || project.scopes.some((sc: Row) => sc.proposal?.id === fileId);
+    || project.contract.file?.id === fileId || project.contract.signed_file?.id === fileId
+    || (!project.locked && project.scopes.some((sc: Row) => sc.proposal?.id === fileId));
   if (!allowed) return fail("not_found", 404);
   const { data: file } = await ctx.admin.from("project_files").select("bucket, storage_path, file_name").eq("id", fileId).maybeSingle();
   if (!file) return fail("not_found", 404);
   const { data, error } = await ctx.admin.storage.from(file.bucket || DOCS_BUCKET).createSignedUrl(file.storage_path, LINK_SECONDS, { download: body.download ? file.file_name : undefined });
   if (error || !data) throw error || new Error("no url");
   return json({ ok: true, url: data.signedUrl, name: file.file_name });
+}
+
+// ---- Sign the project's contract in the portal ------------------------------
+
+const MAX_SIGNATURE_BYTES = 300 * 1024;
+
+function wrapText(text: string, font: Row, size: number, width: number): string[] {
+  const words = String(text || "").split(/\s+/);
+  const lines: string[] = [];
+  let line = "";
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (font.widthOfTextAtSize(next, size) > width && line) { lines.push(line); line = w; } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function signContract(ctx: VendorContext, body: Row) {
+  const gate = needsCompany(ctx); if (gate) return gate;
+  const id = validProjectId(body.project_id);
+  const [project] = id ? await awardedProjects(ctx, id) : [];
+  if (!project) return fail("not_found", 404);
+  if (project.contract.status === "signed") return fail("already_signed", 409);
+  if (project.contract.status !== "to_sign" || !project.contract.file) return fail("no_contract", 409);
+
+  const name = clean(body.name, 120);
+  const title = clean(body.title, 120);
+  const missing = [!name ? "name" : null, body.agree !== true ? "agree" : null].filter(Boolean);
+  const png = String(body.signature_png || "");
+  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(png);
+  if (!m) missing.push("signature");
+  if (missing.length) return fail("missing_fields", 400, { fields: missing });
+  const sigBytes = Uint8Array.from(atob(m![1]), (ch) => ch.charCodeAt(0));
+  if (sigBytes.length > MAX_SIGNATURE_BYTES) return fail("signature_too_big", 400, { fields: ["signature"] });
+
+  const { data: contractRow } = await ctx.admin.from("project_vendor_contracts")
+    .select("id, file_id, uploaded_by").eq("project_id", project.id).eq("company_id", ctx.company!.id).maybeSingle();
+  if (!contractRow?.file_id) return fail("no_contract", 409);
+  const { data: original } = await ctx.admin.from("project_files").select("bucket, storage_path, file_name").eq("id", contractRow.file_id).maybeSingle();
+  if (!original) return fail("no_contract", 409);
+  const { data: blob, error: dlError } = await ctx.admin.storage.from(original.bucket || DOCS_BUCKET).download(original.storage_path);
+  if (dlError || !blob) throw dlError || new Error("contract download failed");
+  const originalBytes = new Uint8Array(await blob.arrayBuffer());
+  const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", originalBytes))).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  // Original pages, then one signature page.
+  let pdf: Row;
+  try { pdf = await PDFDocument.load(originalBytes, { ignoreEncryption: true }); }
+  catch { return fail("bad_contract_pdf", 409); }
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const sig = await pdf.embedPng(sigBytes);
+  const page = pdf.addPage([612, 792]);
+  const now = new Date();
+  const when = now.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "long", timeStyle: "long" });
+  const ink = rgb(0.08, 0.15, 0.23), soft = rgb(0.37, 0.43, 0.49);
+  let y = 730;
+  page.drawText("Electronic Signature", { x: 56, y, size: 20, font: bold, color: ink }); y -= 28;
+  for (const line of wrapText(`${companyName(ctx)} signed this contract for ${project.name} electronically in The Leeward Group Vendor Portal.`, font, 11, 500)) {
+    page.drawText(line, { x: 56, y, size: 11, font, color: soft }); y -= 16;
+  }
+  y -= 16;
+  const sigW = Math.min(260, sig.width), sigH = sigW * (sig.height / sig.width);
+  page.drawImage(sig, { x: 56, y: y - sigH, width: sigW, height: sigH }); y -= sigH + 6;
+  page.drawLine({ start: { x: 56, y }, end: { x: 336, y }, thickness: 1, color: soft }); y -= 16;
+  page.drawText(`${name}${title ? `, ${title}` : ""}`, { x: 56, y, size: 12, font: bold, color: ink }); y -= 34;
+  const rows: [string, string][] = [
+    ["Company", companyName(ctx)],
+    ["Project", String(project.name || "")],
+    ["Document", String(original.file_name || "")],
+    ["Signed by", `${name}${title ? `, ${title}` : ""}`],
+    ["Email", String(ctx.user.email || "")],
+    ["Date / time", when],
+    ["IP address", String(body._ip || "unknown")],
+    ["Document fingerprint (SHA-256 of the unsigned PDF)", digest],
+  ];
+  for (const [label, value] of rows) {
+    page.drawText(label, { x: 56, y, size: 9, font: bold, color: soft }); y -= 13;
+    for (const line of wrapText(value, font, 10, 500)) { page.drawText(line, { x: 56, y, size: 10, font, color: ink }); y -= 14; }
+    y -= 6;
+  }
+  y -= 6;
+  for (const line of wrapText(`By signing, ${name} agreed to sign this document electronically and that this electronic signature is the same as a handwritten one.`, font, 9, 500)) {
+    page.drawText(line, { x: 56, y, size: 9, font, color: soft }); y -= 12;
+  }
+  const signedBytes = await pdf.save();
+
+  const baseName = safeFileName(String(original.file_name || "contract.pdf").replace(/\.pdf$/i, ""));
+  const path = `${project.id}/${BIDS_CATEGORY}/${VENDOR_FILES_SUBFOLDER}/${Date.now()}-contract-signed-${ctx.company!.id}-${baseName}.pdf`;
+  const { error: upError } = await ctx.admin.storage.from(DOCS_BUCKET).upload(path, signedBytes, { contentType: "application/pdf", upsert: false });
+  if (upError) throw upError;
+  const fileName = `${companyName(ctx)} - Contract (Signed) - ${String(original.file_name || "").replace(/^.* - Contract - /, "")}`.replace(/[\\/]/g, "-").slice(0, 200);
+  const { data: fileRow, error: fileError } = await ctx.admin.from("project_files").insert({
+    project_id: project.id, category: BIDS_CATEGORY, subfolder: VENDOR_FILES_SUBFOLDER, sub_subfolder: null,
+    bucket: DOCS_BUCKET, storage_path: path, file_name: fileName, source: "contract",
+    uploaded_by_name: `${name} (${companyName(ctx)}, Vendor Portal)`,
+  }).select("id").single();
+  if (fileError) throw fileError;
+
+  const { error } = await ctx.admin.from("project_vendor_contracts").update({
+    signed_file_id: fileRow.id, signed_at: now.toISOString(), signed_in_portal: true,
+    signer_name: name, signer_title: title, signer_email: ctx.user.email || null,
+    signer_vendor_user_id: ctx.user.id, signer_ip: body._ip || null,
+  }).eq("id", contractRow.id);
+  if (error) throw error;
+
+  if (contractRow.uploaded_by) {
+    await notifyStaff(ctx.admin, [contractRow.uploaded_by], {
+      title: "Contract signed",
+      message: `${companyName(ctx)} signed their contract for ${project.name} on the Vendor Portal.`,
+      type: "vendor_document",
+      link_url: `${STAFF_PORTAL_URL}/pages/project-accounts.html?id=${project.id}`,
+      link_label: "View accounts",
+    });
+  }
+  return json({ ok: true });
 }
 
 async function setCoiDate(ctx: VendorContext, body: Row) {
@@ -705,7 +864,7 @@ const ACTIONS: Record<string, (ctx: VendorContext, body: Row) => Promise<Respons
   bid_upload_url: bidUploadUrl, submit_bid: submitBid, profile, update_company: updateCompany,
   doc_upload_url: docUploadUrl, save_doc: saveDoc, set_coi_date: setCoiDate,
   projects: projectsList, project: projectOne, project_coi_upload_url: projectCoiUploadUrl,
-  save_project_coi: saveProjectCoi, project_file_url: projectFileUrl, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
+  save_project_coi: saveProjectCoi, project_file_url: projectFileUrl, sign_contract: signContract, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
 };
 
 Deno.serve(async (req: Request) => {
@@ -719,6 +878,8 @@ Deno.serve(async (req: Request) => {
   try {
     const auth = await requireVendor(body.session);
     if (auth.error) return auth.error;
+    // For the signature record (sign_contract). Never trusted from the client.
+    body._ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("cf-connecting-ip") || null;
     return await handler(auth.ctx, body);
   } catch (error) {
     console.error(`vendor-api ${action} failed:`, error);

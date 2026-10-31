@@ -1,1029 +1,760 @@
 /* ===========================================================
-   ACCOUNTS / CONTACTS (project-accounts.html)
+   PROJECT › ACCOUNTS (pages/project-accounts.html)
+   Redesign, Coleby 2026-10-31. Two tabs:
 
-   Two things live on this page:
-     1. Project Details — the same wizard-collected fields that used to
-        render on projects.html's Overview tab under a "Project Details"
-        heading (window.ProjectFields.WIZARD_STEPS, page === "/pages/projects.html",
-        minus the "tracking" step which gets its own Status & Tracking card
-        here instead). Unchanged data, just moved.
-     2. A new lightweight CRM layer — project_contacts / project_organizations
-        / project_utility_accounts / project_gov_offices (see SQL FILES/
-        supabase-project-accounts-contacts-schema.sql) — deliberately
-        separate from the wizard fields above (adding a contact here does
-        NOT fill in the wizard's "Property Owner phone" field, etc.).
+   Vendors — every vendor tied to this project (awarded a bid, added in
+     Manage Projects, has an invoice here, or invited to bid), from the
+     project_vendors() SQL function. Each row shows:
+       Contract  this job only (project_vendor_contracts). Staff upload it
+                 here; the vendor signs it in the Vendor Portal. Staff can
+                 also upload an already-signed copy, or mark it not needed.
+       W-9       from the vendor record (Companies.W9FilePath) — same on
+                 every job.
+       COI       this job's COI PDF (bid_invites / vendor_project_assignments
+                 coi_file_id) plus the company's COI expiration date.
+     Invited-to-bid vendors are grayed out ("Pending award").
+     Clicking a row opens the vendor popup (#vendorDocsOverlay).
 
-   Waits for "project-shell:ready" (project-shell.js) to know which project
-   we're on, same as every other project-*.html page.
+   Utility Accounts — water, sewer, electric … (project_utility_accounts)
+     with account #, phone, service address, meter #, status and dates.
+
+   Needs sql/supabase-project-accounts-vendors-setup.sql.
+   Views open in the portal (window.FilePreview), never a new tab.
 =========================================================== */
-
 (function () {
     "use strict";
 
-    const CONTACTS_TABLE = "project_contacts";
-    const ORGANIZATIONS_TABLE = "project_organizations";
     const UTILITY_ACCOUNTS_TABLE = "project_utility_accounts";
-    const GOV_OFFICES_TABLE = "project_gov_offices";
-
-    // Page-local type lists (unlike window.ProjectFields.CONTACT_TYPES,
-    // these aren't reused anywhere else in the app yet, so they live here
-    // rather than in project-fields.js). Keys match the SQL check
-    // constraints in supabase-project-accounts-contacts-schema.sql exactly.
-    const ORG_TYPES = [
-        { key: "general_contractor", label: "General Contractor" },
-        { key: "subcontractor", label: "Subcontractor" },
-        { key: "vendor", label: "Vendor" },
-        { key: "utility_company", label: "Utility Company" },
-        { key: "government_agency", label: "Government Agency" },
-        { key: "insurance", label: "Insurance" },
-        { key: "other", label: "Other" }
-    ];
+    const CONTRACTS_TABLE = "project_vendor_contracts";
+    const PROJECT_FILES_TABLE = "project_files";
+    const DOCS_BUCKET = "project-documents";
+    const W9_BUCKET = "company-w9s";
+    const CONTRACT_CATEGORY = "contracts_procurement";
+    const CONTRACT_SUBFOLDER = "vendors";
+    const LINK_SECONDS = 60 * 5;
 
     const UTILITY_TYPES = [
-        { key: "electric", label: "Electric" },
         { key: "water", label: "Water" },
-        { key: "gas", label: "Gas" },
         { key: "sewer", label: "Sewer" },
+        { key: "electric", label: "Electric" },
+        { key: "gas", label: "Gas" },
         { key: "trash", label: "Trash" },
         { key: "internet", label: "Internet" },
         { key: "cable", label: "Cable" },
         { key: "other", label: "Other" }
     ];
-
-    // The 6 quick-access card types on the Project Details tab — every
-    // CONTACT_TYPE except the catch-all "Other" (which only ever shows up
-    // in the All Contacts tab / type filter).
-    const QUICK_CARD_TYPES = window.ProjectFields.CONTACT_TYPES.filter(t => t.key !== "other");
+    const UTILITY_STATUS = {
+        active: { label: "Active", cls: "pav-status--active" },
+        transferred: { label: "Transferred", cls: "pav-status--moved" },
+        closed: { label: "Closed", cls: "pav-status--closed" }
+    };
+    const SOURCE_LABELS = { awarded: "Awarded", assigned: "Manage Projects", invoice: "Invoice only", invited: "Invited to bid" };
 
     let currentProject = null;
-    let myProjectRole = null;
-    let contacts = [];
-    let organizations = [];
+    let vendors = [];          // project_vendors() rows
+    let contracts = [];        // project_vendor_contracts rows for this project
+    let contractFiles = {};    // project_files rows by id (contract + signed copies)
     let utilityAccounts = [];
-    let govOffices = [];
-
-    let contactCardView = "grid"; // "grid" | "list"
-    let pendingDelete = null;     // { table, id, label }
-    let editingContactId = null;
-    let editingOrganizationId = null;
+    let openVendorId = null;   // company_id shown in the vendor popup
+    let busy = false;
     let editingUtilityAccountId = null;
-    let editingGovOfficeId = null;
+    let pendingDelete = null;
+    let pendingDeleteName = "";
+    const revealed = new Set(); // utility account ids whose number is shown
 
     /* ---------- helpers ---------- */
 
-    function escapeHtmlAccounts(str) {
+    const $ = id => document.getElementById(id);
+
+    function esc(str) {
         const d = document.createElement("div");
         d.textContent = str ?? "";
         return d.innerHTML;
     }
 
-    function getAccountsStaffProfile() {
+    function db() { return window.supabaseClient; }
+
+    function getStaffProfile() {
         return window.currentSupabaseProfile
             || (() => { try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch { return null; } })();
     }
-
-    function getAccountsStaffName() {
-        const profile = getAccountsStaffProfile();
-        return (profile && (profile.full_name || profile.username)) || "Staff";
+    function getStaffName() {
+        const p = getStaffProfile();
+        return (p && (p.full_name || p.username)) || "Staff";
+    }
+    function getStaffId() {
+        const p = getStaffProfile();
+        return p?.id || null;
+    }
+    function can(key) {
+        return window.Permissions ? window.Permissions.hasPermission(key) : true;
     }
 
-    function getAccountsStaffId() {
-        const profile = getAccountsStaffProfile();
-        return profile?.id || profile?.uid || null;
-    }
-
-    function setAccountsPageMessage(text, type) {
-        const el = document.getElementById("accountsPageMessage");
+    function setPageMessage(text, type) {
+        const el = $("accountsPageMessage");
         if (!el) return;
         if (!text) { el.style.display = "none"; return; }
         el.textContent = text;
         el.className = `workbook-page-message ${type || ""}`.trim();
         el.style.display = "block";
-        if (type === "success") setTimeout(() => { el.style.display = "none"; }, 4000);
-        if (type === "success") window.showToast?.(text); // shared bottom-right popup (js/toast.js)
-    }
-
-    function formatAccountDate(isoString) {
-        if (!isoString) return "—";
-        try {
-            return new Date(isoString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-        } catch {
-            return isoString;
+        if (type === "success") {
+            setTimeout(() => { el.style.display = "none"; }, 4000);
+            window.showToast?.(text);
         }
     }
 
-    function canManageProject() {
-        return myProjectRole === "project_admin" || myProjectRole === "project_manager";
+    function setPopupMessage(text, type) {
+        const el = $("vendorDocsMessage");
+        if (!el) return;
+        el.textContent = text || "";
+        el.className = `auth-message ${type || ""}`.trim();
     }
 
-    function canEditRecord(record) {
-        return canManageProject() || String(record.created_by) === String(getAccountsStaffId());
+    // Dates: timestamps → local day; "YYYY-MM-DD" stays that day (no UTC shift).
+    function fmtDay(value) {
+        if (!value) return "";
+        const s = String(value);
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T12:00:00`) : new Date(s);
+        if (isNaN(d)) return s;
+        return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" });
+    }
+    function isPast(dateStr) {
+        if (!dateStr) return false;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        return new Date(`${String(dateStr).slice(0, 10)}T12:00:00`) < today;
+    }
+
+    const chevron = `<svg aria-hidden="true" width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+
+    // A status badge. tone: ok | missing | warn | bad | na
+    function badge(text, tone, withChevron) {
+        const cls = {
+            ok: "",
+            missing: "doc-badge-trigger--missing",
+            warn: "doc-badge-trigger--expiring",
+            bad: "doc-badge-trigger--expired",
+            na: "pav-badge--na"
+        }[tone] || "";
+        return `<span class="doc-badge-trigger ${cls}">${esc(text)}${withChevron ? chevron : ""}</span>`;
+    }
+
+    /* ---------- status for each document ---------- */
+
+    function isPending(v) {
+        // Only invited to bid (no award, not added, no invoice) → grayed out.
+        return v.sources.length === 1 && v.sources[0] === "invited";
+    }
+    function needsPaperwork(v) {
+        // Contract + COI are asked for once a vendor is actually working the job.
+        return v.sources.includes("awarded") || v.sources.includes("assigned");
+    }
+    function contractFor(v) {
+        return contracts.find(c => String(c.company_id) === String(v.company_id)) || null;
+    }
+
+    function contractStatus(v) {
+        if (isPending(v)) return { text: "Pending", tone: "na", meta: "Not awarded yet" };
+        const c = contractFor(v);
+        if (c?.not_needed) return { text: "Not needed", tone: "na", meta: "" };
+        if (c?.signed_file_id) return { text: "Signed", tone: "ok", meta: `Signed ${fmtDay(c.signed_at)}${c.signed_in_portal ? " in portal" : ""}` };
+        if (c?.file_id) return { text: "Waiting on signature", tone: "warn", meta: `Sent ${fmtDay(c.updated_at || c.created_at)}` };
+        if (!needsPaperwork(v)) return { text: "Not needed", tone: "na", meta: "" };
+        return { text: "Missing", tone: "missing", meta: "Upload contract" };
+    }
+
+    function w9Status(v) {
+        if (v.w9_exempt) return { text: "Exempt", tone: "na", meta: "" };
+        if (v.w9_file_path) return { text: "On file", tone: "ok", meta: v.w9_updated_at ? `Updated ${fmtDay(v.w9_updated_at)}` : "" };
+        return { text: "Missing", tone: "missing", meta: "Not on vendor record" };
+    }
+
+    function coiStatus(v) {
+        const dateNote = v.coi_expires_on ? `${isPast(v.coi_expires_on) ? "Expired" : "Expires"} ${fmtDay(v.coi_expires_on)}` : "No company COI date";
+        if (v.coi_exempt) return { text: "Exempt", tone: "na", meta: "" };
+        if (isPending(v)) return { text: "Pending", tone: "na", meta: "Not awarded yet" };
+        if (v.coi_expires_on && isPast(v.coi_expires_on)) return { text: "Expired", tone: "bad", meta: dateNote };
+        if (v.coi_file_id) return { text: "Received", tone: "ok", meta: dateNote };
+        if (!needsPaperwork(v)) return { text: "Not needed", tone: "na", meta: v.coi_expires_on ? `Company COI ${dateNote.toLowerCase()}` : "" };
+        if (v.coi_requested_at) return { text: "Requested", tone: "warn", meta: `Asked ${fmtDay(v.coi_requested_at)} · ${dateNote.toLowerCase()}` };
+        return { text: "Missing", tone: "missing", meta: dateNote };
+    }
+
+    function needsAttention(v) {
+        if (isPending(v)) return false;
+        return [contractStatus(v), w9Status(v), coiStatus(v)].some(s => s.tone === "missing" || s.tone === "bad" || s.tone === "warn");
     }
 
     /* ---------- load ---------- */
 
-    async function loadMyProjectRole(projectId) {
-        const { data, error } = await window.supabaseClient.rpc("project_role", { p_project_id: projectId });
-        if (error) { console.error("Failed to resolve project role:", error); myProjectRole = null; return; }
-        myProjectRole = data;
-    }
-
-    async function loadAllAccountsData(projectId) {
-        const [contactsRes, orgsRes, utilRes, govRes] = await Promise.all([
-            window.supabaseClient.from(CONTACTS_TABLE).select("*").eq("project_id", projectId).order("created_at", { ascending: true }),
-            window.supabaseClient.from(ORGANIZATIONS_TABLE).select("*").eq("project_id", projectId).order("created_at", { ascending: true }),
-            window.supabaseClient.from(UTILITY_ACCOUNTS_TABLE).select("*").eq("project_id", projectId).order("created_at", { ascending: true }),
-            window.supabaseClient.from(GOV_OFFICES_TABLE).select("*").eq("project_id", projectId).order("created_at", { ascending: true })
+    async function loadVendors() {
+        const [vRes, cRes] = await Promise.all([
+            db().rpc("project_vendors", { p_project_id: currentProject.id }),
+            db().from(CONTRACTS_TABLE).select("*").eq("project_id", currentProject.id)
         ]);
+        if (vRes.error) {
+            console.error("project_vendors failed:", vRes.error);
+            setPageMessage("Couldn't load this project's vendors. (Has sql/supabase-project-accounts-vendors-setup.sql been run?)", "error");
+        }
+        if (cRes.error) console.error("Failed to load contracts:", cRes.error);
+        vendors = (vRes.data || []).map(v => ({ ...v, sources: v.sources || [] }));
+        contracts = cRes.data || [];
 
-        if (contactsRes.error) console.error("Failed to load contacts:", contactsRes.error);
-        if (orgsRes.error) console.error("Failed to load organizations:", orgsRes.error);
-        if (utilRes.error) console.error("Failed to load utility accounts:", utilRes.error);
-        if (govRes.error) console.error("Failed to load government offices:", govRes.error);
-
-        contacts = contactsRes.data || [];
-        organizations = orgsRes.data || [];
-        utilityAccounts = utilRes.data || [];
-        govOffices = govRes.data || [];
+        const fileIds = [...new Set(contracts.flatMap(c => [c.file_id, c.signed_file_id]).filter(Boolean))];
+        contractFiles = {};
+        if (fileIds.length) {
+            const { data, error } = await db().from(PROJECT_FILES_TABLE).select("id, file_name, bucket, storage_path, created_at, uploaded_by_name").in("id", fileIds);
+            if (error) console.error("Failed to load contract files:", error);
+            (data || []).forEach(f => { contractFiles[f.id] = f; });
+        }
     }
 
-    function getRecordArray(table) {
-        if (table === CONTACTS_TABLE) return contacts;
-        if (table === ORGANIZATIONS_TABLE) return organizations;
-        if (table === UTILITY_ACCOUNTS_TABLE) return utilityAccounts;
-        if (table === GOV_OFFICES_TABLE) return govOffices;
-        return [];
+    async function loadUtilities() {
+        const { data, error } = await db().from(UTILITY_ACCOUNTS_TABLE).select("*").eq("project_id", currentProject.id).order("created_at", { ascending: true });
+        if (error) console.error("Failed to load utility accounts:", error);
+        utilityAccounts = data || [];
     }
 
-    function findRecord(table, id) {
-        return getRecordArray(table).find(r => String(r.id) === String(id)) || null;
+    /* ---------- Vendors tab ---------- */
+
+    function filteredVendors() {
+        const q = ($("vendorsSearchInput")?.value || "").trim().toLowerCase();
+        const source = $("vendorsSourceFilter")?.value || "";
+        const attention = $("vendorsAttentionFilter")?.value === "attention";
+        return vendors.filter(v => {
+            if (source && !v.sources.includes(source)) return false;
+            if (attention && !needsAttention(v)) return false;
+            if (q && !`${v.company_name} ${v.scope || ""}`.toLowerCase().includes(q)) return false;
+            return true;
+        }).sort((a, b) => Number(isPending(a)) - Number(isPending(b)) || String(a.company_name).localeCompare(String(b.company_name)));
     }
 
-    /* ---------- Project Details tab: wizard-field grid (moved from
-       projects.html unchanged, minus the "tracking" step) ---------- */
-
-    // step key -> icon/color, matched 1:1 against the mockup's card badges
-    // and reusing the same icon/color pairs as the overlapping
-    // window.ProjectFields.CONTACT_TYPES entries (owner_contact/gc/poc/
-    // utilities/temp_services/county_city) so a "General Contractor" badge
-    // looks the same here as it does on the Project Contacts quick-cards.
-    // job_name and site_address have no CONTACT_TYPES counterpart, so they
-    // get their own pairing (briefcase/success, pin/info).
-    const PROJECT_DETAILS_STEP_ICONS = {
-        owner_contact: { icon: "person", color: "accent" },
-        job_name: { icon: "briefcase", color: "success" },
-        site_address: { icon: "pin", color: "info" },
-        gc: { icon: "building", color: "info" },
-        poc: { icon: "badge", color: "success" },
-        utilities: { icon: "droplet", color: "info" },
-        temp_services: { icon: "trash", color: "completed" },
-        county_city: { icon: "bank", color: "accent" }
-    };
-
-    // One .pd-card, given its own anchor field (for sidebar-search
-    // highlightHashTarget()), icon/color, title, and pre-built row HTML.
-    function pdCardHtml(anchorFieldName, icon, color, title, rowsHtml) {
-        return `
-            <div class="pd-card" id="field-${anchorFieldName}">
-                <div class="pd-card-header">
-                    <span class="project-stat-icon project-stat-icon--${color} project-stat-icon--${icon}"></span>
-                    <h3 class="pd-card-title">${escapeHtmlAccounts(title)}</h3>
-                </div>
-                ${rowsHtml || `<p class="pd-empty-note">Nothing on file yet.</p>`}
-            </div>
-        `;
+    function renderStats() {
+        const active = vendors.filter(v => !isPending(v));
+        $("statVendors").textContent = vendors.length;
+        $("statContracts").textContent = active.filter(v => ["missing", "warn"].includes(contractStatus(v).tone)).length;
+        $("statW9").textContent = active.filter(v => w9Status(v).tone === "missing").length;
+        $("statCoi").textContent = active.filter(v => ["missing", "warn", "bad"].includes(coiStatus(v).tone)).length;
+        $("vendorsTabCount").textContent = vendors.length;
     }
 
-    function pdFieldRow(label, value) {
-        return `
-            <div class="pd-field-row">
-                ${label ? `<span class="pd-field-label">${escapeHtmlAccounts(label)}</span>` : ""}
-                ${escapeHtmlAccounts(value)}
-            </div>
-        `;
+    function cell(status) {
+        return `<div class="pav-cell">${badge(status.text, status.tone, true)}${status.meta ? `<span class="pav-sub">${esc(status.meta)}</span>` : ""}</div>`;
     }
 
-    function renderProjectDetailsGrid(project) {
-        const grid = document.getElementById("accountsSummaryGrid");
-        if (!grid) return;
+    function renderVendors() {
+        renderStats();
+        const rows = filteredVendors();
+        $("vendorsEmpty").style.display = rows.length ? "none" : "block";
+        if (!vendors.length) $("vendorsEmpty").textContent = "No vendors on this project yet. Vendors show up here once they're awarded a bid, added in Manage Projects on the vendor page, invited to bid, or have an invoice on this job.";
+        else if (!rows.length) $("vendorsEmpty").textContent = "No vendors match these filters.";
 
-        const steps = window.ProjectFields.WIZARD_STEPS.filter(step => step.page === "/pages/projects.html" && step.key !== "tracking");
-
-        grid.innerHTML = steps.map(step => {
-            const meta = PROJECT_DETAILS_STEP_ICONS[step.key] || { icon: "person", color: "accent" };
-
-            // Job Site Address: one combined "Street, City, State, Zip" line
-            // instead of 4 separate labeled rows.
-            if (step.key === "site_address") {
-                const combined = [project.site_address, project.site_city, project.site_state, project.site_zip]
-                    .filter(v => !window.ProjectFields.isBlank(v))
-                    .join(", ");
-                const rows = combined ? pdFieldRow(null, combined) : "";
-                return pdCardHtml(step.fields[0].name, meta.icon, meta.color, step.title, rows);
-            }
-
-            // Trash and Porta Potties are two separate real-world vendor
-            // accounts — split into their own cards instead of one combined
-            // "Temporary Trash / Porta Potties" card (Coleby's follow-up ask).
-            if (step.key === "temp_services") {
-                const trashFields = step.fields.filter(f => f.name.startsWith("trash_"));
-                const pottyFields = step.fields.filter(f => f.name.startsWith("porta_potty_"));
-                const notesField = step.fields.find(f => f.name === "temp_services_notes");
-
-                const fieldRows = (fields) => fields.map(field => {
-                    const raw = project[field.name];
-                    return window.ProjectFields.isBlank(raw) ? "" : pdFieldRow(field.label, raw);
-                }).filter(Boolean).join("");
-
-                const notesRow = notesField && !window.ProjectFields.isBlank(project[notesField.name])
-                    ? pdFieldRow(notesField.label, project[notesField.name])
-                    : "";
-
-                return [
-                    pdCardHtml(trashFields[0].name, "trash", "completed", "Trash", fieldRows(trashFields) + notesRow),
-                    pdCardHtml(pottyFields[0].name, "droplet", "completed", "Porta Potties", fieldRows(pottyFields))
-                ].join("");
-            }
-
-            // Electric and Water are two separate real-world utility
-            // accounts — split into their own cards instead of one combined
-            // "Utilities Account Info" card (same split as Trash/Porta
-            // Potties above, same reasoning).
-            if (step.key === "utilities") {
-                const electricFields = step.fields.filter(f => f.name.startsWith("electric_"));
-                const waterFields = step.fields.filter(f => f.name.startsWith("water_"));
-                const notesField = step.fields.find(f => f.name === "other_utilities_notes");
-
-                const fieldRows = (fields) => fields.map(field => {
-                    const raw = project[field.name];
-                    return window.ProjectFields.isBlank(raw) ? "" : pdFieldRow(field.label, raw);
-                }).filter(Boolean).join("");
-
-                const notesRow = notesField && !window.ProjectFields.isBlank(project[notesField.name])
-                    ? pdFieldRow(notesField.label, project[notesField.name])
-                    : "";
-
-                return [
-                    pdCardHtml(electricFields[0].name, "bolt", "accent", "Electric", fieldRows(electricFields) + notesRow),
-                    pdCardHtml(waterFields[0].name, "droplet", "info", "Water", fieldRows(waterFields))
-                ].join("");
-            }
-
-            // The 4 "contact" steps (owner_contact/gc/poc/county_city) only
-            // show the primary name field on this page — no role, phone,
-            // email, or address. Full contact details live in the Project
-            // Contacts panel/All Contacts tab instead.
-            if (step.layout === "contact") {
-                const nameField = step.fields[0];
-                const raw = project[nameField.name];
-                const rows = window.ProjectFields.isBlank(raw) ? "" : pdFieldRow(null, raw);
-                return pdCardHtml(nameField.name, meta.icon, meta.color, step.title, rows);
-            }
-
-            const rows = step.fields.map(field => {
-                const key = field.type === "file" ? field.pathField : field.name;
-                const raw = project[key];
-                if (window.ProjectFields.isBlank(raw)) return "";
-                const value = field.type === "file" ? String(raw).split("/").pop() : raw;
-                return pdFieldRow(field.label, value);
-            }).filter(Boolean).join("");
-
-            return pdCardHtml(step.fields[0].name, meta.icon, meta.color, step.title, rows);
-        }).join("");
-    }
-
-    /* ---------- Status & Tracking card ---------- */
-
-    function renderStatusCard(project) {
-        const coverEl = document.getElementById("accountStatusCover");
-        const detailsEl = document.getElementById("accountStatusDetails");
-        if (!coverEl || !detailsEl) return;
-
-        coverEl.innerHTML = project.cover_photo_url
-            ? `<img src="${escapeHtmlAccounts(project.cover_photo_url)}" alt="Cover photo">`
-            : `<div class="account-status-cover-placeholder">No cover photo on file.</div>`;
-
-        const statusMeta = (window.ProjectFields.PROJECT_STATUSES || []).find(s => s.value === (project.status || "onboarding"));
-        const progress = Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
-
-        detailsEl.innerHTML = `
-            <div class="account-status-details-row">
-                <span class="company-card-label">Status</span>
-                <span class="chip ${statusMeta ? statusMeta.chip : "chip--muted"}">${escapeHtmlAccounts(statusMeta ? statusMeta.label : "Unknown")}</span>
-            </div>
-            <div class="account-status-details-row">
-                <span class="company-card-label">Project Manager</span>
-                ${window.ProjectFields.isBlank(project.project_manager_name) ? `<p class="project-summary-empty-note">Nothing on file yet.</p>` : escapeHtmlAccounts(project.project_manager_name)}
-            </div>
-            <div class="account-status-details-row">
-                <span class="company-card-label">Progress (%)</span>
-                <div class="account-status-progress-value">${progress}%</div>
-                <div class="project-progress-track">
-                    <span class="project-progress-fill project-progress-fill--${escapeHtmlAccounts(project.status || "onboarding")}" style="width:${progress}%"></span>
-                </div>
-            </div>
-        `;
-    }
-
-    /* ---------- type <select> population ---------- */
-
-    function populateTypeSelect(selectEl, types, includeBlankAll, blankLabel) {
-        if (!selectEl) return;
-        const optionsHtml = types.map(t => `<option value="${escapeHtmlAccounts(t.key)}">${escapeHtmlAccounts(t.label)}</option>`).join("");
-        selectEl.innerHTML = (includeBlankAll ? `<option value="">${escapeHtmlAccounts(blankLabel || "All Types")}</option>` : "") + optionsHtml;
-    }
-
-    function initTypeSelects() {
-        populateTypeSelect(document.getElementById("contactFormType"), window.ProjectFields.CONTACT_TYPES, false);
-        populateTypeSelect(document.getElementById("contactCardTypeFilter"), window.ProjectFields.CONTACT_TYPES, true);
-        populateTypeSelect(document.getElementById("allContactsTypeFilter"), window.ProjectFields.CONTACT_TYPES, true);
-        populateTypeSelect(document.getElementById("organizationFormType"), ORG_TYPES, false);
-        populateTypeSelect(document.getElementById("organizationsTypeFilter"), ORG_TYPES, true);
-        populateTypeSelect(document.getElementById("utilityAccountFormType"), UTILITY_TYPES, false);
-        populateTypeSelect(document.getElementById("utilityAccountsTypeFilter"), UTILITY_TYPES, true);
-    }
-
-    /* ---------- Project Contacts quick-access cards ---------- */
-
-    function filteredQuickCardContacts(typeKey) {
-        return contacts
-            .filter(c => c.contact_type === typeKey)
-            .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    }
-
-    function contactMatchesSearch(contact, query) {
-        if (!query) return true;
-        const haystack = [contact.full_name, contact.company_name, contact.title, contact.phone, contact.email].filter(Boolean).join(" ").toLowerCase();
-        return haystack.includes(query.toLowerCase());
-    }
-
-    function renderContactQuickCards() {
-        const grid = document.getElementById("accountContactGrid");
-        if (!grid) return;
-
-        const search = (document.getElementById("contactCardSearchInput")?.value || "").trim();
-        const typeFilter = document.getElementById("contactCardTypeFilter")?.value || "";
-        const sortDir = document.getElementById("contactCardSort")?.value || "az";
-
-        grid.style.gridTemplateColumns = contactCardView === "list" ? "1fr" : "";
-
-        let types = QUICK_CARD_TYPES.slice();
-        if (typeFilter) types = types.filter(t => t.key === typeFilter);
-        types = types.sort((a, b) => sortDir === "za" ? b.label.localeCompare(a.label) : a.label.localeCompare(b.label));
-
-        grid.innerHTML = types.map(type => {
-            const all = filteredQuickCardContacts(type.key);
-            const matching = search ? all.filter(c => contactMatchesSearch(c, search)) : all;
-
-            const header = `
-                <div class="account-contact-card-header">
-                    <span class="project-stat-icon project-stat-icon--${type.color} project-stat-icon--${type.icon}"></span>
-                    <span class="account-contact-card-title">${escapeHtmlAccounts(type.label)}</span>
-                </div>
-            `;
-
-            if (matching.length === 0) {
-                return `
-                    <div class="account-contact-card" data-type="${escapeHtmlAccounts(type.key)}">
-                        ${header}
-                        <div class="account-contact-card-body">
-                            <button type="button" class="account-contact-add-link" data-action="quick-add" data-type="${escapeHtmlAccounts(type.key)}">+ Add Contact</button>
-                        </div>
-                    </div>
-                `;
-            }
-
-            const primary = matching[0];
-            const moreCount = matching.length - 1;
-
+        $("vendorsList").innerHTML = rows.map(v => {
+            const pending = isPending(v);
+            const due = pending && v.bid_due_at ? ` · bid due ${fmtDay(v.bid_due_at)}` : "";
             return `
-                <div class="account-contact-card" data-type="${escapeHtmlAccounts(type.key)}">
-                    ${header}
-                    <div class="account-contact-card-menu-wrap">
-                        <button type="button" class="all-files-file-menu-btn account-contact-card-menu-btn" data-action="menu" data-table="${CONTACTS_TABLE}" data-id="${escapeHtmlAccounts(primary.id)}" aria-label="Contact actions" aria-haspopup="true" aria-expanded="false">
-                            <span class="all-files-file-menu-icon"></span>
-                        </button>
-                        <div class="all-files-file-menu-dropdown" data-menu-dropdown>
-                            <button type="button" class="all-files-file-menu-item" data-action="edit" data-table="${CONTACTS_TABLE}" data-id="${escapeHtmlAccounts(primary.id)}">Edit</button>
-                            <button type="button" class="all-files-file-menu-item all-files-file-menu-item--danger" data-action="delete" data-table="${CONTACTS_TABLE}" data-id="${escapeHtmlAccounts(primary.id)}">Delete</button>
-                        </div>
-                    </div>
-                    <div class="account-contact-card-body">
-                        <div class="account-contact-name">${escapeHtmlAccounts(primary.full_name)}</div>
-                        ${moreCount > 0 ? `<button type="button" class="account-contact-add-link account-contact-more-note" data-action="view-type" data-type="${escapeHtmlAccounts(type.key)}">+${moreCount} more · View all</button>` : ""}
-                    </div>
+            <div class="all-files-file-row pav-row${pending ? " pav-row--pending" : ""}" data-vendor="${esc(v.company_id)}">
+                <div class="pav-cell">
+                    <button type="button" class="pav-name-btn" data-open-vendor="${esc(v.company_id)}">${esc(v.company_name)}</button>
+                    <span class="pav-sub">${esc((v.scope || "No scope listed") + due)}</span>
                 </div>
-            `;
-        }).join("");
-    }
-
-    /* ---------- generic "⋯" menu handling (contact cards + all 4 lists) ---------- */
-
-    function closeAllAccountMenus() {
-        document.querySelectorAll(".all-files-file-menu-dropdown.is-open").forEach(d => d.classList.remove("is-open"));
-        document.querySelectorAll(".all-files-file-menu-btn.is-open").forEach(b => { b.classList.remove("is-open"); b.setAttribute("aria-expanded", "false"); });
-    }
-
-    function toggleMenuFor(btn) {
-        const dropdown = btn.parentElement.querySelector("[data-menu-dropdown]") || btn.nextElementSibling;
-        const isOpen = dropdown.classList.contains("is-open");
-        closeAllAccountMenus();
-        if (!isOpen) {
-            dropdown.classList.add("is-open");
-            btn.classList.add("is-open");
-            btn.setAttribute("aria-expanded", "true");
-        }
-    }
-
-    document.addEventListener("click", (e) => {
-        if (!e.target.closest("[data-action='menu']") && !e.target.closest("[data-menu-dropdown]")) {
-            closeAllAccountMenus();
-        }
-    });
-
-    /* ---------- record row builder (shared by All Contacts / Organizations /
-       Utility Accounts / Government Offices) ---------- */
-
-    function recordRowHtml({ table, id, primary, secondary, tertiary, addedBy, addedAt, canEdit }) {
-        return `
-            <div class="all-files-file-row" data-table="${escapeHtmlAccounts(table)}" data-id="${escapeHtmlAccounts(id)}">
-                <div class="all-files-file-name-cell">
-                    <div class="all-files-file-name-text">
-                        <div class="all-files-file-name-main">${escapeHtmlAccounts(primary)}</div>
-                    </div>
+                <div class="pav-cell">
+                    <span class="pav-source">${esc(v.sources.map(s => SOURCE_LABELS[s]).filter(Boolean).join(" · "))}</span>
+                    ${pending ? `<span class="pav-status pav-status--closed">Pending award</span>` : ""}
                 </div>
-                <div class="all-files-file-kind-cell">${escapeHtmlAccounts(secondary || "—")}</div>
-                <div class="all-files-file-added-by-cell">${escapeHtmlAccounts(tertiary || "—")}</div>
-                <div class="all-files-file-date-cell">${escapeHtmlAccounts(addedBy ? `${addedBy} · ${addedAt}` : addedAt)}</div>
-                <div class="all-files-file-actions-cell">
-                    <button type="button" class="all-files-file-menu-btn" data-action="menu" data-table="${escapeHtmlAccounts(table)}" data-id="${escapeHtmlAccounts(id)}" aria-label="Actions" aria-haspopup="true" aria-expanded="false">
+                ${cell(contractStatus(v))}
+                ${cell(w9Status(v))}
+                ${cell(coiStatus(v))}
+                <div class="pav-cell pav-cell--end">
+                    <button type="button" class="all-files-file-menu-btn" data-open-vendor="${esc(v.company_id)}" aria-label="Open ${esc(v.company_name)}">
                         <span class="all-files-file-menu-icon"></span>
                     </button>
-                    <div class="all-files-file-menu-dropdown" data-menu-dropdown>
-                        <button type="button" class="all-files-file-menu-item" data-action="edit" data-table="${escapeHtmlAccounts(table)}" data-id="${escapeHtmlAccounts(id)}">Edit</button>
-                        ${canEdit ? `<button type="button" class="all-files-file-menu-item all-files-file-menu-item--danger" data-action="delete" data-table="${escapeHtmlAccounts(table)}" data-id="${escapeHtmlAccounts(id)}">Delete</button>` : ""}
+                </div>
+            </div>`;
+        }).join("");
+    }
+
+    /* ---------- vendor popup ---------- */
+
+    function fileRow(file, label, actionsHtml) {
+        return `<div class="pav-file">
+            <span class="pav-file-name">${esc(label || file?.file_name || "")}${file?.created_at ? `<span class="pav-sub">Uploaded ${esc(fmtDay(file.created_at))}${file.uploaded_by_name ? ` · ${esc(file.uploaded_by_name)}` : ""}</span>` : ""}</span>
+            <div class="pav-btn-row">${actionsHtml}</div>
+        </div>`;
+    }
+    function viewBtns(kind, id) {
+        return `<button type="button" class="workbook-btn workbook-btn--preview" data-doc-view="${kind}" data-doc-id="${esc(id)}">View</button>
+                <button type="button" class="workbook-btn workbook-btn--download" data-doc-download="${kind}" data-doc-id="${esc(id)}">Download</button>`;
+    }
+
+    function contractSection(v) {
+        const c = contractFor(v);
+        const st = contractStatus(v);
+        const original = c?.file_id ? contractFiles[c.file_id] : null;
+        const signed = c?.signed_file_id ? contractFiles[c.signed_file_id] : null;
+        const pending = isPending(v);
+
+        let body = "";
+        if (pending) {
+            body = `<p class="pav-note">This vendor hasn't been awarded yet. Upload the contract once they're awarded.</p>`;
+        } else if (c?.not_needed) {
+            body = `<p class="pav-note">Marked as not needed for this vendor.</p>
+                <div class="pav-btn-row"><button type="button" class="workbook-btn workbook-btn--preview" data-contract-action="needed">Contract is needed</button></div>`;
+        } else {
+            if (signed) {
+                body += fileRow(signed, signed.file_name, viewBtns("file", signed.id));
+                if (c.signed_in_portal) body += `<p class="pav-note">Signed in the Vendor Portal by ${esc(c.signer_name || "")}${c.signer_title ? `, ${esc(c.signer_title)}` : ""} on ${esc(new Date(c.signed_at).toLocaleString("en-US"))}.</p>`;
+            } else if (original) {
+                body += fileRow(original, original.file_name, viewBtns("file", original.id));
+                body += `<p class="pav-note">Waiting on the vendor to sign it in the Vendor Portal. Their project stays locked until it's signed.</p>`;
+            }
+            body += `
+                <form class="pav-upload" id="contractUploadForm">
+                    <label class="auth-field pav-upload-field">${original || signed ? "Upload a new contract" : "Contract PDF"}
+                        <input type="file" name="file" accept="application/pdf,.pdf">
+                    </label>
+                    <label class="pav-check"><input type="checkbox" name="already_signed"> This copy is already signed</label>
+                    <div class="pav-btn-row">
+                        <button type="submit" class="auth-button" id="contractUploadBtn">Upload Contract</button>
+                        ${!original && !signed ? `<button type="button" class="workbook-btn workbook-btn--preview" data-contract-action="not_needed">Not needed</button>` : ""}
+                    </div>
+                </form>`;
+        }
+        return `<div class="pav-doc">
+            <div class="pav-doc-head">
+                <div><span class="pav-doc-title">Contract</span><span class="pav-sub">This project only · saves to Files › Contracts &amp; Procurement › Vendors</span></div>
+                ${badge(st.text, st.tone)}
+            </div>
+            ${body}
+        </div>`;
+    }
+
+    function w9Section(v) {
+        const st = w9Status(v);
+        return `<div class="pav-doc">
+            <div class="pav-doc-head">
+                <div><span class="pav-doc-title">W-9</span><span class="pav-sub">From the vendor record · same on every job</span></div>
+                ${badge(st.text, st.tone)}
+            </div>
+            ${v.w9_file_path
+                ? fileRow(null, `W-9${v.w9_updated_at ? ` · updated ${fmtDay(v.w9_updated_at)}` : ""}`, viewBtns("w9", v.company_id))
+                : `<p class="pav-note">${v.w9_exempt ? "This vendor is W-9 exempt." : "No W-9 on the vendor record. Add it on the vendor page, or the vendor can upload it in the Vendor Portal."}</p>`}
+        </div>`;
+    }
+
+    function coiSection(v) {
+        const st = coiStatus(v);
+        const company = v.coi_expires_on ? `Company COI ${isPast(v.coi_expires_on) ? "expired" : "expires"} ${fmtDay(v.coi_expires_on)}` : "No company COI date on file";
+        const canRequest = v.awarded_invite_id && can("projects.manage_bid_invites") && !v.coi_exempt;
+        let body = "";
+        if (v.coi_file_id) {
+            body = fileRow(null, v.coi_file_name || "COI", viewBtns("file", v.coi_file_id));
+        } else if (v.coi_exempt) {
+            body = `<p class="pav-note">This vendor is COI exempt.</p>`;
+        } else if (isPending(v)) {
+            body = `<p class="pav-note">Asked for once the vendor is awarded.</p>`;
+        } else {
+            body = `<p class="pav-note">${v.coi_requested_at ? `Asked ${fmtDay(v.coi_requested_at)} · not uploaded yet.` : "Not uploaded yet. The vendor uploads it in the Vendor Portal under My Projects."}</p>`;
+        }
+        if (canRequest) body += `<div class="pav-btn-row"><button type="button" class="auth-button" data-request-coi="${esc(v.awarded_invite_id)}">${v.coi_requested_at ? "Request COI Again" : "Request COI"}</button></div>`;
+        return `<div class="pav-doc">
+            <div class="pav-doc-head">
+                <div><span class="pav-doc-title">COI</span><span class="pav-sub">PDF for this project · ${esc(company)}</span></div>
+                ${badge(st.text, st.tone)}
+            </div>
+            ${body}
+        </div>`;
+    }
+
+    function renderVendorPopup() {
+        const v = vendors.find(x => String(x.company_id) === String(openVendorId));
+        if (!v) { closeVendorPopup(); return; }
+        $("vendorDocsTitle").textContent = v.company_name;
+        $("vendorDocsSub").textContent = [v.sources.map(s => SOURCE_LABELS[s]).join(" · "), v.scope ? `Scope: ${v.scope}` : ""].filter(Boolean).join(" · ");
+        $("vendorDocsVendorLink").href = `/pages/vendor.html?id=${encodeURIComponent(v.company_id)}`;
+        $("vendorDocsBody").innerHTML = `<div class="pav-doc-stack">${contractSection(v)}${w9Section(v)}${coiSection(v)}</div>`;
+        $("contractUploadForm")?.addEventListener("submit", uploadContract);
+    }
+
+    function openVendorPopup(companyId) {
+        openVendorId = companyId;
+        setPopupMessage("");
+        renderVendorPopup();
+        $("vendorDocsOverlay").classList.remove("hidden");
+    }
+    function closeVendorPopup() {
+        $("vendorDocsOverlay").classList.add("hidden");
+        openVendorId = null;
+    }
+
+    /* ---------- contract actions ---------- */
+
+    async function upsertContract(companyId, patch) {
+        const existing = contracts.find(c => String(c.company_id) === String(companyId));
+        const q = existing
+            ? db().from(CONTRACTS_TABLE).update(patch).eq("id", existing.id).select().single()
+            : db().from(CONTRACTS_TABLE).insert({ project_id: currentProject.id, company_id: companyId, ...patch }).select().single();
+        const { data, error } = await q;
+        if (error) throw error;
+        contracts = existing ? contracts.map(c => c.id === data.id ? data : c) : [...contracts, data];
+        return data;
+    }
+
+    async function uploadContract(event) {
+        event.preventDefault();
+        if (busy) return;
+        const v = vendors.find(x => String(x.company_id) === String(openVendorId));
+        const form = event.target;
+        const file = form.elements.file.files[0];
+        const alreadySigned = form.elements.already_signed.checked;
+        if (!file) { setPopupMessage("Choose the contract PDF first.", "error"); return; }
+        if (!/\.pdf$/i.test(file.name)) { setPopupMessage("The contract has to be a PDF.", "error"); return; }
+
+        busy = true;
+        const btn = $("contractUploadBtn");
+        btn.disabled = true; btn.textContent = "Uploading…";
+        setPopupMessage("");
+        try {
+            const renamed = new File([file], `contract-${v.company_id}-${file.name}`, { type: file.type || "application/pdf" });
+            const path = await window.ProjectFields.uploadFile(currentProject.id, renamed, null, { pathSegments: [CONTRACT_CATEGORY, CONTRACT_SUBFOLDER] });
+            const fileName = `${v.company_name} - Contract${alreadySigned ? " (Signed)" : ""} - ${file.name}`.replace(/[\\/]/g, "-").slice(0, 200);
+            const { data: fileRowData, error: fileError } = await db().from(PROJECT_FILES_TABLE).insert({
+                project_id: currentProject.id, category: CONTRACT_CATEGORY, subfolder: CONTRACT_SUBFOLDER, sub_subfolder: null,
+                bucket: DOCS_BUCKET, storage_path: path, file_name: fileName, source: "contract",
+                uploaded_by_name: getStaffName()
+            }).select("id, file_name, bucket, storage_path, created_at, uploaded_by_name").single();
+            if (fileError) throw fileError;
+            contractFiles[fileRowData.id] = fileRowData;
+
+            const base = { file_id: fileRowData.id, not_needed: false, uploaded_by: getStaffId(), uploaded_by_name: getStaffName() };
+            const patch = alreadySigned
+                ? { ...base, signed_file_id: fileRowData.id, signed_at: new Date().toISOString(), signed_in_portal: false,
+                    signer_name: null, signer_title: null, signer_email: null, signer_vendor_user_id: null, signer_ip: null }
+                : { ...base, signed_file_id: null, signed_at: null, signed_in_portal: false,
+                    signer_name: null, signer_title: null, signer_email: null, signer_vendor_user_id: null, signer_ip: null };
+            await upsertContract(v.company_id, patch);
+            renderVendors();
+            renderVendorPopup();
+            setPopupMessage(alreadySigned ? "Signed contract saved." : "Contract uploaded. The vendor can sign it in the Vendor Portal.", "success");
+        } catch (err) {
+            console.error("Contract upload failed:", err);
+            setPopupMessage(err?.message || "Couldn't upload the contract.", "error");
+        } finally {
+            busy = false;
+            if (document.body.contains(btn)) { btn.disabled = false; btn.textContent = "Upload Contract"; }
+        }
+    }
+
+    async function setContractNeeded(needed) {
+        if (busy) return;
+        busy = true;
+        try {
+            await upsertContract(openVendorId, { not_needed: !needed });
+            renderVendors();
+            renderVendorPopup();
+        } catch (err) {
+            setPopupMessage(err?.message || "Couldn't save.", "error");
+        } finally { busy = false; }
+    }
+
+    /* ---------- request COI (bid-invites › request_coi) ---------- */
+
+    async function requestCoi(inviteId) {
+        if (busy) return;
+        busy = true;
+        setPopupMessage("Sending…");
+        try {
+            const { data, error } = await db().functions.invoke("bid-invites", { body: { action: "request_coi", invite_id: inviteId } });
+            let message = error?.message;
+            if (error) {
+                try { const payload = await error.context?.json?.(); if (payload?.error) message = payload.error; } catch { /* keep */ }
+            } else if (data && data.ok === false) message = data.error;
+            if (message) { setPopupMessage(`COI request didn't send: ${message}`, "error"); return; }
+            await loadVendors();
+            renderVendors();
+            renderVendorPopup();
+            setPopupMessage("COI requested.", "success");
+        } finally { busy = false; }
+    }
+
+    /* ---------- view / download (in-portal preview) ---------- */
+
+    async function signedUrl(kind, id, download) {
+        if (kind === "w9") {
+            const v = vendors.find(x => String(x.company_id) === String(id));
+            const name = `${v.company_name} - W-9.pdf`.replace(/[\\/]/g, "-");
+            const { data, error } = await db().storage.from(W9_BUCKET).createSignedUrl(v.w9_file_path, LINK_SECONDS, { download: download ? name : undefined });
+            if (error) throw error;
+            return { url: data.signedUrl, name };
+        }
+        let f = contractFiles[id];
+        if (!f) {
+            const { data, error } = await db().from(PROJECT_FILES_TABLE).select("id, file_name, bucket, storage_path").eq("id", id).maybeSingle();
+            if (error || !data) throw error || new Error("File not found");
+            f = data;
+        }
+        const { data, error } = await db().storage.from(f.bucket || DOCS_BUCKET).createSignedUrl(f.storage_path, LINK_SECONDS, { download: download ? f.file_name : undefined });
+        if (error) throw error;
+        return { url: data.signedUrl, name: f.file_name };
+    }
+
+    function openDoc(kind, id, download) {
+        if (download) {
+            signedUrl(kind, id, true)
+                .then(r => window.FilePreview.download(r.url, r.name))
+                .catch(err => setPopupMessage(err?.message || "Couldn't download the file.", "error"));
+            return;
+        }
+        const v = kind === "w9" ? vendors.find(x => String(x.company_id) === String(id)) : null;
+        const name = kind === "w9" ? `${v?.company_name || "Vendor"} - W-9.pdf` : (contractFiles[id]?.file_name || vendors.find(x => x.coi_file_id === id)?.coi_file_name || "Document.pdf");
+        window.FilePreview.open({
+            name,
+            kind: "pdf",
+            getUrl: async () => (await signedUrl(kind, id, false)).url,
+            getDownloadUrl: async () => (await signedUrl(kind, id, true)).url
+        });
+    }
+
+    /* ---------- Utility Accounts tab ---------- */
+
+    const UTILITY_ICONS = {
+        water: "M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z",
+        sewer: "M4 8h10a4 4 0 0 1 4 4v8M4 12h8a2 2 0 0 1 2 2v6M4 6v8",
+        electric: "M13 2 4 14h7l-1 8 9-12h-7l1-8z",
+        gas: "M12 3c2 3 5 5 5 9a5 5 0 0 1-10 0c0-2 1-3 2-4 0 2 1 3 2 3 0-3-1-5 1-8z",
+        trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13",
+        internet: "M2 9a15 15 0 0 1 20 0M5 13a10 10 0 0 1 14 0M8.5 16.5a5 5 0 0 1 7 0M12 20h.01",
+        cable: "M3 7h18v11H3zM8 21h8M12 3l-3 4M12 3l3 4",
+        other: "M4 6h16v12H4zM4 10h16"
+    };
+
+    function typeLabel(key) { return (UTILITY_TYPES.find(t => t.key === key) || {}).label || "Other"; }
+    function maskNumber(n) { return n ? `•••• ${String(n).slice(-4)}` : "—"; }
+
+    function filteredUtilities() {
+        const q = ($("utilityAccountsSearchInput")?.value || "").trim().toLowerCase();
+        const type = $("utilityAccountsTypeFilter")?.value || "";
+        const status = $("utilityAccountsStatusFilter")?.value || "";
+        const order = UTILITY_TYPES.map(t => t.key);
+        return utilityAccounts.filter(u => {
+            if (type && u.utility_type !== type) return false;
+            if (status && (u.status || "active") !== status) return false;
+            if (q && ![u.provider_name, u.account_number, u.phone, u.service_address, u.meter_number].filter(Boolean).join(" ").toLowerCase().includes(q)) return false;
+            return true;
+        }).sort((a, b) => order.indexOf(a.utility_type) - order.indexOf(b.utility_type) || String(a.provider_name).localeCompare(String(b.provider_name)));
+    }
+
+    function renderUtilities() {
+        $("utilitiesTabCount").textContent = utilityAccounts.length;
+        const rows = filteredUtilities();
+        $("utilityAccountsEmpty").style.display = rows.length ? "none" : "block";
+        $("utilityAccountsEmpty").textContent = utilityAccounts.length ? "No utility accounts match these filters." : "No utility accounts on file yet — add one with \"+ Add Utility Account\" above.";
+        $("utilityAccountsList").innerHTML = rows.map(u => {
+            const st = UTILITY_STATUS[u.status] || UTILITY_STATUS.active;
+            const shown = revealed.has(u.id);
+            const endLabel = u.status === "transferred" ? "Transferred" : "Close date";
+            return `
+            <article class="pd-card pav-util-card">
+                <div class="pav-util-head">
+                    <div class="pav-util-title">
+                        <span class="pav-util-icon pav-util-icon--${esc(u.utility_type)}">
+                            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${UTILITY_ICONS[u.utility_type] || UTILITY_ICONS.other}"></path></svg>
+                        </span>
+                        <div>
+                            <span class="pav-util-type">${esc(typeLabel(u.utility_type))}</span>
+                            <h3 class="pd-card-title">${esc(u.provider_name)}</h3>
+                        </div>
+                    </div>
+                    <span class="pav-status ${st.cls}">${esc(st.label)}</span>
+                </div>
+                <dl class="pav-fields">
+                    <div><dt>Account #</dt><dd>${esc(shown ? (u.account_number || "—") : maskNumber(u.account_number))}${u.account_number ? ` <button type="button" class="pav-link-btn" data-reveal="${esc(u.id)}">${shown ? "Hide" : "Show"}</button>` : ""}</dd></div>
+                    <div><dt>Phone</dt><dd>${u.phone ? `<a class="pav-link" href="tel:${esc(u.phone.replace(/[^0-9+]/g, ""))}">${esc(u.phone)}</a>` : "—"}</dd></div>
+                    <div><dt>Service address</dt><dd>${esc(u.service_address || "—")}</dd></div>
+                    <div><dt>Meter #</dt><dd>${esc(u.meter_number || "—")}</dd></div>
+                    <div><dt>Start date</dt><dd>${esc(fmtDay(u.start_date) || "—")}</dd></div>
+                    <div><dt>${endLabel}</dt><dd>${esc(fmtDay(u.close_date) || "—")}</dd></div>
+                </dl>
+                ${u.notes ? `<p class="pav-note">${esc(u.notes)}</p>` : ""}
+                <div class="pav-util-foot">
+                    <span class="pav-sub">Added by ${esc(u.created_by_name || "Staff")} · ${esc(fmtDay(u.created_at))}</span>
+                    <div class="pav-btn-row">
+                        <button type="button" class="workbook-btn workbook-btn--preview" data-util-edit="${esc(u.id)}">Edit</button>
+                        <button type="button" class="workbook-btn pav-btn--danger" data-util-delete="${esc(u.id)}">Delete</button>
                     </div>
                 </div>
-            </div>
-        `;
+            </article>`;
+        }).join("");
     }
 
-    function renderAllContactsList() {
-        const listEl = document.getElementById("allContactsList");
-        const emptyEl = document.getElementById("allContactsEmpty");
-        if (!listEl) return;
-
-        const search = (document.getElementById("allContactsSearchInput")?.value || "").trim();
-        const typeFilter = document.getElementById("allContactsTypeFilter")?.value || "";
-        const sortBy = document.getElementById("allContactsSort")?.value || "az";
-
-        let rows = contacts.slice();
-        if (typeFilter) rows = rows.filter(c => c.contact_type === typeFilter);
-        if (search) rows = rows.filter(c => contactMatchesSearch(c, search));
-
-        rows.sort((a, b) => {
-            if (sortBy === "newest") return new Date(b.created_at) - new Date(a.created_at);
-            const cmp = (a.full_name || "").localeCompare(b.full_name || "");
-            return sortBy === "za" ? -cmp : cmp;
-        });
-
-        emptyEl.style.display = rows.length ? "none" : "block";
-
-        listEl.innerHTML = rows.map(c => recordRowHtml({
-            table: CONTACTS_TABLE,
-            id: c.id,
-            primary: c.full_name,
-            secondary: window.ProjectFields.contactTypeMeta(c.contact_type).label,
-            tertiary: [c.phone, c.email].filter(Boolean).join(" / ") || "—",
-            addedBy: c.created_by_name,
-            addedAt: formatAccountDate(c.created_at),
-            canEdit: canEditRecord(c)
-        })).join("");
+    function syncCloseLabel() {
+        $("utilityAccountFormCloseLabel").textContent = $("utilityAccountFormStatus").value === "transferred" ? "Transfer date" : "Close date";
     }
 
-    function renderOrganizationsList() {
-        const listEl = document.getElementById("organizationsList");
-        const emptyEl = document.getElementById("organizationsEmpty");
-        if (!listEl) return;
-
-        const search = (document.getElementById("organizationsSearchInput")?.value || "").trim().toLowerCase();
-        const typeFilter = document.getElementById("organizationsTypeFilter")?.value || "";
-
-        let rows = organizations.slice();
-        if (typeFilter) rows = rows.filter(o => o.org_type === typeFilter);
-        if (search) rows = rows.filter(o => [o.org_name, o.phone, o.email, o.website].filter(Boolean).join(" ").toLowerCase().includes(search));
-        rows.sort((a, b) => (a.org_name || "").localeCompare(b.org_name || ""));
-
-        emptyEl.style.display = rows.length ? "none" : "block";
-
-        const typeLabel = key => (ORG_TYPES.find(t => t.key === key) || {}).label || key;
-
-        listEl.innerHTML = rows.map(o => recordRowHtml({
-            table: ORGANIZATIONS_TABLE,
-            id: o.id,
-            primary: o.org_name,
-            secondary: typeLabel(o.org_type),
-            tertiary: [o.phone, o.website].filter(Boolean).join(" / ") || "—",
-            addedBy: o.created_by_name,
-            addedAt: formatAccountDate(o.created_at),
-            canEdit: canEditRecord(o)
-        })).join("");
-    }
-
-    function renderUtilityAccountsList() {
-        const listEl = document.getElementById("utilityAccountsList");
-        const emptyEl = document.getElementById("utilityAccountsEmpty");
-        if (!listEl) return;
-
-        const search = (document.getElementById("utilityAccountsSearchInput")?.value || "").trim().toLowerCase();
-        const typeFilter = document.getElementById("utilityAccountsTypeFilter")?.value || "";
-
-        let rows = utilityAccounts.slice();
-        if (typeFilter) rows = rows.filter(u => u.utility_type === typeFilter);
-        if (search) rows = rows.filter(u => [u.provider_name, u.account_number, u.phone].filter(Boolean).join(" ").toLowerCase().includes(search));
-        rows.sort((a, b) => (a.provider_name || "").localeCompare(b.provider_name || ""));
-
-        emptyEl.style.display = rows.length ? "none" : "block";
-
-        const typeLabel = key => (UTILITY_TYPES.find(t => t.key === key) || {}).label || key;
-
-        listEl.innerHTML = rows.map(u => recordRowHtml({
-            table: UTILITY_ACCOUNTS_TABLE,
-            id: u.id,
-            primary: u.provider_name,
-            secondary: typeLabel(u.utility_type),
-            tertiary: u.account_number || "—",
-            addedBy: u.created_by_name,
-            addedAt: formatAccountDate(u.created_at),
-            canEdit: canEditRecord(u)
-        })).join("");
-    }
-
-    function renderGovOfficesList() {
-        const listEl = document.getElementById("govOfficesList");
-        const emptyEl = document.getElementById("govOfficesEmpty");
-        if (!listEl) return;
-
-        const search = (document.getElementById("govOfficesSearchInput")?.value || "").trim().toLowerCase();
-
-        let rows = govOffices.slice();
-        if (search) rows = rows.filter(g => [g.office_name, g.department, g.jurisdiction, g.contact_name, g.phone].filter(Boolean).join(" ").toLowerCase().includes(search));
-        rows.sort((a, b) => (a.office_name || "").localeCompare(b.office_name || ""));
-
-        emptyEl.style.display = rows.length ? "none" : "block";
-
-        listEl.innerHTML = rows.map(g => recordRowHtml({
-            table: GOV_OFFICES_TABLE,
-            id: g.id,
-            primary: g.office_name,
-            secondary: [g.department, g.jurisdiction].filter(Boolean).join(" · ") || "—",
-            tertiary: g.phone || "—",
-            addedBy: g.created_by_name,
-            addedAt: formatAccountDate(g.created_at),
-            canEdit: canEditRecord(g)
-        })).join("");
-    }
-
-    function renderAll() {
-        renderContactQuickCards();
-        renderAllContactsList();
-        renderOrganizationsList();
-        renderUtilityAccountsList();
-        renderGovOfficesList();
-    }
-
-    /* ---------- tabs ---------- */
-
-    function switchTab(tabKey) {
-        document.querySelectorAll(".dash-tab[data-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabKey));
-        document.querySelectorAll(".accounts-tab-panel[data-tab-panel]").forEach(panel => panel.classList.toggle("hidden", panel.dataset.tabPanel !== tabKey));
-    }
-
-    function wireTabs() {
-        document.querySelectorAll(".dash-tab[data-tab]").forEach(btn => {
-            btn.addEventListener("click", () => switchTab(btn.dataset.tab));
-        });
-    }
-
-    /* ---------- Contact modal ---------- */
-
-    function openContactModal(presetType, existing) {
-        editingContactId = existing ? existing.id : null;
-        document.getElementById("contactModalTitle").textContent = existing ? "Edit Contact" : "Add Contact";
-        document.getElementById("contactFormType").value = existing ? existing.contact_type : (presetType || window.ProjectFields.CONTACT_TYPES[0].key);
-        document.getElementById("contactFormName").value = existing ? existing.full_name || "" : "";
-        document.getElementById("contactFormTitle").value = existing ? existing.title || "" : "";
-        document.getElementById("contactFormCompany").value = existing ? existing.company_name || "" : "";
-        document.getElementById("contactFormPhone").value = existing ? existing.phone || "" : "";
-        document.getElementById("contactFormEmail").value = existing ? existing.email || "" : "";
-        document.getElementById("contactFormNotes").value = existing ? existing.notes || "" : "";
-        document.getElementById("contactFormMessage").textContent = "";
-        document.getElementById("contactModalOverlay").classList.remove("hidden");
-        document.getElementById("contactFormName").focus();
-    }
-
-    function closeContactModal() {
-        document.getElementById("contactModalOverlay").classList.add("hidden");
-        editingContactId = null;
-    }
-
-    async function submitContactForm(event) {
-        event.preventDefault();
-        const msgEl = document.getElementById("contactFormMessage");
-        const payload = {
-            project_id: currentProject.id,
-            contact_type: document.getElementById("contactFormType").value,
-            full_name: document.getElementById("contactFormName").value.trim(),
-            title: document.getElementById("contactFormTitle").value.trim() || null,
-            company_name: document.getElementById("contactFormCompany").value.trim() || null,
-            phone: document.getElementById("contactFormPhone").value.trim() || null,
-            email: document.getElementById("contactFormEmail").value.trim() || null,
-            notes: document.getElementById("contactFormNotes").value.trim() || null
-        };
-        if (!payload.full_name) { msgEl.textContent = "Name is required."; return; }
-
-        const query = editingContactId
-            ? window.supabaseClient.from(CONTACTS_TABLE).update(payload).eq("id", editingContactId).select().single()
-            : window.supabaseClient.from(CONTACTS_TABLE).insert(payload).select().single();
-
-        const { data, error } = await query;
-        if (error) { msgEl.textContent = error.message || "Couldn't save this contact."; return; }
-
-        if (editingContactId) {
-            contacts = contacts.map(c => c.id === data.id ? data : c);
-        } else {
-            contacts.push(data);
-        }
-        closeContactModal();
-        renderContactQuickCards();
-        renderAllContactsList();
-        setAccountsPageMessage("Contact saved.", "success");
-    }
-
-    /* ---------- Organization modal ---------- */
-
-    function openOrganizationModal(existing) {
-        editingOrganizationId = existing ? existing.id : null;
-        document.getElementById("organizationModalTitle").textContent = existing ? "Edit Organization" : "Add Organization";
-        document.getElementById("organizationFormName").value = existing ? existing.org_name || "" : "";
-        document.getElementById("organizationFormType").value = existing ? existing.org_type : ORG_TYPES[0].key;
-        document.getElementById("organizationFormPhone").value = existing ? existing.phone || "" : "";
-        document.getElementById("organizationFormEmail").value = existing ? existing.email || "" : "";
-        document.getElementById("organizationFormWebsite").value = existing ? existing.website || "" : "";
-        document.getElementById("organizationFormAddress").value = existing ? existing.address || "" : "";
-        document.getElementById("organizationFormNotes").value = existing ? existing.notes || "" : "";
-        document.getElementById("organizationFormMessage").textContent = "";
-        document.getElementById("organizationModalOverlay").classList.remove("hidden");
-        document.getElementById("organizationFormName").focus();
-    }
-
-    function closeOrganizationModal() {
-        document.getElementById("organizationModalOverlay").classList.add("hidden");
-        editingOrganizationId = null;
-    }
-
-    async function submitOrganizationForm(event) {
-        event.preventDefault();
-        const msgEl = document.getElementById("organizationFormMessage");
-        const payload = {
-            project_id: currentProject.id,
-            org_name: document.getElementById("organizationFormName").value.trim(),
-            org_type: document.getElementById("organizationFormType").value,
-            phone: document.getElementById("organizationFormPhone").value.trim() || null,
-            email: document.getElementById("organizationFormEmail").value.trim() || null,
-            website: document.getElementById("organizationFormWebsite").value.trim() || null,
-            address: document.getElementById("organizationFormAddress").value.trim() || null,
-            notes: document.getElementById("organizationFormNotes").value.trim() || null
-        };
-        if (!payload.org_name) { msgEl.textContent = "Organization name is required."; return; }
-
-        const query = editingOrganizationId
-            ? window.supabaseClient.from(ORGANIZATIONS_TABLE).update(payload).eq("id", editingOrganizationId).select().single()
-            : window.supabaseClient.from(ORGANIZATIONS_TABLE).insert(payload).select().single();
-
-        const { data, error } = await query;
-        if (error) { msgEl.textContent = error.message || "Couldn't save this organization."; return; }
-
-        if (editingOrganizationId) {
-            organizations = organizations.map(o => o.id === data.id ? data : o);
-        } else {
-            organizations.push(data);
-        }
-        closeOrganizationModal();
-        renderOrganizationsList();
-        setAccountsPageMessage("Organization saved.", "success");
-    }
-
-    /* ---------- Utility Account modal ---------- */
-
-    function openUtilityAccountModal(existing) {
+    function openUtilityModal(existing) {
         editingUtilityAccountId = existing ? existing.id : null;
-        document.getElementById("utilityAccountModalTitle").textContent = existing ? "Edit Utility Account" : "Add Utility Account";
-        document.getElementById("utilityAccountFormType").value = existing ? existing.utility_type : UTILITY_TYPES[0].key;
-        document.getElementById("utilityAccountFormProvider").value = existing ? existing.provider_name || "" : "";
-        document.getElementById("utilityAccountFormNumber").value = existing ? existing.account_number || "" : "";
-        document.getElementById("utilityAccountFormPhone").value = existing ? existing.phone || "" : "";
-        document.getElementById("utilityAccountFormNotes").value = existing ? existing.notes || "" : "";
-        document.getElementById("utilityAccountFormMessage").textContent = "";
-        document.getElementById("utilityAccountModalOverlay").classList.remove("hidden");
-        document.getElementById("utilityAccountFormProvider").focus();
+        $("utilityAccountModalTitle").textContent = existing ? "Edit Utility Account" : "Add Utility Account";
+        $("utilityAccountFormType").value = existing?.utility_type || "water";
+        $("utilityAccountFormStatus").value = existing?.status || "active";
+        $("utilityAccountFormProvider").value = existing?.provider_name || "";
+        $("utilityAccountFormNumber").value = existing?.account_number || "";
+        $("utilityAccountFormPhone").value = existing?.phone || "";
+        $("utilityAccountFormAddress").value = existing?.service_address || "";
+        $("utilityAccountFormMeter").value = existing?.meter_number || "";
+        $("utilityAccountFormStart").value = existing?.start_date || "";
+        $("utilityAccountFormClose").value = existing?.close_date || "";
+        $("utilityAccountFormNotes").value = existing?.notes || "";
+        $("utilityAccountFormMessage").textContent = "";
+        syncCloseLabel();
+        $("utilityAccountModalOverlay").classList.remove("hidden");
+        $("utilityAccountFormProvider").focus();
     }
-
-    function closeUtilityAccountModal() {
-        document.getElementById("utilityAccountModalOverlay").classList.add("hidden");
+    function closeUtilityModal() {
+        $("utilityAccountModalOverlay").classList.add("hidden");
         editingUtilityAccountId = null;
     }
 
-    async function submitUtilityAccountForm(event) {
+    async function submitUtilityForm(event) {
         event.preventDefault();
-        const msgEl = document.getElementById("utilityAccountFormMessage");
+        const msg = $("utilityAccountFormMessage");
+        const val = id => $(id).value.trim() || null;
         const payload = {
             project_id: currentProject.id,
-            utility_type: document.getElementById("utilityAccountFormType").value,
-            provider_name: document.getElementById("utilityAccountFormProvider").value.trim(),
-            account_number: document.getElementById("utilityAccountFormNumber").value.trim() || null,
-            phone: document.getElementById("utilityAccountFormPhone").value.trim() || null,
-            notes: document.getElementById("utilityAccountFormNotes").value.trim() || null
+            utility_type: $("utilityAccountFormType").value,
+            status: $("utilityAccountFormStatus").value,
+            provider_name: $("utilityAccountFormProvider").value.trim(),
+            account_number: val("utilityAccountFormNumber"),
+            phone: val("utilityAccountFormPhone"),
+            service_address: val("utilityAccountFormAddress"),
+            meter_number: val("utilityAccountFormMeter"),
+            start_date: val("utilityAccountFormStart"),
+            close_date: val("utilityAccountFormClose"),
+            notes: val("utilityAccountFormNotes")
         };
-        if (!payload.provider_name) { msgEl.textContent = "Provider name is required."; return; }
-
-        const query = editingUtilityAccountId
-            ? window.supabaseClient.from(UTILITY_ACCOUNTS_TABLE).update(payload).eq("id", editingUtilityAccountId).select().single()
-            : window.supabaseClient.from(UTILITY_ACCOUNTS_TABLE).insert(payload).select().single();
-
-        const { data, error } = await query;
-        if (error) { msgEl.textContent = error.message || "Couldn't save this utility account."; return; }
-
-        if (editingUtilityAccountId) {
-            utilityAccounts = utilityAccounts.map(u => u.id === data.id ? data : u);
-        } else {
-            utilityAccounts.push(data);
-        }
-        closeUtilityAccountModal();
-        renderUtilityAccountsList();
-        setAccountsPageMessage("Utility account saved.", "success");
+        if (!payload.provider_name) { msg.textContent = "Provider name is required."; return; }
+        const btn = $("saveUtilityAccountBtn");
+        btn.disabled = true;
+        const { data, error } = editingUtilityAccountId
+            ? await db().from(UTILITY_ACCOUNTS_TABLE).update(payload).eq("id", editingUtilityAccountId).select().single()
+            : await db().from(UTILITY_ACCOUNTS_TABLE).insert(payload).select().single();
+        btn.disabled = false;
+        if (error) { msg.textContent = error.message || "Couldn't save this utility account."; return; }
+        utilityAccounts = editingUtilityAccountId ? utilityAccounts.map(u => u.id === data.id ? data : u) : [...utilityAccounts, data];
+        closeUtilityModal();
+        renderUtilities();
+        setPageMessage("Utility account saved.", "success");
     }
 
-    /* ---------- Government Office modal ---------- */
+    /* ---------- delete confirm (utility accounts) ---------- */
 
-    function openGovOfficeModal(existing) {
-        editingGovOfficeId = existing ? existing.id : null;
-        document.getElementById("govOfficeModalTitle").textContent = existing ? "Edit Government / Office" : "Add Government / Office";
-        document.getElementById("govOfficeFormName").value = existing ? existing.office_name || "" : "";
-        document.getElementById("govOfficeFormDepartment").value = existing ? existing.department || "" : "";
-        document.getElementById("govOfficeFormJurisdiction").value = existing ? existing.jurisdiction || "" : "";
-        document.getElementById("govOfficeFormContactName").value = existing ? existing.contact_name || "" : "";
-        document.getElementById("govOfficeFormPhone").value = existing ? existing.phone || "" : "";
-        document.getElementById("govOfficeFormEmail").value = existing ? existing.email || "" : "";
-        document.getElementById("govOfficeFormAddress").value = existing ? existing.address || "" : "";
-        document.getElementById("govOfficeFormNotes").value = existing ? existing.notes || "" : "";
-        document.getElementById("govOfficeFormMessage").textContent = "";
-        document.getElementById("govOfficeModalOverlay").classList.remove("hidden");
-        document.getElementById("govOfficeFormName").focus();
+    function deleteReady() {
+        const typed = $("deleteRecordConfirmNameInput").value.trim();
+        return pendingDeleteName.length > 0 && typed === pendingDeleteName && $("deleteRecordConfirmUnderstandCheckbox").checked;
     }
+    function updateDeleteBtn() { $("confirmDeleteRecordBtn").disabled = !deleteReady(); }
 
-    function closeGovOfficeModal() {
-        document.getElementById("govOfficeModalOverlay").classList.add("hidden");
-        editingGovOfficeId = null;
+    function openDeleteConfirm(id) {
+        const u = utilityAccounts.find(x => String(x.id) === String(id));
+        if (!u) return;
+        pendingDelete = u.id;
+        pendingDeleteName = u.provider_name || "";
+        $("deleteRecordConfirmName").textContent = pendingDeleteName;
+        $("deleteRecordConfirmMessage").textContent = "";
+        $("deleteRecordConfirmNameInput").value = "";
+        $("deleteRecordConfirmUnderstandCheckbox").checked = false;
+        $("deleteRecordConfirmOverlay").classList.remove("hidden");
+        updateDeleteBtn();
+        $("deleteRecordConfirmNameInput").focus();
     }
-
-    async function submitGovOfficeForm(event) {
-        event.preventDefault();
-        const msgEl = document.getElementById("govOfficeFormMessage");
-        const payload = {
-            project_id: currentProject.id,
-            office_name: document.getElementById("govOfficeFormName").value.trim(),
-            department: document.getElementById("govOfficeFormDepartment").value.trim() || null,
-            jurisdiction: document.getElementById("govOfficeFormJurisdiction").value.trim() || null,
-            contact_name: document.getElementById("govOfficeFormContactName").value.trim() || null,
-            phone: document.getElementById("govOfficeFormPhone").value.trim() || null,
-            email: document.getElementById("govOfficeFormEmail").value.trim() || null,
-            address: document.getElementById("govOfficeFormAddress").value.trim() || null,
-            notes: document.getElementById("govOfficeFormNotes").value.trim() || null
-        };
-        if (!payload.office_name) { msgEl.textContent = "Office name is required."; return; }
-
-        const query = editingGovOfficeId
-            ? window.supabaseClient.from(GOV_OFFICES_TABLE).update(payload).eq("id", editingGovOfficeId).select().single()
-            : window.supabaseClient.from(GOV_OFFICES_TABLE).insert(payload).select().single();
-
-        const { data, error } = await query;
-        if (error) { msgEl.textContent = error.message || "Couldn't save this office."; return; }
-
-        if (editingGovOfficeId) {
-            govOffices = govOffices.map(g => g.id === data.id ? data : g);
-        } else {
-            govOffices.push(data);
-        }
-        closeGovOfficeModal();
-        renderGovOfficesList();
-        setAccountsPageMessage("Office saved.", "success");
-    }
-
-    /* ---------- Delete confirm (shared) ---------- */
-
-    function recordLabel(table, record) {
-        if (table === CONTACTS_TABLE) return record.full_name;
-        if (table === ORGANIZATIONS_TABLE) return record.org_name;
-        if (table === UTILITY_ACCOUNTS_TABLE) return record.provider_name;
-        if (table === GOV_OFFICES_TABLE) return record.office_name;
-        return "this record";
-    }
-
-    let pendingDeleteName = "";
-
-    // Typing the record's own name to confirm (same pattern used for
-    // project deletion) -- cheap insurance against a one-click delete
-    // landing on the wrong contact/organization/account/office, which is
-    // otherwise unrecoverable.
-    function deleteRecordConfirmNameMatches() {
-        const typed = document.getElementById("deleteRecordConfirmNameInput").value;
-        return pendingDeleteName.length > 0 && typed.trim() === pendingDeleteName;
-    }
-
-    function deleteRecordConfirmReady() {
-        return deleteRecordConfirmNameMatches()
-            && document.getElementById("deleteRecordConfirmUnderstandCheckbox").checked;
-    }
-
-    function updateDeleteRecordConfirmBtnState() {
-        document.getElementById("confirmDeleteRecordBtn").disabled = !deleteRecordConfirmReady();
-    }
-
-    function openDeleteRecordConfirm(table, id) {
-        const record = findRecord(table, id);
-        if (!record) return;
-        pendingDelete = { table, id };
-        pendingDeleteName = recordLabel(table, record) || "";
-        document.getElementById("deleteRecordConfirmName").textContent = pendingDeleteName || "this record";
-        document.getElementById("deleteRecordConfirmMessage").textContent = "";
-        const input = document.getElementById("deleteRecordConfirmNameInput");
-        input.value = "";
-        document.getElementById("deleteRecordConfirmUnderstandCheckbox").checked = false;
-        document.getElementById("deleteRecordConfirmOverlay").classList.remove("hidden");
-        updateDeleteRecordConfirmBtnState();
-        input.focus();
-    }
-
-    function closeDeleteRecordConfirm() {
-        document.getElementById("deleteRecordConfirmOverlay").classList.add("hidden");
+    function closeDeleteConfirm() {
+        $("deleteRecordConfirmOverlay").classList.add("hidden");
         pendingDelete = null;
         pendingDeleteName = "";
     }
-
-    async function confirmDeleteRecord() {
-        if (!pendingDelete) return;
-        if (!deleteRecordConfirmReady()) return;
-        const { table, id } = pendingDelete;
-        const { error } = await window.supabaseClient.from(table).delete().eq("id", id);
-        if (error) {
-            setAccountsPageMessage(error.message || "Couldn't delete this record.", "error");
-            closeDeleteRecordConfirm();
-            return;
-        }
-
-        if (table === CONTACTS_TABLE) contacts = contacts.filter(r => r.id !== id);
-        if (table === ORGANIZATIONS_TABLE) organizations = organizations.filter(r => r.id !== id);
-        if (table === UTILITY_ACCOUNTS_TABLE) utilityAccounts = utilityAccounts.filter(r => r.id !== id);
-        if (table === GOV_OFFICES_TABLE) govOffices = govOffices.filter(r => r.id !== id);
-
-        closeDeleteRecordConfirm();
-        renderAll();
-        setAccountsPageMessage("Deleted.", "success");
+    async function confirmDelete() {
+        if (!pendingDelete || !deleteReady()) return;
+        const id = pendingDelete;
+        const { error } = await db().from(UTILITY_ACCOUNTS_TABLE).delete().eq("id", id);
+        if (error) { $("deleteRecordConfirmMessage").textContent = error.message || "Couldn't delete this account."; return; }
+        utilityAccounts = utilityAccounts.filter(u => u.id !== id);
+        closeDeleteConfirm();
+        renderUtilities();
+        setPageMessage("Deleted.", "success");
     }
 
-    /* ---------- delegated click handling for menus / row actions / quick-add ---------- */
+    /* ---------- tabs + wiring ---------- */
 
-    function handleGlobalClick(event) {
-        const menuBtn = event.target.closest("[data-action='menu']");
-        if (menuBtn) {
-            event.stopPropagation();
-            toggleMenuFor(menuBtn);
-            return;
-        }
+    function switchTab(key) {
+        document.querySelectorAll("#accountsTabs .dash-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === key));
+        document.querySelectorAll(".accounts-tab-panel[data-tab-panel]").forEach(p => p.classList.toggle("hidden", p.dataset.tabPanel !== key));
+    }
 
-        const quickAddBtn = event.target.closest("[data-action='quick-add']");
-        if (quickAddBtn) {
-            openContactModal(quickAddBtn.dataset.type, null);
-            return;
-        }
+    function wire() {
+        document.querySelectorAll("#accountsTabs .dash-tab").forEach(b => b.addEventListener("click", () => switchTab(b.dataset.tab)));
 
-        const viewTypeBtn = event.target.closest("[data-action='view-type']");
-        if (viewTypeBtn) {
-            switchTab("contacts");
-            const filterEl = document.getElementById("allContactsTypeFilter");
-            if (filterEl) { filterEl.value = viewTypeBtn.dataset.type; renderAllContactsList(); }
-            return;
-        }
+        const typeSel = $("utilityAccountsTypeFilter");
+        typeSel.innerHTML = `<option value="">All types</option>` + UTILITY_TYPES.map(t => `<option value="${t.key}">${t.label}</option>`).join("");
+        $("utilityAccountFormType").innerHTML = UTILITY_TYPES.map(t => `<option value="${t.key}">${t.label}</option>`).join("");
 
-        const editBtn = event.target.closest("[data-action='edit']");
-        if (editBtn) {
-            closeAllAccountMenus();
-            const { table, id } = editBtn.dataset;
-            const record = findRecord(table, id);
-            if (!record) return;
-            if (table === CONTACTS_TABLE) openContactModal(null, record);
-            else if (table === ORGANIZATIONS_TABLE) openOrganizationModal(record);
-            else if (table === UTILITY_ACCOUNTS_TABLE) openUtilityAccountModal(record);
-            else if (table === GOV_OFFICES_TABLE) openGovOfficeModal(record);
-            return;
-        }
+        ["vendorsSearchInput", "vendorsSourceFilter", "vendorsAttentionFilter"].forEach(id => {
+            $(id).addEventListener("input", renderVendors);
+            $(id).addEventListener("change", renderVendors);
+        });
+        ["utilityAccountsSearchInput", "utilityAccountsTypeFilter", "utilityAccountsStatusFilter"].forEach(id => {
+            $(id).addEventListener("input", renderUtilities);
+            $(id).addEventListener("change", renderUtilities);
+        });
 
-        const deleteBtn = event.target.closest("[data-action='delete']");
-        if (deleteBtn) {
-            closeAllAccountMenus();
-            const { table, id } = deleteBtn.dataset;
-            const record = findRecord(table, id);
-            if (record && !canEditRecord(record)) {
-                setAccountsPageMessage("Only the person who added this, or project leadership, can delete it.", "error");
+        $("addUtilityAccountBtn").addEventListener("click", () => openUtilityModal(null));
+        $("utilityAccountForm").addEventListener("submit", submitUtilityForm);
+        $("utilityAccountFormStatus").addEventListener("change", syncCloseLabel);
+        $("cancelUtilityAccountBtn").addEventListener("click", closeUtilityModal);
+        $("utilityAccountModalOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeUtilityModal(); });
+
+        $("closeVendorDocsBtn").addEventListener("click", closeVendorPopup);
+        $("doneVendorDocsBtn").addEventListener("click", closeVendorPopup);
+        $("vendorDocsOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeVendorPopup(); });
+
+        $("cancelDeleteRecordBtn").addEventListener("click", closeDeleteConfirm);
+        $("confirmDeleteRecordBtn").addEventListener("click", confirmDelete);
+        $("deleteRecordConfirmOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeDeleteConfirm(); });
+        $("deleteRecordConfirmNameInput").addEventListener("input", updateDeleteBtn);
+        $("deleteRecordConfirmUnderstandCheckbox").addEventListener("change", updateDeleteBtn);
+
+        document.addEventListener("click", e => {
+            const open = e.target.closest("[data-open-vendor]");
+            if (open) { openVendorPopup(open.dataset.openVendor); return; }
+            const row = e.target.closest(".pav-row[data-vendor]");
+            if (row && !e.target.closest("button, a")) { openVendorPopup(row.dataset.vendor); return; }
+
+            const view = e.target.closest("[data-doc-view]");
+            if (view) { openDoc(view.dataset.docView, view.dataset.docId, false); return; }
+            const dl = e.target.closest("[data-doc-download]");
+            if (dl) { openDoc(dl.dataset.docDownload, dl.dataset.docId, true); return; }
+
+            const ca = e.target.closest("[data-contract-action]");
+            if (ca) { setContractNeeded(ca.dataset.contractAction === "needed"); return; }
+            const rc = e.target.closest("[data-request-coi]");
+            if (rc) { requestCoi(rc.dataset.requestCoi); return; }
+
+            const rv = e.target.closest("[data-reveal]");
+            if (rv) {
+                const id = rv.dataset.reveal;
+                if (revealed.has(id)) revealed.delete(id); else revealed.add(id);
+                renderUtilities();
                 return;
             }
-            openDeleteRecordConfirm(table, id);
-        }
-    }
-
-    /* ---------- view toggle (grid/list) for the quick-access cards ---------- */
-
-    function wireContactCardViewToggle() {
-        const gridBtn = document.getElementById("contactCardGridBtn");
-        const listBtn = document.getElementById("contactCardListBtn");
-        const toggle = document.getElementById("contactCardViewToggle");
-        if (!gridBtn || !listBtn || !toggle) return;
-
-        function setView(view) {
-            contactCardView = view;
-            toggle.classList.toggle("view-toggle--list", view === "list");
-            gridBtn.classList.toggle("active", view === "grid");
-            listBtn.classList.toggle("active", view === "list");
-            gridBtn.setAttribute("aria-pressed", String(view === "grid"));
-            listBtn.setAttribute("aria-pressed", String(view === "list"));
-            renderContactQuickCards();
-        }
-
-        gridBtn.addEventListener("click", () => setView("grid"));
-        listBtn.addEventListener("click", () => setView("list"));
-    }
-
-    /* ---------- wiring ---------- */
-
-    function wireStaticControls() {
-        document.getElementById("heroAddContactBtn")?.addEventListener("click", () => openContactModal(null, null));
-        document.getElementById("addContactBtn")?.addEventListener("click", () => openContactModal(null, null));
-        document.getElementById("viewAllContactsBtn")?.addEventListener("click", () => switchTab("contacts"));
-        document.getElementById("addOrganizationBtn")?.addEventListener("click", () => openOrganizationModal(null));
-        document.getElementById("addUtilityAccountBtn")?.addEventListener("click", () => openUtilityAccountModal(null));
-        document.getElementById("addGovOfficeBtn")?.addEventListener("click", () => openGovOfficeModal(null));
-
-        document.getElementById("contactForm")?.addEventListener("submit", submitContactForm);
-        document.getElementById("cancelContactBtn")?.addEventListener("click", closeContactModal);
-        document.getElementById("contactModalOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeContactModal(); });
-
-        document.getElementById("organizationForm")?.addEventListener("submit", submitOrganizationForm);
-        document.getElementById("cancelOrganizationBtn")?.addEventListener("click", closeOrganizationModal);
-        document.getElementById("organizationModalOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeOrganizationModal(); });
-
-        document.getElementById("utilityAccountForm")?.addEventListener("submit", submitUtilityAccountForm);
-        document.getElementById("cancelUtilityAccountBtn")?.addEventListener("click", closeUtilityAccountModal);
-        document.getElementById("utilityAccountModalOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeUtilityAccountModal(); });
-
-        document.getElementById("govOfficeForm")?.addEventListener("submit", submitGovOfficeForm);
-        document.getElementById("cancelGovOfficeBtn")?.addEventListener("click", closeGovOfficeModal);
-        document.getElementById("govOfficeModalOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeGovOfficeModal(); });
-
-        document.getElementById("cancelDeleteRecordBtn")?.addEventListener("click", closeDeleteRecordConfirm);
-        document.getElementById("confirmDeleteRecordBtn")?.addEventListener("click", confirmDeleteRecord);
-        document.getElementById("deleteRecordConfirmOverlay")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeDeleteRecordConfirm(); });
-        document.getElementById("deleteRecordConfirmNameInput")?.addEventListener("input", updateDeleteRecordConfirmBtnState);
-        document.getElementById("deleteRecordConfirmUnderstandCheckbox")?.addEventListener("change", updateDeleteRecordConfirmBtnState);
-
-        ["contactCardSearchInput", "contactCardTypeFilter", "contactCardSort"].forEach(id => {
-            document.getElementById(id)?.addEventListener("input", renderContactQuickCards);
-            document.getElementById(id)?.addEventListener("change", renderContactQuickCards);
+            const ed = e.target.closest("[data-util-edit]");
+            if (ed) { openUtilityModal(utilityAccounts.find(u => String(u.id) === ed.dataset.utilEdit)); return; }
+            const del = e.target.closest("[data-util-delete]");
+            if (del) openDeleteConfirm(del.dataset.utilDelete);
         });
-        ["allContactsSearchInput", "allContactsTypeFilter", "allContactsSort"].forEach(id => {
-            document.getElementById(id)?.addEventListener("input", renderAllContactsList);
-            document.getElementById(id)?.addEventListener("change", renderAllContactsList);
-        });
-        ["organizationsSearchInput", "organizationsTypeFilter"].forEach(id => {
-            document.getElementById(id)?.addEventListener("input", renderOrganizationsList);
-            document.getElementById(id)?.addEventListener("change", renderOrganizationsList);
-        });
-        ["utilityAccountsSearchInput", "utilityAccountsTypeFilter"].forEach(id => {
-            document.getElementById(id)?.addEventListener("input", renderUtilityAccountsList);
-            document.getElementById(id)?.addEventListener("change", renderUtilityAccountsList);
-        });
-        document.getElementById("govOfficesSearchInput")?.addEventListener("input", renderGovOfficesList);
 
-        document.addEventListener("click", handleGlobalClick);
-
-        document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") {
-                closeContactModal();
-                closeOrganizationModal();
-                closeUtilityAccountModal();
-                closeGovOfficeModal();
-                closeDeleteRecordConfirm();
-                closeAllAccountMenus();
+        document.addEventListener("keydown", e => {
+            if (e.key !== "Escape") return;
+            if (!$("sharedFilePreviewOverlay") || $("sharedFilePreviewOverlay").classList.contains("hidden")) {
+                closeVendorPopup();
+                closeUtilityModal();
+                closeDeleteConfirm();
             }
         });
     }
@@ -1032,30 +763,18 @@
 
     window.addEventListener("project-shell:ready", async (event) => {
         const { project, error } = event.detail;
-
         if (error || !project) {
-            setAccountsPageMessage("No project selected. Pick one from Project Overview.", "error");
-            document.getElementById("accountsLoadingState").style.display = "none";
+            setPageMessage("No project selected. Pick one from Project Overview.", "error");
+            $("accountsLoadingState").style.display = "none";
             return;
         }
-
         currentProject = project;
-        document.getElementById("accountsHeroTitle").textContent = `Accounts / Contacts — ${project.name || "Untitled project"}`;
-
-        initTypeSelects();
-        wireTabs();
-        wireContactCardViewToggle();
-        wireStaticControls();
-
-        await loadMyProjectRole(project.id);
-        await loadAllAccountsData(project.id);
-
-        renderProjectDetailsGrid(project);
-        renderStatusCard(project);
-        renderAll();
-
-        document.getElementById("accountsLoadingState").style.display = "none";
-        document.getElementById("accountsBody").style.display = "block";
+        wire();
+        try { await window.Permissions?.initPermissions?.(); } catch { /* fails open */ }
+        await Promise.all([loadVendors(), loadUtilities()]);
+        renderVendors();
+        renderUtilities();
+        $("accountsLoadingState").style.display = "none";
+        $("accountsBody").style.display = "block";
     });
-
 })();

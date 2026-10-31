@@ -167,194 +167,75 @@
     <div id="accountsPageMessage" class="workbook-page-message" style="display:none;"></div>
 
     <div class="workbook-loading" id="accountsLoadingState">
-        <p>Loading accounts &amp; contacts…</p>
+        <p>Loading accounts…</p>
     </div>
 
     <div id="accountsBody" style="display:none;">
 
-        <section class="hero-section hero-section--teal">
-            <div>
-                <p class="eyebrow">Project Dashboard</p>
-                <h1 id="accountsHeroTitle">Accounts / Contacts</h1>
-                <p>Manage all key accounts and contacts for this project.</p>
-            </div>
-            <div class="hero-actions">
-                <button type="button" class="auth-button auth-button--secondary" id="heroAddContactBtn">
-                    + Add Contact
-                </button>
-            </div>
-        </section>
-
-        <div class="dash-tabs" id="accountsTabs">
-            <button type="button" class="dash-tab active" data-tab="details">
-                <span class="accounts-tab-icon accounts-tab-icon--details"></span>Project Details
+        <!-- Two tabs (Coleby, 2026-10-31 redesign): every vendor on the job
+             with their paperwork, and the job's utility accounts. The old
+             Project Details / Contacts / Organizations / Government tabs
+             were removed from this page (their tables are untouched). -->
+        <div class="dash-tabs" id="accountsTabs" role="tablist">
+            <button type="button" class="dash-tab active" data-tab="vendors" role="tab">
+                Vendors<span class="project-tab-count" id="vendorsTabCount">0</span>
             </button>
-            <button type="button" class="dash-tab" data-tab="contacts">
-                <span class="accounts-tab-icon accounts-tab-icon--contacts"></span>All Contacts
-            </button>
-            <button type="button" class="dash-tab" data-tab="organizations">
-                <span class="accounts-tab-icon accounts-tab-icon--organizations"></span>Organizations
-            </button>
-            <button type="button" class="dash-tab" data-tab="utilities">
-                <span class="accounts-tab-icon accounts-tab-icon--utility"></span>Utility Accounts
-            </button>
-            <button type="button" class="dash-tab" data-tab="gov">
-                <span class="accounts-tab-icon accounts-tab-icon--gov"></span>Government / Offices
+            <button type="button" class="dash-tab" data-tab="utilities" role="tab">
+                Utility Accounts<span class="project-tab-count" id="utilitiesTabCount">0</span>
             </button>
         </div>
 
-        <!-- ============ PROJECT DETAILS TAB ============ -->
-        <div class="accounts-tab-panel" id="tabPanelDetails" data-tab-panel="details">
+        <!-- ============ VENDORS TAB ============ -->
+        <div class="accounts-tab-panel" id="tabPanelVendors" data-tab-panel="vendors">
 
-            <div class="accounts-details-layout">
-
-                <div class="accounts-details-col">
-                    <h2 class="project-details-heading">Project Details</h2>
-                    <div class="pd-grid" id="accountsSummaryGrid"></div>
-                </div>
-
-                <div class="accounts-contacts-col">
-                    <h2 class="project-details-heading">Project Contacts</h2>
-                    <div class="account-contacts-panel">
-
-                        <div class="account-contacts-toolbar">
-                            <input type="text" id="contactCardSearchInput" class="workbook-search-input" placeholder="Search contacts…" autocomplete="off">
-                            <select class="project-page-size-select" id="contactCardTypeFilter">
-                                <option value="">All Types</option>
-                            </select>
-                            <select class="project-page-size-select" id="contactCardSort">
-                                <option value="az">Sort: A-Z</option>
-                                <option value="za">Sort: Z-A</option>
-                            </select>
-                            <div class="view-toggle" id="contactCardViewToggle" role="group" aria-label="Toggle view">
-                                <span class="view-toggle-indicator" id="contactCardViewToggleIndicator"></span>
-                                <button type="button" class="view-toggle-btn active" id="contactCardGridBtn" data-view="grid" aria-label="Grid view" aria-pressed="true">
-                                    <span class="view-toggle-icon view-toggle-icon--grid"></span>
-                                </button>
-                                <button type="button" class="view-toggle-btn" id="contactCardListBtn" data-view="list" aria-label="List view" aria-pressed="false">
-                                    <span class="view-toggle-icon view-toggle-icon--list"></span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="account-contact-grid" id="accountContactGrid"></div>
-
-                        <button type="button" class="auth-button auth-button--secondary account-contacts-view-all" id="viewAllContactsBtn">
-                            View All Contacts →
-                        </button>
-
-                    </div>
-                </div>
-
+            <div class="pav-stat-grid">
+                <div class="pd-card pav-stat"><span class="pav-stat-label">Vendors on job</span><span class="pav-stat-value" id="statVendors">0</span></div>
+                <div class="pd-card pav-stat"><span class="pav-stat-label">Contracts not signed</span><span class="pav-stat-value pav-stat-value--danger" id="statContracts">0</span></div>
+                <div class="pd-card pav-stat"><span class="pav-stat-label">W-9 missing</span><span class="pav-stat-value pav-stat-value--danger" id="statW9">0</span></div>
+                <div class="pd-card pav-stat"><span class="pav-stat-label">COI needed / expired</span><span class="pav-stat-value pav-stat-value--warning" id="statCoi">0</span></div>
             </div>
 
-            <div class="account-status-card" id="accountStatusCard">
-                <div class="account-status-cover" id="accountStatusCover"></div>
-                <div class="account-status-details" id="accountStatusDetails"></div>
-            </div>
-
-        </div>
-
-        <!-- ============ ALL CONTACTS TAB ============ -->
-        <div class="accounts-tab-panel hidden" id="tabPanelContacts" data-tab-panel="contacts">
-
-            <div class="accounts-record-toolbar">
-                <input type="text" id="allContactsSearchInput" class="workbook-search-input" placeholder="Search all contacts…" autocomplete="off">
-                <select class="project-page-size-select" id="allContactsTypeFilter">
-                    <option value="">All Types</option>
+            <div class="account-contacts-toolbar pav-toolbar">
+                <input type="search" id="vendorsSearchInput" class="workbook-search-input" placeholder="Search vendors or scope…" autocomplete="off" aria-label="Search vendors">
+                <select class="project-page-size-select" id="vendorsSourceFilter" aria-label="On job by">
+                    <option value="">All vendors</option>
+                    <option value="awarded">Awarded</option>
+                    <option value="assigned">Manage Projects</option>
+                    <option value="invoice">Invoice only</option>
+                    <option value="invited">Invited to bid</option>
                 </select>
-                <select class="project-page-size-select" id="allContactsSort">
-                    <option value="az">Sort: A-Z</option>
-                    <option value="za">Sort: Z-A</option>
-                    <option value="newest">Newest first</option>
+                <select class="project-page-size-select" id="vendorsAttentionFilter" aria-label="Show">
+                    <option value="">Everything</option>
+                    <option value="attention">Needs attention</option>
                 </select>
-                <button type="button" class="auth-button auth-button--secondary" id="addContactBtn">+ Add Contact</button>
             </div>
 
-            <div class="all-files-list" id="allContactsListWrap">
-                <div class="all-files-list-header">
-                    <span>Name</span>
-                    <span>Type</span>
-                    <span>Phone / Email</span>
-                    <span>Added</span>
-                    <span></span>
+            <div class="all-files-list pav-list">
+                <div class="all-files-list-header pav-row">
+                    <span>Vendor &amp; scope</span><span>On job by</span><span>Contract</span><span>W-9</span><span>COI (this job)</span><span></span>
                 </div>
-                <div id="allContactsList"></div>
-                <div class="accounts-record-empty" id="allContactsEmpty" style="display:none;">No contacts yet — add one with "+ Add Contact" above.</div>
+                <div id="vendorsList"></div>
+                <div class="accounts-record-empty" id="vendorsEmpty" style="display:none;">No vendors on this project yet. Vendors show up here once they're awarded a bid, added in Manage Projects on the vendor page, invited to bid, or have an invoice on this job.</div>
             </div>
-
-        </div>
-
-        <!-- ============ ORGANIZATIONS TAB ============ -->
-        <div class="accounts-tab-panel hidden" id="tabPanelOrganizations" data-tab-panel="organizations">
-
-            <div class="accounts-record-toolbar">
-                <input type="text" id="organizationsSearchInput" class="workbook-search-input" placeholder="Search organizations…" autocomplete="off">
-                <select class="project-page-size-select" id="organizationsTypeFilter">
-                    <option value="">All Types</option>
-                </select>
-                <button type="button" class="auth-button auth-button--secondary" id="addOrganizationBtn">+ Add Organization</button>
-            </div>
-
-            <div class="all-files-list" id="organizationsListWrap">
-                <div class="all-files-list-header">
-                    <span>Organization</span>
-                    <span>Type</span>
-                    <span>Phone / Website</span>
-                    <span>Added</span>
-                    <span></span>
-                </div>
-                <div id="organizationsList"></div>
-                <div class="accounts-record-empty" id="organizationsEmpty" style="display:none;">No organizations on file yet — add one with "+ Add Organization" above.</div>
-            </div>
-
+            <p class="pav-foot-note">W-9 comes from the vendor record, so it's the same on every job. Contract and COI PDFs belong to this job only.</p>
         </div>
 
         <!-- ============ UTILITY ACCOUNTS TAB ============ -->
         <div class="accounts-tab-panel hidden" id="tabPanelUtilities" data-tab-panel="utilities">
-
-            <div class="accounts-record-toolbar">
-                <input type="text" id="utilityAccountsSearchInput" class="workbook-search-input" placeholder="Search utility accounts…" autocomplete="off">
-                <select class="project-page-size-select" id="utilityAccountsTypeFilter">
-                    <option value="">All Types</option>
+            <div class="account-contacts-toolbar pav-toolbar">
+                <input type="search" id="utilityAccountsSearchInput" class="workbook-search-input" placeholder="Search provider, account # or address…" autocomplete="off" aria-label="Search utility accounts">
+                <select class="project-page-size-select" id="utilityAccountsTypeFilter" aria-label="Type"></select>
+                <select class="project-page-size-select" id="utilityAccountsStatusFilter" aria-label="Status">
+                    <option value="">All statuses</option>
+                    <option value="active">Active</option>
+                    <option value="transferred">Transferred</option>
+                    <option value="closed">Closed</option>
                 </select>
                 <button type="button" class="auth-button auth-button--secondary" id="addUtilityAccountBtn">+ Add Utility Account</button>
             </div>
 
-            <div class="all-files-list" id="utilityAccountsListWrap">
-                <div class="all-files-list-header">
-                    <span>Provider</span>
-                    <span>Type</span>
-                    <span>Account #</span>
-                    <span>Added</span>
-                    <span></span>
-                </div>
-                <div id="utilityAccountsList"></div>
-                <div class="accounts-record-empty" id="utilityAccountsEmpty" style="display:none;">No utility accounts on file yet — add one with "+ Add Utility Account" above.</div>
-            </div>
-
-        </div>
-
-        <!-- ============ GOVERNMENT / OFFICES TAB ============ -->
-        <div class="accounts-tab-panel hidden" id="tabPanelGov" data-tab-panel="gov">
-
-            <div class="accounts-record-toolbar">
-                <input type="text" id="govOfficesSearchInput" class="workbook-search-input" placeholder="Search government offices…" autocomplete="off">
-                <button type="button" class="auth-button auth-button--secondary" id="addGovOfficeBtn">+ Add Office</button>
-            </div>
-
-            <div class="all-files-list" id="govOfficesListWrap">
-                <div class="all-files-list-header">
-                    <span>Office</span>
-                    <span>Department</span>
-                    <span>Phone</span>
-                    <span>Added</span>
-                    <span></span>
-                </div>
-                <div id="govOfficesList"></div>
-                <div class="accounts-record-empty" id="govOfficesEmpty" style="display:none;">No government offices on file yet — add one with "+ Add Office" above.</div>
-            </div>
-
+            <div class="pav-util-grid" id="utilityAccountsList"></div>
+            <div class="accounts-record-empty" id="utilityAccountsEmpty" style="display:none;">No utility accounts on file yet — add one with "+ Add Utility Account" above.</div>
         </div>
 
     </div>
@@ -362,120 +243,80 @@
 </main>
 
 
-<!-- Add / Edit Contact -->
-<div class="popup-overlay hidden" id="contactModalOverlay">
-    <div class="popup">
-        <h2 id="contactModalTitle">Add Contact</h2>
-
-        <form class="auth-form" id="contactForm">
-            <label class="auth-field">
-                Type
-                <select id="contactFormType" name="contact_type" required></select>
-            </label>
-            <label class="auth-field">
-                Name
-                <input type="text" id="contactFormName" name="full_name" required placeholder="e.g. Jane Smith">
-            </label>
-            <label class="auth-field">
-                Title / role
-                <input type="text" id="contactFormTitle" name="title" placeholder="e.g. Property Manager">
-            </label>
-            <label class="auth-field">
-                Company
-                <input type="text" id="contactFormCompany" name="company_name">
-            </label>
-            <label class="auth-field">
-                Phone
-                <input type="tel" id="contactFormPhone" name="phone">
-            </label>
-            <label class="auth-field">
-                Email
-                <input type="email" id="contactFormEmail" name="email">
-            </label>
-            <label class="auth-field">
-                Notes
-                <textarea id="contactFormNotes" name="notes"></textarea>
-            </label>
-
-            <p class="auth-message" id="contactFormMessage"></p>
-
-            <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--secondary" id="cancelContactBtn">Cancel</button>
-                <button type="submit" class="auth-button" id="saveContactBtn">Save Contact</button>
+<!-- Vendor on this project: Contract / W-9 / COI. Filled by
+     js/project-accounts.js (renderVendorPopup). On a phone it's a bottom
+     sheet over a blurred page (.popup-overlay--blur). -->
+<div class="popup-overlay popup-overlay--blur hidden" id="vendorDocsOverlay">
+    <div class="popup pav-popup" role="dialog" aria-modal="true" aria-labelledby="vendorDocsTitle">
+        <div class="pav-popup-head">
+            <div>
+                <h2 id="vendorDocsTitle">Vendor</h2>
+                <span class="pav-sub" id="vendorDocsSub"></span>
             </div>
-        </form>
-    </div>
-</div>
-
-
-<!-- Add / Edit Organization -->
-<div class="popup-overlay hidden" id="organizationModalOverlay">
-    <div class="popup">
-        <h2 id="organizationModalTitle">Add Organization</h2>
-
-        <form class="auth-form" id="organizationForm">
-            <label class="auth-field">
-                Organization name
-                <input type="text" id="organizationFormName" name="org_name" required placeholder="e.g. Coastal Electric Co.">
-            </label>
-            <label class="auth-field">
-                Type
-                <select id="organizationFormType" name="org_type" required></select>
-            </label>
-            <label class="auth-field">
-                Phone
-                <input type="tel" id="organizationFormPhone" name="phone">
-            </label>
-            <label class="auth-field">
-                Email
-                <input type="email" id="organizationFormEmail" name="email">
-            </label>
-            <label class="auth-field">
-                Website
-                <input type="text" id="organizationFormWebsite" name="website" placeholder="e.g. www.example.com">
-            </label>
-            <label class="auth-field">
-                Address
-                <input type="text" id="organizationFormAddress" name="address">
-            </label>
-            <label class="auth-field">
-                Notes
-                <textarea id="organizationFormNotes" name="notes"></textarea>
-            </label>
-
-            <p class="auth-message" id="organizationFormMessage"></p>
-
-            <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--secondary" id="cancelOrganizationBtn">Cancel</button>
-                <button type="submit" class="auth-button" id="saveOrganizationBtn">Save Organization</button>
-            </div>
-        </form>
+            <button type="button" class="pav-close-btn" id="closeVendorDocsBtn" aria-label="Close">✕</button>
+        </div>
+        <div id="vendorDocsBody"></div>
+        <p class="auth-message" id="vendorDocsMessage" role="status"></p>
+        <div class="popup-buttons pav-popup-foot">
+            <a href="#" class="pav-link" id="vendorDocsVendorLink">Open vendor page</a>
+            <button type="button" class="auth-button auth-button--secondary" id="doneVendorDocsBtn">Close</button>
+        </div>
     </div>
 </div>
 
 
 <!-- Add / Edit Utility Account -->
-<div class="popup-overlay hidden" id="utilityAccountModalOverlay">
+<div class="popup-overlay popup-overlay--blur hidden" id="utilityAccountModalOverlay">
     <div class="popup">
         <h2 id="utilityAccountModalTitle">Add Utility Account</h2>
 
         <form class="auth-form" id="utilityAccountForm">
-            <label class="auth-field">
-                Utility type
-                <select id="utilityAccountFormType" name="utility_type" required></select>
-            </label>
+            <div class="pav-form-grid">
+                <label class="auth-field">
+                    Utility type
+                    <select id="utilityAccountFormType" name="utility_type" required></select>
+                </label>
+                <label class="auth-field">
+                    Status
+                    <select id="utilityAccountFormStatus" name="status">
+                        <option value="active">Active</option>
+                        <option value="transferred">Transferred</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </label>
+            </div>
             <label class="auth-field">
                 Provider name
-                <input type="text" id="utilityAccountFormProvider" name="provider_name" required placeholder="e.g. Duke Energy">
+                <input type="text" id="utilityAccountFormProvider" name="provider_name" required placeholder="e.g. CFPUA">
+            </label>
+            <div class="pav-form-grid">
+                <label class="auth-field">
+                    Account #
+                    <input type="text" id="utilityAccountFormNumber" name="account_number" autocomplete="off">
+                </label>
+                <label class="auth-field">
+                    Phone
+                    <input type="tel" id="utilityAccountFormPhone" name="phone">
+                </label>
+            </div>
+            <label class="auth-field">
+                Service address
+                <input type="text" id="utilityAccountFormAddress" name="service_address">
             </label>
             <label class="auth-field">
-                Account #
-                <input type="text" id="utilityAccountFormNumber" name="account_number">
+                Meter #
+                <input type="text" id="utilityAccountFormMeter" name="meter_number" autocomplete="off">
             </label>
-            <label class="auth-field">
-                Phone
-                <input type="tel" id="utilityAccountFormPhone" name="phone">
-            </label>
+            <div class="pav-form-grid">
+                <label class="auth-field">
+                    Start date
+                    <input type="date" id="utilityAccountFormStart" name="start_date">
+                </label>
+                <label class="auth-field">
+                    <span id="utilityAccountFormCloseLabel">Close / transfer date</span>
+                    <input type="date" id="utilityAccountFormClose" name="close_date">
+                </label>
+            </div>
             <label class="auth-field">
                 Notes
                 <textarea id="utilityAccountFormNotes" name="notes"></textarea>
@@ -492,57 +333,7 @@
 </div>
 
 
-<!-- Add / Edit Government Office -->
-<div class="popup-overlay hidden" id="govOfficeModalOverlay">
-    <div class="popup">
-        <h2 id="govOfficeModalTitle">Add Government / Office</h2>
-
-        <form class="auth-form" id="govOfficeForm">
-            <label class="auth-field">
-                Office name
-                <input type="text" id="govOfficeFormName" name="office_name" required placeholder="e.g. New Hanover County Building Safety">
-            </label>
-            <label class="auth-field">
-                Department
-                <input type="text" id="govOfficeFormDepartment" name="department" placeholder="e.g. Permitting">
-            </label>
-            <label class="auth-field">
-                Jurisdiction
-                <input type="text" id="govOfficeFormJurisdiction" name="jurisdiction" placeholder="e.g. City of Wilmington">
-            </label>
-            <label class="auth-field">
-                Contact name
-                <input type="text" id="govOfficeFormContactName" name="contact_name">
-            </label>
-            <label class="auth-field">
-                Phone
-                <input type="tel" id="govOfficeFormPhone" name="phone">
-            </label>
-            <label class="auth-field">
-                Email
-                <input type="email" id="govOfficeFormEmail" name="email">
-            </label>
-            <label class="auth-field">
-                Address
-                <input type="text" id="govOfficeFormAddress" name="address">
-            </label>
-            <label class="auth-field">
-                Notes
-                <textarea id="govOfficeFormNotes" name="notes"></textarea>
-            </label>
-
-            <p class="auth-message" id="govOfficeFormMessage"></p>
-
-            <div class="popup-buttons">
-                <button type="button" class="auth-button auth-button--secondary" id="cancelGovOfficeBtn">Cancel</button>
-                <button type="submit" class="auth-button" id="saveGovOfficeBtn">Save Office</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-
-<!-- Delete confirmation — shared by all four record types (the pending
+<!-- Delete confirmation — used for utility accounts (the pending
      record's table/label are tracked in JS, same "one modal, parameterized"
      approach as the rest of the app's confirm dialogs). -->
 <div class="popup-overlay hidden" id="deleteRecordConfirmOverlay">
@@ -576,26 +367,6 @@
 </div>
 
 
-<!-- Project Details card — view full info. Clicking any card in the left
-     column (Property Owner, Job Site Address, Electric, etc.) opens this
-     with every field for that card, including the ones the compact card
-     itself doesn't show (phone/email/role for contact cards, blank fields
-     shown as "—") — reuses .pd-card-header/.pd-card-title/.pd-field-row
-     verbatim so it looks like a zoomed-in version of the card itself. -->
-<div class="popup-overlay hidden" id="pdCardDetailOverlay">
-    <div class="popup">
-        <div class="pd-card-header">
-            <span class="project-stat-icon" id="pdCardDetailIcon"></span>
-            <h2 class="pd-card-title" id="pdCardDetailTitle">Details</h2>
-        </div>
-
-        <div id="pdCardDetailBody"></div>
-
-        <div class="popup-buttons">
-            <button type="button" class="auth-button auth-button--secondary" id="closePdCardDetailBtn">Close</button>
-        </div>
-    </div>
-</div>
 
 
 <!-- Change Password modal — opened from the "Change Password" action in
@@ -660,6 +431,7 @@
 <script src="/js/nav-access.js"></script>
 <script src="/js/project-fields.js"></script>
 <script src="/js/project-shell.js"></script>
+<script src="/js/file-preview.js"></script>
 <script src="/js/project-accounts.js"></script>
 
 <script>
