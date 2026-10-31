@@ -18005,3 +18005,6 @@ html:has(body.changelog-page) { height: auto; }
 @media (max-width: 768px) {
   .pav-toolbar .workbook-search-input { flex: 1 1 100%; }
 }
+
+/* Vendor page › Contacts: "On site" column (Coleby, 2026-10-31) */
+.vd-pill--yes { background: #e3f6ec; color: #1b8a55; }

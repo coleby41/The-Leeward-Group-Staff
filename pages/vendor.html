@@ -488,7 +488,7 @@
             </div>
             <div class="vd-dup-bar hidden" id="vdDupBar"></div>
             <table class="vd-table vd-contacts-table">
-                <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Work phone</th><th>Mobile phone</th><th class="is-right"></th></tr></thead>
+                <thead><tr><th>Name</th><th>Title</th><th>Email</th><th>Work phone</th><th>Mobile phone</th><th>On site</th><th class="is-right"></th></tr></thead>
                 <tbody id="vdContactsBody"></tbody>
             </table>
             <p class="vd-empty hidden" id="vdContactsEmpty" style="padding: 16px 18px;">No contacts on file yet.</p>
@@ -519,7 +519,15 @@
                 <label class="auth-field">Work phone<input type="tel" id="vdContactWork" maxlength="40"></label>
                 <label class="auth-field">Mobile phone<input type="tel" id="vdContactMobile" maxlength="40"></label>
             </div>
-            <label class="auth-field">Role<input type="text" id="vdContactRole" maxlength="120" placeholder="e.g. Estimator, Billing"></label>
+            <div class="wizard-field-grid">
+                <label class="auth-field">Role<input type="text" id="vdContactRole" maxlength="120" placeholder="e.g. Estimator, Billing"></label>
+                <label class="auth-field">Allowed to be on site
+                    <select id="vdContactOnSite">
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                    </select>
+                </label>
+            </div>
             <p class="auth-inline-copy hidden" id="vdContactLoginNote">This person signs in to the Vendor Portal with their email, so it can't be changed here — they can update their other details in the portal.</p>
             <p class="auth-message" id="vdContactMessage" role="status"></p>
             <div class="popup-buttons">
