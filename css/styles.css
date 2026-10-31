@@ -18009,10 +18009,14 @@ html:has(body.changelog-page) { height: auto; }
 }
 
 /* Accounts › Vendors: "On site" Yes / No toggle */
+/* Same pill as Account Activity's status (.aa-status-pill / --rejected):
+   No = red like Rejected, Yes = green. */
 .pav-onsite {
-  min-width: 52px; padding: 6px 10px; border-radius: var(--radius-sm);
-  border: 1px solid var(--border); background: var(--surface-alt); color: var(--text-soft);
-  font: inherit; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 52px; padding: 4px 10px; border: 0; border-radius: var(--radius-sm);
+  font: inherit; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  background: var(--danger-soft); color: var(--danger); cursor: pointer;
 }
-.pav-onsite--yes { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.pav-onsite--yes { background: #e3f6ec; color: #1b8a55; }
+.pav-onsite:hover { filter: brightness(0.97); }
 .pav-row--pending .pav-onsite { pointer-events: auto; }
