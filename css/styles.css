@@ -17822,15 +17822,26 @@ a.vd-proj__name:hover { color: var(--accent); }
 
 /* ===========================
    RELEASE NOTES (pages/changelog.html)
-   Linked from the sidebar footer's "Release Notes" link.
+   Plain page: no header/sidebar, no cards. Section headers are a label
+   with a line running across. Linked from the sidebar footer.
 =========================== */
-.changelog-release { display: grid; gap: 16px; max-width: 900px; }
-.changelog-release__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.changelog-release__head h2 { margin: 0; font-size: 1.35rem; color: var(--text); }
+.changelog-page { background: var(--surface); }
+.changelog-main { max-width: 820px; margin: 0 auto; padding: 48px 24px 120px; color: var(--text); }
+.changelog-main h1 { margin: 4px 0 6px; font-size: 2rem; color: var(--text); }
+.changelog-intro { margin: 0 0 32px; color: var(--text-soft); }
+.changelog-release__head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.changelog-release__head h2 { margin: 0; font-size: 1.5rem; color: var(--text); }
 .changelog-release__date { color: var(--text-soft); font-size: 0.9rem; }
-.changelog-list { margin: 0; padding-left: 20px; display: grid; gap: 8px; color: var(--text); line-height: 1.5; }
+.changelog-divider { display: flex; align-items: center; gap: 14px; margin: 32px 0 14px; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.changelog-divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.changelog-divider--new { color: var(--accent); }
+.changelog-divider--improved { color: var(--purple); }
+.changelog-divider--fixed { color: var(--warning); }
+.changelog-list { margin: 0; padding-left: 20px; display: grid; gap: 10px; line-height: 1.55; }
 .changelog-list li::marker { color: var(--text-soft); }
-.changelog-tag { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 700; }
-.changelog-tag--new { background: var(--success-soft); color: var(--accent); }
-.changelog-tag--improved { background: var(--purple-soft); color: var(--purple); }
-.changelog-tag--fixed { background: var(--warning-soft); color: var(--warning); }
+/* Always on screen: fixed top-left on desktop, bottom on phones. */
+.changelog-back { position: fixed; top: 20px; left: 20px; z-index: 50; width: auto; padding: 10px 18px; text-decoration: none; box-shadow: var(--shadow); }
+@media (max-width: 700px) {
+  .changelog-back { top: auto; left: 16px; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); text-align: center; }
+  .changelog-main { padding-top: 32px; }
+}
