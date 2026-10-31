@@ -241,26 +241,28 @@
         return `<div class="pav-cell">${badge(status.text, status.tone, true)}${status.meta ? `<span class="pav-sub">${esc(status.meta)}</span>` : ""}</div>`;
     }
 
-    // "Allowed to be on site" — per vendor, per project (project_vendor_contracts.allowed_on_site).
-    function onSiteToggle(v) {
-        const yes = Boolean(contractFor(v)?.allowed_on_site);
-        return `<button type="button" class="pav-onsite ${yes ? "pav-onsite--yes" : ""}" data-onsite="${esc(v.company_id)}" aria-pressed="${yes}" title="Cleared for Site — click to change">${yes ? "Yes" : "No"}</button>`;
+    // "Cleared for Site" — worked out, never set by hand (Coleby, 2026-10-31).
+    // Yes only when all three are done for this project:
+    //   Contract  signed, or marked "Not needed" on this vendor
+    //   W-9       on the vendor record, or the vendor is W-9 exempt
+    //   COI       this project's COI PDF received and the company COI date
+    //             not expired, or the vendor is COI exempt
+    // Invited-to-bid (not awarded) vendors are never cleared.
+    function siteClearance(v) {
+        const missing = [];
+        if (isPending(v)) return { yes: false, missing: ["Not awarded yet"] };
+        const c = contractFor(v);
+        if (!(c?.signed_file_id || c?.not_needed)) missing.push("Contract");
+        if (!(v.w9_file_path || v.w9_exempt)) missing.push("W-9");
+        const coiOk = v.coi_exempt || (v.coi_file_id && !(v.coi_expires_on && isPast(v.coi_expires_on)));
+        if (!coiOk) missing.push("COI");
+        return { yes: missing.length === 0, missing };
     }
 
-    async function toggleOnSite(companyId) {
-        if (busy) return;
-        const v = vendors.find(x => String(x.company_id) === String(companyId));
-        if (!v) return;
-        busy = true;
-        try {
-            await upsertContract(v.company_id, { allowed_on_site: !contractFor(v)?.allowed_on_site });
-            renderVendors();
-        } catch (err) {
-            console.error("On site update failed:", err);
-            setPageMessage(/allowed_on_site/.test(err?.message || "")
-                ? "Re-run sql/supabase-project-accounts-vendors-setup.sql to turn on \"Allowed on site\"."
-                : (err?.message || "Couldn't save."), "error");
-        } finally { busy = false; }
+    function siteClearedPill(v) {
+        const s = siteClearance(v);
+        const tip = s.yes ? "Contract, W-9 and COI are all done" : `Still needed: ${s.missing.join(", ")}`;
+        return `<span class="pav-onsite ${s.yes ? "pav-onsite--yes" : ""}" title="${esc(tip)}">${s.yes ? "Yes" : "No"}</span>`;
     }
 
     function renderVendors() {
@@ -278,15 +280,12 @@
                 <div class="pav-cell">
                     <button type="button" class="pav-name-btn" data-open-vendor="${esc(v.company_id)}">${esc(v.company_name)}</button>
                     <span class="pav-sub">${esc((v.scope || "No scope listed") + due)}</span>
-                </div>
-                <div class="pav-cell">
-                    <span class="pav-source">${esc(v.sources.map(s => SOURCE_LABELS[s]).filter(Boolean).join(" · "))}</span>
                     ${pending ? `<span class="pav-status pav-status--closed">Pending award</span>` : ""}
                 </div>
                 ${cell(contractStatus(v))}
                 ${cell(w9Status(v))}
                 ${cell(coiStatus(v))}
-                <div class="pav-cell">${onSiteToggle(v)}</div>
+                <div class="pav-cell">${siteClearedPill(v)}</div>
                 <div class="pav-cell pav-cell--end">
                     <button type="button" class="all-files-file-menu-btn" data-open-vendor="${esc(v.company_id)}" aria-label="Open ${esc(v.company_name)}">
                         <span class="all-files-file-menu-icon"></span>
@@ -744,8 +743,6 @@
         $("deleteRecordConfirmUnderstandCheckbox").addEventListener("change", updateDeleteBtn);
 
         document.addEventListener("click", e => {
-            const os = e.target.closest("[data-onsite]");
-            if (os) { toggleOnSite(os.dataset.onsite); return; }
             const open = e.target.closest("[data-open-vendor]");
             if (open) { openVendorPopup(open.dataset.openVendor); return; }
             const row = e.target.closest(".pav-row[data-vendor]");

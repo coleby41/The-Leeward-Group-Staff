@@ -3,8 +3,7 @@
 --
 -- What this adds (safe to re-run):
 --   1. project_files: allow source = 'contract'
---   2. project_vendor_contracts: one row per vendor per project — the
---      contract, plus "Allowed to be on site" (allowed_on_site).
+--   2. project_vendor_contracts: one contract per vendor per project.
 --      Staff upload it on the project's Accounts page; the vendor signs it
 --      in the Vendor Portal (built-in signature). Until the contract is
 --      signed AND the vendor has a W-9 on file AND a COI for that project,
@@ -66,9 +65,6 @@ create table if not exists public.project_vendor_contracts (
   updated_at timestamptz not null default now(),
   unique (project_id, company_id)
 );
-
--- "Allowed to be on site" Yes / No for this vendor on this project (Coleby, 2026-10-31).
-alter table public.project_vendor_contracts add column if not exists allowed_on_site boolean not null default false;
 
 create index if not exists project_vendor_contracts_company_idx on public.project_vendor_contracts (company_id);
 
