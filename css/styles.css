@@ -18383,3 +18383,40 @@ html:has(body.changelog-page) { height: auto; }
    Hidden by default now; notifications.js / paint-cache.js show it with
    the real count. */
 .notification-count { display: none; }
+
+/* ---------- Phone: slide along the tab bar (mobile-app.js SLIDE) ----------
+   Press and slide sideways on the bar: the glass pill lifts a little and
+   follows your finger, and the tab under it lights up. Let go to open. */
+@media (max-width: 768px) {
+  .mobile-tabbar {
+    touch-action: none; /* the bar handles its own sideways drags */
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .mobile-tab-indicator {
+    transition:
+      transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      scale 0.2s ease,
+      background 0.2s ease,
+      opacity 0.2s ease;
+  }
+
+  .mobile-tabbar.is-sliding .mobile-tab-indicator {
+    scale: 1.08;
+    background: rgba(255, 255, 255, 0.26);
+    box-shadow:
+      0 6px 18px rgba(0, 0, 0, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+
+  /* While sliding, only the tab under the finger is bright. */
+  .mobile-tabbar.is-sliding .mobile-tab { color: rgba(255, 255, 255, 0.7); }
+  .mobile-tabbar.is-sliding .mobile-tab.is-hover { color: #fff; }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .mobile-tabbar.is-sliding .mobile-tab-indicator { scale: 1; }
+}

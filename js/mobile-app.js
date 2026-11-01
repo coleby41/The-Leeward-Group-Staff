@@ -183,29 +183,163 @@
     }
 
     /* ---------- INDICATOR ----------
-       The active tab's glass pill is a single element that moves, so
-       tapping a tab glides the pill over to it (while the next page loads)
-       instead of the highlight blinking from one tab to another. */
-    function placeIndicator(tab, animate) {
-        const pill = bar.querySelector(".mobile-tab-indicator");
+       The active tab's glass pill is a single element that moves:
+       - Tap a tab: the pill glides to it. Pages are separate loads, so
+         when this page goes away we note where the pill is (even
+         mid-glide) and the next page picks it up from that exact spot
+         and finishes the glide. Works on every page with the tab bar,
+         including pages opened from the More sheet (pill glides to More).
+       - Slide a finger along the bar (see SLIDE below): the pill follows
+         your finger; let go on a tab to open it. */
+    const PILL_KEY = "mobileTabPill";
+    let pillCarried = false; // the first placement on a page continues the last page's glide
+
+    function pillEl() { return bar.querySelector(".mobile-tab-indicator"); }
+
+    function setPill(left, width, animate) {
+        const pill = pillEl();
         if (!pill) return;
-        if (!tab) { pill.style.opacity = "0"; return; }
         if (!animate) pill.style.transition = "none";
         pill.style.opacity = "1";
-        pill.style.width = `${tab.offsetWidth}px`;
-        pill.style.transform = `translateX(${tab.offsetLeft}px)`;
-        if (!animate) requestAnimationFrame(() => { pill.style.transition = ""; });
+        pill.style.width = `${width}px`;
+        pill.style.transform = `translateX(${left}px)`;
+        if (!animate) { void pill.offsetWidth; pill.style.transition = ""; }
+    }
+
+    function placeIndicator(tab, animate) {
+        const pill = pillEl();
+        if (!pill) return;
+        if (!tab) { pill.style.opacity = "0"; return; }
+
+        if (!pillCarried) {
+            pillCarried = true;
+            let from = null;
+            try { from = JSON.parse(sessionStorage.getItem(PILL_KEY) || "null"); sessionStorage.removeItem(PILL_KEY); } catch (e) {}
+            if (from && Date.now() - from.t < 4000 && !reduceMotion()) {
+                setPill(from.left, from.width, false);          // where the last page left it
+                requestAnimationFrame(() => setPill(tab.offsetLeft, tab.offsetWidth, true)); // glide on
+                return;
+            }
+        }
+        setPill(tab.offsetLeft, tab.offsetWidth, animate);
+    }
+
+    function reduceMotion() {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    }
+
+    // Leaving the page: remember where the pill is right now (mid-glide too).
+    function savePill() {
+        const pill = pillEl();
+        if (!pill || pill.style.opacity === "0") return;
+        const r = pill.getBoundingClientRect();
+        const b = bar.getBoundingClientRect();
+        if (!r.width) return;
+        try {
+            sessionStorage.setItem(PILL_KEY, JSON.stringify({ left: r.left - b.left - bar.clientLeft, width: r.width, t: Date.now() }));
+        } catch (e) {}
+    }
+    window.addEventListener("pageswap", savePill);  // before the page-change snapshot (newer browsers)
+    window.addEventListener("pagehide", savePill);
+    // Came back via the back button from the browser's page cache: just sit on the active tab.
+    window.addEventListener("pageshow", e => { if (e.persisted) placeIndicator(bar.querySelector(".mobile-tab.is-active"), false); });
+
+    function markActive(tab) {
+        bar.querySelectorAll(".mobile-tab.is-active").forEach(t => { t.classList.remove("is-active"); t.removeAttribute("aria-current"); });
+        tab.classList.add("is-active");
     }
 
     bar.addEventListener("click", e => {
         const tab = e.target.closest("a.mobile-tab");
         if (!tab || tab.classList.contains("is-active") || e.metaKey || e.ctrlKey) return;
-        bar.querySelectorAll(".mobile-tab.is-active").forEach(t => { t.classList.remove("is-active"); t.removeAttribute("aria-current"); });
-        tab.classList.add("is-active");
+        markActive(tab);
         placeIndicator(tab, true);
     });
 
     window.addEventListener("resize", () => placeIndicator(bar.querySelector(".mobile-tab.is-active"), false));
+
+    /* ---------- SLIDE ----------
+       Press anywhere on the bar and slide sideways: the pill lifts and
+       follows your finger, the tab under it lights up, and letting go
+       opens that tab (letting go on More opens the More sheet; on the tab
+       you're already on, nothing happens). A plain tap still works as a
+       normal tap. */
+    let slide = null; // { x0, x, moved }
+
+    function tabs() { return [...bar.querySelectorAll(".mobile-tab")]; }
+
+    function tabAt(x) {
+        const list = tabs();
+        let best = list[0], bestDist = Infinity;
+        for (const t of list) {
+            const r = t.getBoundingClientRect();
+            if (x >= r.left && x <= r.right) return t;
+            const d = Math.min(Math.abs(x - r.left), Math.abs(x - r.right));
+            if (d < bestDist) { bestDist = d; best = t; }
+        }
+        return best;
+    }
+
+    function endSlide() {
+        bar.classList.remove("is-sliding");
+        tabs().forEach(t => t.classList.remove("is-hover"));
+    }
+
+    bar.addEventListener("touchstart", e => {
+        slide = e.touches.length === 1 ? { x0: e.touches[0].clientX, x: e.touches[0].clientX, moved: false } : null;
+    }, { passive: true });
+
+    bar.addEventListener("touchmove", e => {
+        if (!slide) return;
+        const x = e.touches[0].clientX;
+        slide.x = x;
+        if (!slide.moved) {
+            if (Math.abs(x - slide.x0) < 8) return;
+            slide.moved = true;
+            bar.classList.add("is-sliding");
+        }
+        e.preventDefault();
+
+        const under = tabAt(x);
+        tabs().forEach(t => t.classList.toggle("is-hover", t === under));
+
+        // Pill centered under the finger, kept inside the first/last tab.
+        const list = tabs();
+        const first = list[0], last = list[list.length - 1];
+        const w = under.offsetWidth;
+        const b = bar.getBoundingClientRect();
+        const left = Math.max(first.offsetLeft, Math.min(last.offsetLeft + last.offsetWidth - w, x - b.left - bar.clientLeft - w / 2));
+        setPill(left, w, false);
+    }, { passive: false });
+
+    bar.addEventListener("touchend", e => {
+        if (!slide) return;
+        const { moved, x } = slide;
+        slide = null;
+        if (!moved) return; // plain tap: the normal click handles it
+        e.preventDefault();   // no click after a slide
+        endSlide();
+
+        const target = tabAt(x);
+        const current = bar.querySelector(".mobile-tab.is-active");
+        if (target.classList.contains("mobile-tab--more")) {
+            placeIndicator(current, true);
+            openSheet();
+        } else if (target === current) {
+            placeIndicator(current, true);
+        } else {
+            markActive(target);
+            placeIndicator(target, true);
+            window.location.href = target.href;
+        }
+    }, { passive: false });
+
+    bar.addEventListener("touchcancel", () => {
+        if (!slide) return;
+        slide = null;
+        endSlide();
+        placeIndicator(bar.querySelector(".mobile-tab.is-active"), true);
+    });
 
     /* ===========================
        MORE SHEET
