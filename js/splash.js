@@ -7,7 +7,7 @@
    splash covers the page before anything paints.
 
    Sequence (styles.css, "Phone: app splash"):
-     sail rises in -> waves sweep in left to right -> name fades in ->
+     sail rises in -> waves sweep in left to right -> name fades in -> tagline fades in ->
      whole splash fades away.
    Desktop/tablet (> 768px) never sees it.
 =========================== */
@@ -29,12 +29,15 @@
             '<img class="app-splash-sail" src="/assets/logos/splash-sail.png" alt="">' +
             '<img class="app-splash-waves" src="/assets/logos/splash-waves.png" alt="">' +
         '</div>' +
-        '<div class="app-splash-name">The Leeward Group</div>';
+        '<div class="app-splash-text">' +
+            '<div class="app-splash-name">The Leeward Group</div>' +
+            '<div class="app-splash-tagline">Your staff portal for everything you need</div>' +
+        '</div>';
 
     // <body> doesn't exist yet (we're in <head>), so hang it off <html>.
     document.documentElement.appendChild(splash);
 
-    const SHOW_MS = 1700;   // let the animation play out
+    const SHOW_MS = 2600;   // let the animation play out
     const started = Date.now();
 
     function hide() {

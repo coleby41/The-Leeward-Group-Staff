@@ -18102,12 +18102,26 @@ html:has(body.changelog-page) { height: auto; }
   }
 }
 
+@media (max-width: 768px) {
+  .app-splash-text { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 0 32px; }
+
+  .app-splash-tagline {
+    font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-soft);
+    opacity: 0;
+    transform: translateY(6px);
+    animation: app-splash-name 0.5s ease 1.4s forwards;
+  }
+}
+
 @keyframes app-splash-sail { to { opacity: 1; transform: none; } }
 @keyframes app-splash-waves { to { clip-path: inset(0 0 0 0); } }
 @keyframes app-splash-name { to { opacity: 1; transform: none; } }
 
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
-  .app-splash-sail, .app-splash-waves, .app-splash-name {
+  .app-splash-sail, .app-splash-waves, .app-splash-name, .app-splash-tagline {
     animation: none; opacity: 1; transform: none; clip-path: none;
   }
 }
