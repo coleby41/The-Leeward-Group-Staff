@@ -317,6 +317,9 @@
 </div>
 
 
+<!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
+<script src="/js/mobile-app.js"></script>
+<script src="/js/sheet-swipe.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/supabase-auth.js"></script>
@@ -326,8 +329,6 @@
 <script src="/js/auth-guard.js"></script>
 <script src="/js/manager-nav.js"></script>
 <script src="/js/script.js"></script>
-<script src="/js/mobile-app.js"></script>
-<script src="/js/sheet-swipe.js"></script>
 <script src="/js/install-app.js"></script>
 <script src="/js/timeout.js"></script>
 <script src="/js/notifications.js"></script>

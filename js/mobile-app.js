@@ -126,6 +126,8 @@
     document.body.appendChild(bar);
     document.body.classList.add("has-mobile-tabbar");
 
+    let lastBarHtml = "";
+
     function render() {
         const custom = isProjectPage ? null : loadCustomTabs();
         const defs = isProjectPage
@@ -163,11 +165,18 @@
         const moreActive = !onTabPage && isInMoreSheet();
 
         // One glass pill that slides between tabs (see INDICATOR below).
-        bar.innerHTML = `<span class="mobile-tab-indicator" aria-hidden="true"></span>` + html + `
+        const next = `<span class="mobile-tab-indicator" aria-hidden="true"></span>` + html + `
             <button type="button" class="mobile-tab mobile-tab--more${moreActive ? " is-active" : ""}" aria-label="More pages"${moreActive ? ' aria-current="page"' : ""}>
                 <span class="mobile-tab-icon mobile-tab-icon--more" aria-hidden="true"></span>
                 <span class="mobile-tab-label">More</span>
             </button>`;
+
+        // The sidebar changes a few times while a page loads (permissions,
+        // project links). Only rebuild the bar if the tabs actually changed,
+        // so it doesn't flicker on every page.
+        if (next === lastBarHtml) return;
+        lastBarHtml = next;
+        bar.innerHTML = next;
 
         bar.querySelector(".mobile-tab--more").addEventListener("click", openSheet);
         placeIndicator(bar.querySelector(".mobile-tab.is-active"), false);

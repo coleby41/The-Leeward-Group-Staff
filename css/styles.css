@@ -18214,3 +18214,159 @@ html:has(body.changelog-page) { height: auto; }
     .mobile-tabbar { background: rgba(250, 251, 253, 0.97); }
   }
 }
+
+/* ---------- Phone: smoother page-to-page ----------
+   The header and tab bar hold still while only the page content changes:
+   the old page fades out quickly and the new one fades in with a tiny
+   rise, instead of the whole screen crossfading (which looked glitchy
+   while the next page was still filling in). */
+@media (max-width: 768px) {
+  .header { view-transition-name: app-header; }
+}
+
+::view-transition-old(root) {
+  animation: page-out 0.14s ease-in both;
+}
+
+::view-transition-new(root) {
+  animation: page-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Header + tab bar: swap instantly to the new page's, no fade or morph. */
+::view-transition-group(app-header),
+::view-transition-group(mobile-tabbar),
+::view-transition-new(app-header),
+::view-transition-new(mobile-tabbar) {
+  animation: none;
+}
+
+::view-transition-old(app-header),
+::view-transition-old(mobile-tabbar) {
+  display: none;
+}
+
+@keyframes page-out { to { opacity: 0; } }
+@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
+
+/* ---------- Phone: frosted glass More sheet ----------
+   Same smoky frosted glass as the tab bar. */
+@media (max-width: 768px) {
+  .mobile-sheet {
+    background: rgba(28, 36, 44, 0.56);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    backdrop-filter: blur(30px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-bottom: 0;
+    box-shadow:
+      0 -12px 40px rgba(7, 20, 30, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    color: #fff;
+  }
+
+  .mobile-sheet-handle span { background: rgba(255, 255, 255, 0.45); }
+
+  .mobile-sheet-head,
+  .mobile-sheet-foot { border-color: rgba(255, 255, 255, 0.12); }
+  .mobile-sheet-divider { background: rgba(255, 255, 255, 0.12); }
+
+  .mobile-sheet-name { color: #fff; }
+  .mobile-sheet-sub { color: rgba(255, 255, 255, 0.65); }
+  .mobile-sheet-section { color: rgba(255, 255, 255, 0.55); }
+
+  .mobile-sheet-avatar {
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .mobile-sheet-row,
+  .mobile-sheet-row.is-active { color: #fff; }
+  .mobile-sheet-row:active { background: rgba(255, 255, 255, 0.1); }
+
+  /* Current page: a glass pill, same as the active tab. */
+  .mobile-sheet-row.is-active {
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  }
+
+  .mobile-sheet-row-icon,
+  .mobile-sheet-row--muted .mobile-sheet-row-icon {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  }
+
+  .mobile-sheet-chevron { color: rgba(255, 255, 255, 0.45); }
+
+  .mobile-sheet-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+}
+
+/* Glass More sheet: the rest of its parts (project header, Customize
+   tab bar screen, install row, version line) on the dark glass. */
+@media (max-width: 768px) {
+  .mobile-sheet-project {
+    background: rgba(255, 255, 255, 0.1);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  }
+
+  .mobile-sheet-avatar--project { color: #fff; }
+
+  .mobile-sheet-switch,
+  .mobile-sheet-back {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    color: #fff;
+  }
+
+  .mobile-sheet-sub.is-warning { color: #ffb4b4; }
+
+  .mobile-sheet-customize-link,
+  .mobile-sheet-version,
+  .mobile-sheet-version-link { color: rgba(255, 255, 255, 0.75); }
+
+  .mobile-sheet-preview {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+  }
+
+  .mobile-sheet-preview-tab {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+  }
+
+  .mobile-sheet-preview-tab--more {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .mobile-sheet-pick .mobile-sheet-row-label small { color: rgba(255, 255, 255, 0.6); }
+
+  .mobile-sheet-pick-mark { border-color: rgba(255, 255, 255, 0.35); }
+
+  .mobile-sheet-pick.is-picked .mobile-sheet-pick-mark,
+  .mobile-sheet-btn--primary {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: transparent;
+    color: var(--accent-strong);
+  }
+
+  .mobile-sheet-btn--danger {
+    background: rgba(255, 120, 120, 0.18);
+    border: 1px solid rgba(255, 140, 140, 0.3);
+    color: #ffc9c9;
+  }
+
+  .mobile-sheet-row--install .mobile-sheet-row-icon {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--accent);
+  }
+
+  .mobile-sheet-pill {
+    background: rgba(255, 200, 120, 0.2);
+    color: #ffd9a8;
+  }
+}
