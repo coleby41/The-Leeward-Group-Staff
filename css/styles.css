@@ -18048,3 +18048,66 @@ html:has(body.changelog-page) { height: auto; }
     overscroll-behavior-y: contain;
   }
 }
+
+/* ---------- Phone: app splash (js/splash.js) ----------
+   Leeward logo load-in, once per app open. Sail rises, waves sweep in,
+   name fades in, then the whole thing fades out. */
+.app-splash { display: none; }
+
+@media (max-width: 768px) {
+  .app-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    background: #ffffff;
+    transition: opacity 0.4s ease;
+  }
+
+  .app-splash.is-leaving { opacity: 0; pointer-events: none; }
+
+  .app-splash-logo { position: relative; width: 132px; height: 132px; }
+
+  .app-splash-logo img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .app-splash-sail {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+    animation: app-splash-sail 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s forwards;
+  }
+
+  .app-splash-waves {
+    clip-path: inset(0 100% 0 0);
+    animation: app-splash-waves 0.7s cubic-bezier(0.45, 0, 0.2, 1) 0.45s forwards;
+  }
+
+  .app-splash-name {
+    font-family: 'Inter', 'Segoe UI', Roboto, sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    opacity: 0;
+    transform: translateY(6px);
+    animation: app-splash-name 0.5s ease 0.95s forwards;
+  }
+}
+
+@keyframes app-splash-sail { to { opacity: 1; transform: none; } }
+@keyframes app-splash-waves { to { clip-path: inset(0 0 0 0); } }
+@keyframes app-splash-name { to { opacity: 1; transform: none; } }
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .app-splash-sail, .app-splash-waves, .app-splash-name {
+    animation: none; opacity: 1; transform: none; clip-path: none;
+  }
+}
