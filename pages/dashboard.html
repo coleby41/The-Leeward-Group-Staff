@@ -469,7 +469,7 @@
                 <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>My Tasks</h2>
                 <a href="/pages/staff-todo.html" class="chip">View all</a>
             </div>
-            <div id="myTasksList" class="mytask-list"></div>
+            <div id="myTasksList" data-paint-cache="tasks" class="mytask-list"></div>
             <div class="todo-item-row todo-item-add-row">
                 <span class="todo-item-add-icon">+</span>
                 <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
@@ -482,7 +482,7 @@
             <div class="card-header">
                 <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Quick Links</h2>
             </div>
-            <div id="quickLinksGrid" class="quick-links-grid"></div>
+            <div id="quickLinksGrid" data-paint-cache="quicklinks" class="quick-links-grid"></div>
             <a href="#" id="editShortcutsLink" class="auth-link" style="display:block; margin-top:12px;">Edit shortcuts</a>
         </div>
 
@@ -494,7 +494,7 @@
                     <p class="card-subtitle" id="weatherLocation">Wilmington, NC</p>
                 </div>
             </div>
-            <div id="weatherBody"></div>
+            <div id="weatherBody" data-paint-cache="weather"></div>
             <a href="#" id="viewFullForecastLink" class="auth-link" target="_blank" rel="noopener" style="display:block; margin-top:12px;">View full forecast</a>
         </div>
 
@@ -510,12 +510,12 @@
             </div>
             <div class="stats-grid" style="grid-template-columns: 1fr;">
                 <div class="stat-item">
-                    <div class="stat-number-status-projector" id="activeProjectsCount">—</div>
+                    <div class="stat-number-status-projector" id="activeProjectsCount" data-paint-cache="active-projects">—</div>
                     <div class="stat-label">Active Projects</div>
                 </div>
             </div>
             <h3 style="margin:16px 0 8px; font-size:0.95rem;">Upcoming Deadlines</h3>
-            <div id="upcomingDeadlinesList" class="info-list"></div>
+            <div id="upcomingDeadlinesList" data-paint-cache="deadlines" class="info-list"></div>
         </div>
 
         <!-- Calendar -->
@@ -592,6 +592,7 @@
 <!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
 <script src="/js/mobile-app.js"></script>
 <script src="/js/sheet-swipe.js"></script>
+<script src="/js/paint-cache.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/supabase-auth.js"></script>

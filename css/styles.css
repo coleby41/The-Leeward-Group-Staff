@@ -18218,18 +18218,20 @@ html:has(body.changelog-page) { height: auto; }
 /* ---------- Phone: smoother page-to-page ----------
    The header and tab bar hold still while only the page content changes:
    the old page fades out quickly and the new one fades in with a tiny
-   rise, instead of the whole screen crossfading (which looked glitchy
+   fade (old out, then new in), instead of the whole screen crossfading (which looked glitchy
    while the next page was still filling in). */
 @media (max-width: 768px) {
   .header { view-transition-name: app-header; }
 }
 
+/* Old page fades out first, THEN the new one fades in, so the two never
+   show on top of each other (that overlap was the "double image"). */
 ::view-transition-old(root) {
-  animation: page-out 0.14s ease-in both;
+  animation: page-out 0.1s ease-in both;
 }
 
 ::view-transition-new(root) {
-  animation: page-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: page-in 0.2s ease-out 0.08s both;
 }
 
 /* Header + tab bar: swap instantly to the new page's, no fade or morph. */
@@ -18246,7 +18248,7 @@ html:has(body.changelog-page) { height: auto; }
 }
 
 @keyframes page-out { to { opacity: 0; } }
-@keyframes page-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes page-in { from { opacity: 0; } }
 
 /* ---------- Phone: frosted glass More sheet ----------
    Same smoky frosted glass as the tab bar. */
@@ -18370,3 +18372,14 @@ html:has(body.changelog-page) { height: auto; }
     color: #ffd9a8;
   }
 }
+
+/* ---------- Instant pages (js/paint-cache.js) ----------
+   While a section is showing its remembered copy from last visit, hide
+   the "Loading…" box next to it. */
+.workbook-loading:has(~ .paint-cached) { display: none !important; }
+
+/* The bell badge's markup ships with a placeholder "3" that showed on
+   every page until notifications.js hid it (the blinking red badge).
+   Hidden by default now; notifications.js / paint-cache.js show it with
+   the real count. */
+.notification-count { display: none; }

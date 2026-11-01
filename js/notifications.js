@@ -174,6 +174,11 @@ function renderNotifications() {
     const countEl = document.querySelector(".notification-count");
     const total = currentNotifications.length;
 
+    // Remember the count so the next page shows the right badge right away
+    // (js/paint-cache.js restores it before the page first paints).
+    const staffId = getNotificationsStaffId();
+    if (staffId) { try { sessionStorage.setItem(`notifCount:${staffId}`, String(total)); } catch (e) {} }
+
     if (countEl) {
         if (total > 0) {
             countEl.style.display = "inline-flex";

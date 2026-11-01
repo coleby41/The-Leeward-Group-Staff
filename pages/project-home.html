@@ -435,7 +435,7 @@
         </div>
     </section>
 
-    <div class="project-stats-bar" id="projectStatsBar">
+    <div class="project-stats-bar" id="projectStatsBar" data-paint-cache="stats">
 
         <div class="project-stat-tile project-stat-tile--accent">
             <span class="project-stat-icon project-stat-icon--accent project-stat-icon--briefcase"></span>
@@ -506,12 +506,12 @@
     </div>
 
     <div class="dash-tabs project-tabs" id="projectTabs">
-        <button type="button" class="dash-tab active" data-status="all">All Projects <span class="project-tab-count" id="projectTabCountAll">0</span></button>
-        <button type="button" class="dash-tab" data-status="active">Active <span class="project-tab-count" id="projectTabCountActive">0</span></button>
-        <button type="button" class="dash-tab" data-status="onboarding">Onboarding <span class="project-tab-count" id="projectTabCountOnboarding">0</span></button>
-        <button type="button" class="dash-tab" data-status="on_hold">On Hold <span class="project-tab-count" id="projectTabCountOnHold">0</span></button>
-        <button type="button" class="dash-tab" data-status="completed">Completed <span class="project-tab-count" id="projectTabCountCompleted">0</span></button>
-        <button type="button" class="dash-tab" data-status="archived">Archived <span class="project-tab-count" id="projectTabCountArchived">0</span></button>
+        <button type="button" class="dash-tab active" data-status="all">All Projects <span class="project-tab-count" id="projectTabCountAll" data-paint-cache="tab-count-all">0</span></button>
+        <button type="button" class="dash-tab" data-status="active">Active <span class="project-tab-count" id="projectTabCountActive" data-paint-cache="tab-count-active">0</span></button>
+        <button type="button" class="dash-tab" data-status="onboarding">Onboarding <span class="project-tab-count" id="projectTabCountOnboarding" data-paint-cache="tab-count-onboarding">0</span></button>
+        <button type="button" class="dash-tab" data-status="on_hold">On Hold <span class="project-tab-count" id="projectTabCountOnHold" data-paint-cache="tab-count-onhold">0</span></button>
+        <button type="button" class="dash-tab" data-status="completed">Completed <span class="project-tab-count" id="projectTabCountCompleted" data-paint-cache="tab-count-completed">0</span></button>
+        <button type="button" class="dash-tab" data-status="archived">Archived <span class="project-tab-count" id="projectTabCountArchived" data-paint-cache="tab-count-archived">0</span></button>
     </div>
 
     <div id="projectMessage" class="workbook-page-message" style="display:none;"></div>
@@ -528,7 +528,7 @@
         <p>No projects match your search.</p>
     </div>
 
-    <div class="workbook-grid" id="projectsGrid"></div>
+    <div class="workbook-grid" id="projectsGrid" data-paint-cache="grid"></div>
 
     <div class="project-pagination" id="projectPagination" style="display:none;">
         <p class="project-pagination-summary" id="projectPaginationSummary"></p>
@@ -722,6 +722,7 @@
 <!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
 <script src="/js/mobile-app.js"></script>
 <script src="/js/sheet-swipe.js"></script>
+<script src="/js/paint-cache.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/supabase-config.js"></script>
 <script src="/js/supabase-auth.js"></script>
