@@ -162,14 +162,41 @@
         const onTabPage = tabs.some(({ def }) => baseName(def.page) === currentPage);
         const moreActive = !onTabPage && isInMoreSheet();
 
-        bar.innerHTML = html + `
+        // One glass pill that slides between tabs (see INDICATOR below).
+        bar.innerHTML = `<span class="mobile-tab-indicator" aria-hidden="true"></span>` + html + `
             <button type="button" class="mobile-tab mobile-tab--more${moreActive ? " is-active" : ""}" aria-label="More pages"${moreActive ? ' aria-current="page"' : ""}>
                 <span class="mobile-tab-icon mobile-tab-icon--more" aria-hidden="true"></span>
                 <span class="mobile-tab-label">More</span>
             </button>`;
 
         bar.querySelector(".mobile-tab--more").addEventListener("click", openSheet);
+        placeIndicator(bar.querySelector(".mobile-tab.is-active"), false);
     }
+
+    /* ---------- INDICATOR ----------
+       The active tab's glass pill is a single element that moves, so
+       tapping a tab glides the pill over to it (while the next page loads)
+       instead of the highlight blinking from one tab to another. */
+    function placeIndicator(tab, animate) {
+        const pill = bar.querySelector(".mobile-tab-indicator");
+        if (!pill) return;
+        if (!tab) { pill.style.opacity = "0"; return; }
+        if (!animate) pill.style.transition = "none";
+        pill.style.opacity = "1";
+        pill.style.width = `${tab.offsetWidth}px`;
+        pill.style.transform = `translateX(${tab.offsetLeft}px)`;
+        if (!animate) requestAnimationFrame(() => { pill.style.transition = ""; });
+    }
+
+    bar.addEventListener("click", e => {
+        const tab = e.target.closest("a.mobile-tab");
+        if (!tab || tab.classList.contains("is-active") || e.metaKey || e.ctrlKey) return;
+        bar.querySelectorAll(".mobile-tab.is-active").forEach(t => { t.classList.remove("is-active"); t.removeAttribute("aria-current"); });
+        tab.classList.add("is-active");
+        placeIndicator(tab, true);
+    });
+
+    window.addEventListener("resize", () => placeIndicator(bar.querySelector(".mobile-tab.is-active"), false));
 
     /* ===========================
        MORE SHEET
