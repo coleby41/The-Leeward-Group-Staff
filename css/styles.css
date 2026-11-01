@@ -18127,21 +18127,23 @@ html:has(body.changelog-page) { height: auto; }
 }
 
 /* ---------- Phone: frosted glass tab bar ----------
-   Clear frosted glass (not milky): a light tint, an even blur of what's
-   behind, a thin bright edge and a soft inner glow. The active tab is a
-   single glass pill (.mobile-tab-indicator, mobile-app.js) that glides to
-   the tab you tap. Overrides the floating tab bar rules above. */
+   Smoky frosted glass like a glass pill over a photo: a dark see-through
+   tint, a heavy blur of what's behind, a thin light edge, white labels.
+   The tint is just dark enough that white labels stay readable over the
+   portal's light pages. The active tab is a single glass pill
+   (.mobile-tab-indicator, mobile-app.js) that glides to the tab you tap.
+   Overrides the floating tab bar rules above. */
 @media (max-width: 768px) {
   .mobile-tabbar {
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    background: rgba(255, 255, 255, 0.16);
-    -webkit-backdrop-filter: blur(26px) saturate(140%);
-    backdrop-filter: blur(26px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(28, 36, 44, 0.46);
+    -webkit-backdrop-filter: blur(26px) saturate(160%);
+    backdrop-filter: blur(26px) saturate(160%);
     box-shadow:
-      0 8px 28px rgba(10, 24, 36, 0.18),
-      inset 0 1px 0 rgba(255, 255, 255, 0.55),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.15),
-      inset 0 0 20px rgba(255, 255, 255, 0.1);
+      0 10px 30px rgba(10, 24, 36, 0.25),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+      inset 0 0 22px rgba(255, 255, 255, 0.06);
   }
 
   .mobile-tab-indicator {
@@ -18152,11 +18154,11 @@ html:has(body.changelog-page) { height: auto; }
     width: 0;
     border-radius: 999px;
     pointer-events: none;
-    background: rgba(255, 255, 255, 0.38);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.32);
     box-shadow:
-      0 2px 10px rgba(10, 24, 36, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.7);
+      0 2px 10px rgba(0, 0, 0, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
     transition:
       transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
       width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
@@ -18166,13 +18168,16 @@ html:has(body.changelog-page) { height: auto; }
   .mobile-tab {
     position: relative;
     z-index: 1;
+    color: rgba(255, 255, 255, 0.78);
     transition: color 0.25s ease, transform 0.18s ease-out, opacity 0.18s ease-out;
   }
 
-  .mobile-tab-label { text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6); }
+  .mobile-tab-label { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+  .mobile-tab-icon { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)); }
 
   /* The pill is the highlight now, not the tab itself. */
   .mobile-tab.is-active {
+    color: #ffffff;
     background: none;
     box-shadow: none;
     -webkit-backdrop-filter: none;
