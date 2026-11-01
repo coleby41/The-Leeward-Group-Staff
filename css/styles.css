@@ -18420,3 +18420,60 @@ html:has(body.changelog-page) { height: auto; }
 @media (max-width: 768px) and (prefers-reduced-motion: reduce) {
   .mobile-tabbar.is-sliding .mobile-tab-indicator { scale: 1; }
 }
+
+/* ---------- Phone: clear "liquid glass" tab bar (iOS 26 style) ----------
+   Overrides the smoky tab bar above. Nearly clear glass with a light
+   blur (you can still make out what's behind), brightened colors, and
+   bright glowing edges -- strongest at the rounded ends -- like iOS's
+   own search bar / tab bar. Labels switch between white and dark based
+   on what's under the bar (mobile-app.js adds .on-dark), the same way
+   iOS does, so they stay readable over both light pages and dark cards. */
+@media (max-width: 768px) {
+  .mobile-tabbar {
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.07);
+    -webkit-backdrop-filter: blur(9px) saturate(185%) brightness(1.08);
+    backdrop-filter: blur(9px) saturate(185%) brightness(1.08);
+    box-shadow:
+      0 10px 28px rgba(10, 24, 36, 0.14),
+      0 1px 3px rgba(10, 24, 36, 0.08),
+      inset 1px 1px 1px rgba(255, 255, 255, 0.95),     /* top-left rim highlight */
+      inset -1px -1px 1px rgba(255, 255, 255, 0.45),   /* bottom-right rim */
+      inset 14px 0 18px -10px rgba(255, 255, 255, 0.75), /* glowing left end */
+      inset -14px 0 18px -10px rgba(255, 255, 255, 0.55),/* glowing right end */
+      inset 0 0 10px rgba(255, 255, 255, 0.25);
+  }
+
+  .mobile-tab-indicator {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow:
+      0 3px 12px rgba(10, 24, 36, 0.1),
+      inset 1px 1px 1px rgba(255, 255, 255, 0.95),
+      inset 0 0 10px rgba(255, 255, 255, 0.35);
+  }
+
+  .mobile-tabbar.is-sliding .mobile-tab-indicator {
+    background: rgba(255, 255, 255, 0.3);
+    box-shadow:
+      0 8px 20px rgba(10, 24, 36, 0.16),
+      inset 1px 1px 1px rgba(255, 255, 255, 1),
+      inset 0 0 12px rgba(255, 255, 255, 0.45);
+  }
+
+  /* Over light content (the default): dark labels. */
+  .mobile-tab,
+  .mobile-tabbar.is-sliding .mobile-tab { color: rgba(20, 32, 44, 0.62); }
+  .mobile-tab.is-active,
+  .mobile-tabbar.is-sliding .mobile-tab.is-hover { color: #0d1b28; }
+  .mobile-tab-label { text-shadow: 0 1px 2px rgba(255, 255, 255, 0.55); }
+  .mobile-tab-icon { filter: none; }
+
+  /* Over dark content: white labels. */
+  .mobile-tabbar.on-dark .mobile-tab,
+  .mobile-tabbar.on-dark.is-sliding .mobile-tab { color: rgba(255, 255, 255, 0.78); }
+  .mobile-tabbar.on-dark .mobile-tab.is-active,
+  .mobile-tabbar.on-dark.is-sliding .mobile-tab.is-hover { color: #fff; }
+  .mobile-tabbar.on-dark .mobile-tab-label { text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); }
+  .mobile-tabbar.on-dark .mobile-tab-icon { filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3)); }
+}

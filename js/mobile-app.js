@@ -258,6 +258,56 @@
 
     window.addEventListener("resize", () => placeIndicator(bar.querySelector(".mobile-tab.is-active"), false));
 
+    /* ---------- LABEL CONTRAST ----------
+       The bar is clear glass, so its labels go white over dark content
+       (photos, dark cards, the blue hero) and dark over light content,
+       like iOS. Checks what's under three points of the bar when the
+       page scrolls (throttled) and toggles .on-dark. */
+    function luminance(el) {
+        for (; el && el !== document.documentElement; el = el.parentElement) {
+            if (/^(IMG|VIDEO|CANVAS|PICTURE)$/.test(el.tagName)) return 0.35;
+            const cs = getComputedStyle(el);
+            const m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/);
+            if (m) {
+                const [r, g, b, a = 1] = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+                if (a > 0.5) return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+            }
+            if (cs.backgroundImage && cs.backgroundImage !== "none") {
+                const c = cs.backgroundImage.match(/rgba?\(([^)]+)\)/);
+                if (c) {
+                    const [r, g, b] = c[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+                    return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+                }
+                if (/url\(/.test(cs.backgroundImage)) return 0.35;
+            }
+        }
+        return 1; // page background is light
+    }
+
+    function checkContrast() {
+        const r = bar.getBoundingClientRect();
+        if (!r.width) return;
+        const y = r.top + r.height / 2;
+        let sum = 0;
+        for (const fx of [0.15, 0.5, 0.85]) {
+            const under = document.elementsFromPoint(r.left + r.width * fx, y).find(el => !bar.contains(el));
+            sum += luminance(under);
+        }
+        bar.classList.toggle("on-dark", sum / 3 < 0.5);
+    }
+
+    let contrastQueued = false;
+    function queueContrast() {
+        if (contrastQueued) return;
+        contrastQueued = true;
+        setTimeout(() => { contrastQueued = false; requestAnimationFrame(checkContrast); }, 100);
+    }
+    window.addEventListener("scroll", queueContrast, { passive: true });
+    window.addEventListener("resize", queueContrast);
+    document.addEventListener("scroll", queueContrast, { passive: true, capture: true }); // inner scroll areas
+    window.addEventListener("load", queueContrast);
+    queueContrast();
+
     /* ---------- SLIDE ----------
        Press anywhere on the bar and slide sideways: the pill lifts and
        follows your finger, the tab under it lights up, and letting go
