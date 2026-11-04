@@ -201,6 +201,7 @@
                 <strong>Schedule needs a bigger screen</strong>
                 <p>The project timeline is a drag-and-drop Gantt chart that isn't practical on a phone. Switch to a tablet, laptop, or desktop to view or edit the schedule.</p>
                 <a class="mobile-unavailable__notice-cta" href="/pages/project-home.html">Back to Project Overview</a>
+                <div class="mobile-unavailable__siri" data-siri-pill></div>
             </div>
         </div>
 
@@ -233,6 +234,9 @@
             </button>
 
             <button type="button" class="sched-toolbar-btn" id="schedTodayBtn">Today</button>
+
+            <!-- Add to Siri: sets up the "Update Timeline" shortcut (js/siri-setup.js) -->
+            <span data-siri-pill></span>
 
             <div class="sched-zoom-toggle" id="schedZoomToggle" role="group" aria-label="Zoom level">
                 <button type="button" class="sched-zoom-btn" data-view-mode="Day">Day</button>
@@ -588,6 +592,7 @@
 <script src="/js/notifications.js"></script>
 <script src="/js/change-password.js"></script>
 <script src="/js/permissions.js"></script>
+<script src="/js/siri-setup.js"></script>
 <script src="/js/permission-editor.js"></script>
 <script src="/js/nav-access.js"></script>
 <script src="/js/project-fields.js"></script>

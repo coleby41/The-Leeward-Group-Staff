@@ -1,0 +1,109 @@
+
+/* ==========================================================================
+   "Add to Siri" pill + setup sheet (js/siri-setup.js)
+   Apple Intelligence-style glow: animated blue / purple / pink / orange ring.
+   ========================================================================== */
+@property --siri-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.siri-pill {
+  --siri-angle: 0deg;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 7px 11px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    conic-gradient(from var(--siri-angle), #0894ff, #c959dd, #ff2e54, #ff9004, #0894ff) border-box;
+  animation: siri-spin 4s linear infinite;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.siri-pill::after {
+  /* soft outer glow in the same colors */
+  content: "";
+  position: absolute;
+  inset: -4px;
+  z-index: -1;
+  border-radius: inherit;
+  background: conic-gradient(from var(--siri-angle), #0894ff, #c959dd, #ff2e54, #ff9004, #0894ff);
+  filter: blur(8px);
+  opacity: 0.35;
+  animation: siri-spin 4s linear infinite;
+}
+
+.siri-pill:hover { transform: translateY(-1px); }
+.siri-pill:hover::after { opacity: 0.55; }
+.siri-pill:active { transform: scale(0.97); }
+
+.siri-pill__icon {
+  width: 16px;
+  height: 16px;
+  color: #c959dd;
+}
+
+@keyframes siri-spin { to { --siri-angle: 360deg; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .siri-pill, .siri-pill::after { animation: none; }
+}
+
+/* Setup sheet */
+.siri-setup { text-align: center; max-width: 420px; }
+.siri-setup h3 { margin: 10px 0 6px; }
+.siri-setup__lead { color: var(--text-soft); margin: 0 0 14px; }
+
+.siri-setup__orb {
+  width: 64px;
+  height: 64px;
+  margin: 4px auto 0;
+  border-radius: 50%;
+  background: conic-gradient(from var(--siri-angle), #0894ff, #c959dd, #ff2e54, #ff9004, #0894ff);
+  filter: blur(1px);
+  box-shadow: 0 0 28px rgba(201, 89, 221, 0.45);
+  animation: siri-spin 4s linear infinite;
+}
+
+.siri-setup__steps {
+  text-align: left;
+  margin: 0 auto 12px;
+  padding-left: 20px;
+  line-height: 1.5;
+}
+
+.siri-setup__examples {
+  font-size: 12px;
+  color: var(--text-soft);
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: 0 0 10px;
+}
+
+.siri-setup__status {
+  font-size: 12px;
+  color: var(--text-soft);
+  word-break: break-all;
+  min-height: 1em;
+  margin: 0 0 8px;
+}
+
+/* Phone: no close button — the sheet slides down to close */
+@media (max-width: 768px) {
+  .siri-setup__cancel { display: none; }
+}
+
+/* Spot on the Timeline page's phone notice */
+.mobile-unavailable__siri { margin-top: 14px; }
