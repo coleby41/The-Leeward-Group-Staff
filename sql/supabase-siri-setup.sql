@@ -15,11 +15,18 @@ create table if not exists public.siri_tokens (
 create index if not exists siri_tokens_staff_idx on public.siri_tokens (staff_user_id);
 
 alter table public.siri_tokens enable row level security;
--- Same anon pattern as the rest of the portal (custom auth, no auth.uid()).
--- The portal inserts new codes; only hashes are stored, so reading them is harmless.
+
+-- Signed-in staff (Supabase Auth) can only add codes for themselves.
+-- No select/update/delete from the browser: the Edge Function (service role)
+-- does all checking and revoking.
 drop policy if exists "siri_tokens_all_anon" on public.siri_tokens;
-create policy "siri_tokens_all_anon" on public.siri_tokens
-  for all to anon using (true) with check (true);
+drop policy if exists "siri_tokens_insert_own" on public.siri_tokens;
+create policy "siri_tokens_insert_own" on public.siri_tokens
+  for insert to authenticated
+  with check (staff_user_id = public.current_staff_id());
+
+revoke all on public.siri_tokens from anon;
+grant insert on public.siri_tokens to authenticated;
 
 -- 2) Log of every Siri change (powers "undo" and shows who did what).
 create table if not exists public.timeline_voice_log (
@@ -40,8 +47,9 @@ alter table public.timeline_voice_log add column if not exists staff_user_id uui
 create index if not exists timeline_voice_log_batch_idx on public.timeline_voice_log (batch_id);
 create index if not exists timeline_voice_log_staff_idx on public.timeline_voice_log (staff_user_id, created_at desc);
 
--- RLS on with no anon policies: only the Edge Function (service role) touches the log.
+-- RLS on with no policies: only the Edge Function (service role) touches the log.
 alter table public.timeline_voice_log enable row level security;
+revoke all on public.timeline_voice_log from anon, authenticated;
 
 -- Sanity checks
 select count(*) as siri_tokens from public.siri_tokens;

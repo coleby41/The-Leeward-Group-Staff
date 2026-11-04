@@ -42,7 +42,7 @@ const say = (msg: string, status = 200) =>
 
 // deno-lint-ignore no-explicit-any
 type Row = any;
-type Who = { id: string; name: string };
+type Who = { id: string; name: string; authUserId: string | null; superAdmin: boolean };
 
 Deno.serve(async (req) => {
   try {
@@ -59,10 +59,17 @@ Deno.serve(async (req) => {
     if (!project || !change) return say("I need a project and a change.");
 
     // ---- project ----
-    const { data: projs, error: pErr } = await sb.from("projects")
-      .select("id, name").ilike("name", `%${project}%`).limit(5);
+    // Same rule as is_project_member(): Super Admin, or listed in project_members.
+    let q = sb.from("projects").select("id, name").ilike("name", `%${project}%`).limit(5);
+    if (!who.superAdmin) {
+      const { data: mine } = await sb.from("project_members").select("project_id").eq("user_id", who.authUserId ?? "");
+      const ids = (mine ?? []).map((m: Row) => m.project_id);
+      if (!ids.length) return say("You're not on any projects yet.");
+      q = q.in("id", ids);
+    }
+    const { data: projs, error: pErr } = await q;
     if (pErr) throw pErr;
-    if (!projs?.length) return say(`I couldn't find a project called ${project}.`);
+    if (!projs?.length) return say(`I couldn't find a project called ${project} that you're on.`);
     const proj = projs[0];
 
     const cmd = parse(change);
@@ -154,11 +161,23 @@ async function identify(token: string | null): Promise<Who | null> {
   const { data } = await sb.from(TOKENS).select("id, staff_user_id, staff_name")
     .eq("token_hash", hash).eq("revoked", false).maybeSingle();
   if (!data) return null;
+
+  // Inactive staff can't use Siri even if their code is still around.
+  const { data: su } = await sb.from("staff_users")
+    .select("full_name, active, auth_user_id, workgroup").eq("id", data.staff_user_id).maybeSingle();
+  if (!su || su.active === false) return null;
+  const groups: string[] = Array.isArray(su.workgroup) ? su.workgroup : [];
+
   // First use of a new code retires that person's older codes.
   await sb.from(TOKENS).update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
   await sb.from(TOKENS).update({ revoked: true })
     .eq("staff_user_id", data.staff_user_id).eq("revoked", false).neq("id", data.id);
-  return { id: data.staff_user_id, name: data.staff_name || "Siri" };
+  return {
+    id: data.staff_user_id,
+    name: su.full_name || data.staff_name || "Siri",
+    authUserId: su.auth_user_id ?? null,
+    superAdmin: groups.includes("Super Admin"),
+  };
 }
 
 // ================= writes (all logged for undo) =================
