@@ -135,7 +135,7 @@ async function invites(ctx: VendorContext) {
   // (was 3 queries one after another). Any error now fails the request
   // instead of returning rows with blank names/dates.
   const rows = must(await ctx.admin.from("bid_invites")
-    .select("id, status, bid_amount, decline_reason, sent_at, viewed_at, responded_at, package_id, coi_requested_at, coi_received_at, bid_packages(id, name, due_at, walkthrough_at, status, project_id, projects(id, name))")
+    .select("id, status, bid_amount, decline_reason, sent_at, viewed_at, responded_at, package_id, coi_requested_at, coi_received_at, bid_packages!package_id(id, name, due_at, walkthrough_at, status, project_id, projects!project_id(id, name))")
     .eq("company_id", ctx.company!.id)
     .not("status", "in", "(pending,failed)")
     .order("sent_at", { ascending: false }));
@@ -447,7 +447,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   // Round 1: awarded invites (with their package) + direct assignments.
   const [invRows, assigned] = await Promise.all([
     ctx.admin.from("bid_invites")
-      .select("id, package_id, bid_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id, bid_packages(id, name, project_id, awarded_at, contact_name, contact_email, contact_phone)")
+      .select("id, package_id, bid_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id, bid_packages!package_id(id, name, project_id, awarded_at, contact_name, contact_email, contact_phone)")
       .eq("company_id", ctx.company!.id).eq("status", "awarded"),
     // Projects Leeward added this vendor to directly (vendor page › Manage Projects).
     ctx.admin.from("vendor_project_assignments")
