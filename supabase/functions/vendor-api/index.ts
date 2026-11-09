@@ -67,6 +67,16 @@ function needsCompany(ctx: VendorContext): Response | null {
   return ctx.company ? null : fail("pending_approval", 403);
 }
 
+// Rows from a Supabase query, or throw its error (the handler turns that
+// into a server_error response and logs it) -- never silently empty.
+function must(res: { data: unknown; error: unknown }): Row[] {
+  if (res.error) throw res.error;
+  return (res.data as Row[]) || [];
+}
+
+// An embedded relation comes back as an object or a one-item array.
+const one = (v: unknown) => (Array.isArray(v) ? v[0] : v) as Row | null | undefined;
+
 // The invite, if it belongs to this vendor's company -- with its package.
 async function loadInvite(ctx: VendorContext, id: unknown): Promise<{ invite: Row; pkg: Row } | null> {
   if (!ctx.company || !/^[0-9a-f-]{36}$/i.test(String(id || ""))) return null;
@@ -121,30 +131,23 @@ async function updateMe(ctx: VendorContext, body: Row) {
 
 async function invites(ctx: VendorContext) {
   const gate = needsCompany(ctx); if (gate) return gate;
-  const { data: rows, error } = await ctx.admin.from("bid_invites")
-    .select("id, status, bid_amount, decline_reason, sent_at, viewed_at, responded_at, package_id, coi_requested_at, coi_received_at")
+  // One query: each invite with its package and the package's project
+  // (was 3 queries one after another). Any error now fails the request
+  // instead of returning rows with blank names/dates.
+  const rows = must(await ctx.admin.from("bid_invites")
+    .select("id, status, bid_amount, decline_reason, sent_at, viewed_at, responded_at, package_id, coi_requested_at, coi_received_at, bid_packages(id, name, due_at, walkthrough_at, status, project_id, projects(id, name))")
     .eq("company_id", ctx.company!.id)
     .not("status", "in", "(pending,failed)")
-    .order("sent_at", { ascending: false });
-  if (error) throw error;
-  const packageIds = [...new Set((rows || []).map((r: Row) => r.package_id))];
-  const { data: pkgs } = packageIds.length
-    ? await ctx.admin.from("bid_packages").select("id, name, due_at, walkthrough_at, status, project_id").in("id", packageIds)
-    : { data: [] };
-  const projectIds = [...new Set((pkgs || []).map((p: Row) => p.project_id))];
-  const { data: projects } = projectIds.length
-    ? await ctx.admin.from("projects").select("id, name").in("id", projectIds)
-    : { data: [] };
-  const pkgById = new Map((pkgs || []).map((p: Row) => [p.id, p]));
-  const projectById = new Map((projects || []).map((p: Row) => [p.id, p]));
+    .order("sent_at", { ascending: false }));
   return json({
     ok: true,
-    invites: (rows || []).map((r: Row) => {
-      const pkg: Row = pkgById.get(r.package_id) || {};
+    invites: rows.map((r: Row) => {
+      const pkg: Row = one(r.bid_packages) || {};
+      const project: Row = one(pkg.projects) || {};
       return {
         id: r.id, status: r.status, bid_amount: r.bid_amount, decline_reason: r.decline_reason, sent_at: r.sent_at,
         package_name: pkg.name, due_at: pkg.due_at, walkthrough_at: pkg.walkthrough_at, package_status: pkg.status,
-        project_name: (projectById.get(pkg.project_id) as Row)?.name || "", project_id: pkg.project_id,
+        project_name: project.name || "", project_id: pkg.project_id,
         open: pkg.status === "open" && new Date(pkg.due_at).getTime() > Date.now(),
         coi_needed: r.status === "awarded" && Boolean(r.coi_requested_at) && !r.coi_received_at,
       };
@@ -438,53 +441,59 @@ async function saveDoc(ctx: VendorContext, body: Row) {
 
 // Awarded invites for this company, grouped by project.
 async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
-  const { data: invs, error } = await ctx.admin.from("bid_invites")
-    .select("id, package_id, bid_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id")
-    .eq("company_id", ctx.company!.id).eq("status", "awarded");
-  if (error) throw error;
-  const pkgIds = [...new Set((invs || []).map((r: Row) => r.package_id))];
-  const { data: pkgs } = pkgIds.length
-    ? await ctx.admin.from("bid_packages").select("id, name, project_id, awarded_at, contact_name, contact_email, contact_phone").in("id", pkgIds)
-    : { data: [] };
-  const pkgById = new Map((pkgs || []).map((p: Row) => [p.id, p]));
-  // Projects Leeward added this vendor to directly (vendor page › Manage Projects).
-  const { data: assigned } = await ctx.admin.from("vendor_project_assignments")
-    .select("id, project_id, scope, created_at, coi_requested_at, coi_received_at, coi_file_id, hidden")
-    .eq("company_id", ctx.company!.id);
+  // Was 7 queries one after another; now 3 rounds, each run in parallel.
+  // Every query's error is checked (must) so a failed lookup is a visible
+  // error, not a project with a missing contract / COI / name.
+  // Round 1: awarded invites (with their package) + direct assignments.
+  const [invRows, assigned] = await Promise.all([
+    ctx.admin.from("bid_invites")
+      .select("id, package_id, bid_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id, bid_packages(id, name, project_id, awarded_at, contact_name, contact_email, contact_phone)")
+      .eq("company_id", ctx.company!.id).eq("status", "awarded"),
+    // Projects Leeward added this vendor to directly (vendor page › Manage Projects).
+    ctx.admin.from("vendor_project_assignments")
+      .select("id, project_id, scope, created_at, coi_requested_at, coi_received_at, coi_file_id, hidden")
+      .eq("company_id", ctx.company!.id),
+  ]).then((rs) => rs.map(must));
+  const invs = invRows.map((r: Row) => { const pkg = one(r.bid_packages); delete r.bid_packages; return { r, pkg }; });
+  const pkgs = invs.map((x: Row) => x.pkg).filter(Boolean);
+  const pkgById = new Map(pkgs.map((p: Row) => [p.id, p]));
+  const invsOnly = invs.map((x: Row) => x.r);
   // Projects Leeward removed from this vendor (Manage Projects › Remove) stay out of the portal.
-  const hiddenIds = new Set((assigned || []).filter((a: Row) => a.hidden).map((a: Row) => a.project_id));
+  const hiddenIds = new Set(assigned.filter((a: Row) => a.hidden).map((a: Row) => a.project_id));
   const projectIds = [...new Set([
-    ...(pkgs || []).map((p: Row) => p.project_id),
-    ...(assigned || []).map((a: Row) => a.project_id),
-  ])].filter((id) => !hiddenIds.has(id) && (!onlyProjectId || id === onlyProjectId));
-  const { data: projects } = projectIds.length
-    ? await ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds)
-    : { data: [] };
-  // Leeward's COI template for each project (sample COI with the coverage it needs).
-  const { data: templates } = projectIds.length
-    ? await ctx.admin.from("project_coi_templates").select("project_id, project_file_id, updated_at").in("project_id", projectIds)
-    : { data: [] };
-  const templateByProject = new Map((templates || []).map((t: Row) => [t.project_id, t]));
-  // This vendor's contract on each project (staff upload it on the project's Accounts page).
-  const { data: contractRows } = projectIds.length
-    ? await ctx.admin.from("project_vendor_contracts")
-      .select("id, project_id, file_id, signed_file_id, not_needed, signed_at, signed_in_portal, signer_name")
-      .eq("company_id", ctx.company!.id).in("project_id", projectIds)
-    : { data: [] };
-  const contractByProject = new Map((contractRows || []).map((c: Row) => [c.project_id, c]));
+    ...pkgs.map((p: Row) => p.project_id),
+    ...assigned.map((a: Row) => a.project_id),
+  ])].filter((id) => id && !hiddenIds.has(id) && (!onlyProjectId || id === onlyProjectId));
+
+  // Round 2: the projects, their COI templates and this vendor's contracts.
+  const [projects, templates, contractRows] = projectIds.length
+    ? await Promise.all([
+      ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds),
+      // Leeward's COI template for each project (sample COI with the coverage it needs).
+      ctx.admin.from("project_coi_templates").select("project_id, project_file_id, updated_at").in("project_id", projectIds),
+      // This vendor's contract on each project (staff upload it on the project's Accounts page).
+      ctx.admin.from("project_vendor_contracts")
+        .select("id, project_id, file_id, signed_file_id, not_needed, signed_at, signed_in_portal, signer_name")
+        .eq("company_id", ctx.company!.id).in("project_id", projectIds),
+    ]).then((rs) => rs.map(must))
+    : [[], [], []];
+  const templateByProject = new Map(templates.map((t: Row) => [t.project_id, t]));
+  const contractByProject = new Map(contractRows.map((c: Row) => [c.project_id, c]));
+
+  // Round 3: file names for everything above.
   const fileIds = [...new Set([
-    ...(contractRows || []).flatMap((c: Row) => [c.file_id, c.signed_file_id]),
-    ...(invs || []).flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]),
-    ...(assigned || []).map((a: Row) => a.coi_file_id),
-    ...(templates || []).map((t: Row) => t.project_file_id),
+    ...contractRows.flatMap((c: Row) => [c.file_id, c.signed_file_id]),
+    ...invsOnly.flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]),
+    ...assigned.map((a: Row) => a.coi_file_id),
+    ...templates.map((t: Row) => t.project_file_id),
   ].filter(Boolean))];
-  const { data: files } = fileIds.length
-    ? await ctx.admin.from("project_files").select("id, file_name, created_at").in("id", fileIds)
-    : { data: [] };
+  const files = fileIds.length
+    ? must(await ctx.admin.from("project_files").select("id, file_name, created_at").in("id", fileIds))
+    : [];
   const fileById = new Map((files || []).map((f: Row) => [f.id, f]));
 
   return (projects || []).map((p: Row) => {
-    const mineInv = (invs || []).filter((r: Row) => (pkgById.get(r.package_id) as Row)?.project_id === p.id);
+    const mineInv = invsOnly.filter((r: Row) => (pkgById.get(r.package_id) as Row)?.project_id === p.id);
     const mineAsg = (assigned || []).filter((a: Row) => a.project_id === p.id);
     const mine = [...mineInv, ...mineAsg];   // COI columns are the same on both
     const withCoi = mine.filter((r: Row) => r.coi_file_id).sort((a: Row, b: Row) => String(b.coi_received_at).localeCompare(String(a.coi_received_at)))[0];
