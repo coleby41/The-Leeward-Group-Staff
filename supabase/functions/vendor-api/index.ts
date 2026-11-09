@@ -560,7 +560,12 @@ function lockedView(p: Row): Row {
 async function projectsList(ctx: VendorContext) {
   const gate = needsCompany(ctx); if (gate) return gate;
   const projects = (await awardedProjects(ctx)).map(lockedView);
-  return json({ ok: true, projects, coi_exempt: Boolean(ctx.company!.COIExempt) });
+  // company_coi matches the single-project answer, so the portal can save
+  // each project from this list and open project pages instantly.
+  return json({
+    ok: true, projects, coi_exempt: Boolean(ctx.company!.COIExempt),
+    company_coi: { expires_on: ctx.company!.COIExpiresOn || null, exempt: Boolean(ctx.company!.COIExempt) },
+  });
 }
 
 function validProjectId(id: unknown): string | null {
