@@ -47,6 +47,16 @@
             color: var(--text-soft);
         }
         .su-popup .popup-buttons { justify-content: space-between; }
+        .su-pw { display: grid; gap: 10px; justify-items: start; }
+        .su-pw-box { display: flex; gap: 8px; align-items: center; width: 100%; }
+        .su-pw-box.hidden, .su-pw-links.hidden { display: none; }
+        .su-pw-value {
+            flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px;
+            background: var(--surface-alt); border: 1px solid var(--border);
+            font-size: 1rem; letter-spacing: .04em; color: var(--text); word-break: break-all;
+        }
+        .su-pw-links { display: flex; gap: 18px; }
+        .su-pw-note { margin: 0; }
         .su-optional { font-weight: 400; color: var(--text-soft); }
         .su-sr-only {
             position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -444,10 +454,19 @@
 
             <p class="company-form-section-title">Password</p>
 
-            <label class="auth-field">
-                New password
-                <input id="password" type="password" autocomplete="new-password" placeholder="Leave blank to keep current password">
-            </label>
+            <input id="password" type="hidden">
+            <div class="su-pw" id="passwordSection">
+                <button type="button" class="vd-btn" id="generatePasswordBtn">Generate new password</button>
+                <div class="su-pw-box hidden" id="generatedPasswordBox">
+                    <code class="su-pw-value" id="generatedPasswordValue"></code>
+                    <button type="button" class="vd-btn vd-btn--primary" id="copyPasswordBtn">Copy</button>
+                </div>
+                <div class="su-pw-links hidden" id="generatedPasswordLinks">
+                    <button type="button" class="vd-link" id="regeneratePasswordBtn">Generate another</button>
+                    <button type="button" class="vd-link" id="clearPasswordBtn">Don't change password</button>
+                </div>
+                <p class="auth-inline-copy su-pw-note" id="passwordNote">Their current password stays the same unless you generate a new one.</p>
+            </div>
 
             <p class="company-form-section-title">Account Notes</p>
 

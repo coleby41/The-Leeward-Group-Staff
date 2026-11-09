@@ -8,6 +8,15 @@ const userModalTitle = document.getElementById('userModalTitle');
 const userModalSubtitle = document.getElementById('userModalSubtitle');
 const closeUserModalBtn = document.getElementById('closeUserModalBtn');
 const userFormMessage = document.getElementById('userFormMessage');
+const generatePasswordBtn = document.getElementById('generatePasswordBtn');
+const generatedPasswordBox = document.getElementById('generatedPasswordBox');
+const generatedPasswordValue = document.getElementById('generatedPasswordValue');
+const generatedPasswordLinks = document.getElementById('generatedPasswordLinks');
+const copyPasswordBtn = document.getElementById('copyPasswordBtn');
+const regeneratePasswordBtn = document.getElementById('regeneratePasswordBtn');
+const clearPasswordBtn = document.getElementById('clearPasswordBtn');
+const passwordNote = document.getElementById('passwordNote');
+const passwordSection = document.getElementById('passwordSection');
 const userDetailsForm = document.getElementById('userDetailsForm');
 const selectedUserIdInput = document.getElementById('selectedUserId');
 const fullNameInput = document.getElementById('fullName');
@@ -100,6 +109,44 @@ async function resetPasswordViaFunction(staffUserId, newPassword) {
     return { error: result.error || 'Unable to reset that password.' };
   }
   return { ok: true };
+}
+
+// New passwords are generated, never typed. 14 characters from a set with
+// no look-alikes (no 0/O, 1/l/I), always at least one upper, lower, digit
+// and symbol. crypto.getRandomValues with rejection sampling = no bias.
+const PW_SETS = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%&*?'];
+
+function randomIndex(max) {
+  const limit = Math.floor(256 / max) * max;
+  const byte = new Uint8Array(1);
+  do { crypto.getRandomValues(byte); } while (byte[0] >= limit);
+  return byte[0] % max;
+}
+
+function generatePassword(length = 14) {
+  const all = PW_SETS.join('');
+  const chars = PW_SETS.map((set) => set[randomIndex(set.length)]);
+  while (chars.length < length) chars.push(all[randomIndex(all.length)]);
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomIndex(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join('');
+}
+
+function setGeneratedPassword(value) {
+  if (passwordInput) passwordInput.value = value || '';
+  const has = Boolean(value);
+  if (generatedPasswordValue) generatedPasswordValue.textContent = value || '';
+  generatedPasswordBox?.classList.toggle('hidden', !has);
+  generatedPasswordLinks?.classList.toggle('hidden', !has);
+  generatePasswordBtn?.classList.toggle('hidden', has);
+  if (copyPasswordBtn) copyPasswordBtn.textContent = 'Copy';
+  if (passwordNote) {
+    passwordNote.textContent = has
+      ? 'Copy it now — it’s set when you click Save changes. Give it to them directly (in person or a DM), not by email.'
+      : 'Their current password stays the same unless you generate a new one.';
+  }
 }
 
 async function hashPassword(password) {
@@ -263,7 +310,7 @@ function showDetailsForm(user) {
     ensureGroupOption(groupValue);
     groupInput.value = groupValue;
   }
-  if (passwordInput) passwordInput.value = '';
+  setGeneratedPassword('');
   if (staffRoleInput) staffRoleInput.value = user.role || 'Employee';
   populateManagerOptions();
   if (staffManagerInput) staffManagerInput.value = user.manager_id || '';
@@ -283,7 +330,7 @@ function showDetailsForm(user) {
   if (saveBtn) saveBtn.disabled = !canEditDetails;
   if (toggleActiveBtn) toggleActiveBtn.classList.toggle('hidden', !canEditDetails);
 
-  if (passwordInput) passwordInput.disabled = !staffCan('staff.reset_password');
+  if (passwordSection) passwordSection.classList.toggle('hidden', !staffCan('staff.reset_password'));
 }
 
 function applySearch(term) {
@@ -391,6 +438,27 @@ userList.addEventListener('keydown', function (event) {
 
 closeUserModalBtn?.addEventListener('click', closeUserModal);
 
+generatePasswordBtn?.addEventListener('click', () => setGeneratedPassword(generatePassword()));
+regeneratePasswordBtn?.addEventListener('click', () => setGeneratedPassword(generatePassword()));
+clearPasswordBtn?.addEventListener('click', () => setGeneratedPassword(''));
+
+copyPasswordBtn?.addEventListener('click', async function () {
+  const value = passwordInput ? passwordInput.value : '';
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    copyPasswordBtn.textContent = 'Copied';
+  } catch (error) {
+    // Clipboard blocked: select the text so it can be copied by hand.
+    const range = document.createRange();
+    range.selectNodeContents(generatedPasswordValue);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    copyPasswordBtn.textContent = 'Select & copy';
+  }
+});
+
 // Tap the area behind the popup to close (also what a phone swipe-down
 // falls back to — see sheet-swipe.js).
 userModalOverlay?.addEventListener('click', function (event) {
@@ -433,6 +501,7 @@ userDetailsForm.addEventListener('submit', async function (event) {
   }
 
   const pendingPasswordReset = newPassword ? selectedUserId : null;
+  let passwordWasReset = false;
 
   const savedFields = await updateSelectedUser(updates);
 
@@ -441,6 +510,7 @@ userDetailsForm.addEventListener('submit', async function (event) {
     if (result.error) {
       setMessage(userFormMessage, result.error, 'error');
     } else if (savedFields) {
+      passwordWasReset = true;
       setMessage(userFormMessage, 'User updated and password reset successfully.', 'success');
       window.showToast?.('User updated and password reset successfully.');
     }
@@ -449,6 +519,15 @@ userDetailsForm.addEventListener('submit', async function (event) {
   const refreshedUser = allUsers.find((user) => String(user.id) === String(selectedUserId));
   if (refreshedUser) {
     showDetailsForm(refreshedUser);
+  }
+  // Keep the new password on screen after the refresh so it can still be
+  // copied — but cleared from the form, so another Save won't reset it again.
+  if (passwordWasReset) {
+    setGeneratedPassword(newPassword);
+    if (passwordInput) passwordInput.value = '';
+    generatedPasswordLinks?.classList.add('hidden');
+    generatePasswordBtn?.classList.remove('hidden');
+    if (passwordNote) passwordNote.textContent = 'Password changed. Copy it now — it won’t be shown again after you close this.';
   }
 });
 
