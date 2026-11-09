@@ -1,6 +1,13 @@
 const userSearch = document.getElementById('userSearch');
 const userList = document.getElementById('userList');
-const directoryEmptyState = document.getElementById('directoryEmptyState');
+const userCount = document.getElementById('userCount');
+const staffUsersContent = document.getElementById('staffUsersContent');
+const restrictedView = document.getElementById('restrictedView');
+const userModalOverlay = document.getElementById('userModalOverlay');
+const userModalTitle = document.getElementById('userModalTitle');
+const userModalSubtitle = document.getElementById('userModalSubtitle');
+const closeUserModalBtn = document.getElementById('closeUserModalBtn');
+const userFormMessage = document.getElementById('userFormMessage');
 const userDetailsForm = document.getElementById('userDetailsForm');
 const selectedUserIdInput = document.getElementById('selectedUserId');
 const fullNameInput = document.getElementById('fullName');
@@ -34,7 +41,18 @@ function getSupabaseClient() {
 function setMessage(element, text, type) {
   if (!element) return;
   element.textContent = text;
-  element.className = `auth-message ${type}`;
+  if (element === directoryMessage) {
+    element.className = `workbook-page-message ${type}`;
+    element.style.display = text ? '' : 'none';
+  } else {
+    element.className = `auth-message ${type}`;
+  }
+}
+
+function esc(value) {
+  const d = document.createElement('div');
+  d.textContent = value ?? '';
+  return d.innerHTML;
 }
 
 function staffCan(permissionKey) {
@@ -92,25 +110,70 @@ async function hashPassword(password) {
     .join('');
 }
 
+function managerName(managerId) {
+  if (!managerId) return '—';
+  const manager = allUsers.find((user) => String(user.id) === String(managerId));
+  return manager ? (manager.full_name || manager.username || '—') : '—';
+}
+
+function initials(name) {
+  const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return '?';
+  return (words.length >= 2 ? words[0][0] + words[words.length - 1][0] : words[0].slice(0, 2)).toUpperCase();
+}
+
+// Same look as the vendor profile's tables (.vd-panel / .vd-table).
+// Phones (≤768px, CSS only): just the name, with a chevron — tapping a row
+// opens the edit popup.
 function renderUserList(users) {
   if (!userList) return;
   if (!users.length) {
-    userList.innerHTML = '<div class="directory-empty">No users match that search.</div>';
+    userList.innerHTML = `<tr class="su-empty"><td colspan="6">${allUsers.length ? 'No users match that search.' : 'No staff users found.'}</td></tr>`;
     return;
   }
 
   userList.innerHTML = users.map((user) => {
     const groups = Array.isArray(user.workgroup) ? user.workgroup.join(', ') : user.workgroup || '—';
     const isActive = user.active !== false;
+    const name = user.full_name || user.username || 'Unnamed';
+    const manager = managerName(user.manager_id);
     return `
-      <button class="directory-user ${user.id === selectedUserId ? 'is-active' : ''}" type="button" data-user-id="${user.id}">
-        <div class="directory-user__name">${user.full_name || '—'}</div>
-        <div class="directory-user__meta">${user.username || '—'}</div>
-        <div class="directory-user__meta">${groups}${user.role === 'Manager' ? ' · Manager' : ''}</div>
-        <span class="directory-user__badge ${isActive ? '' : 'is-inactive'}">${isActive ? 'Active' : 'Inactive'}</span>
-      </button>
+      <tr class="${isActive ? '' : 'su-tr-inactive'}" data-user-id="${esc(user.id)}" tabindex="0" role="button" aria-label="Edit ${esc(name)}">
+        <td class="vd-td-main"><div class="vd-name"><span class="vd-avatar">${esc(initials(name))}</span><div class="vd-name__text">
+          <div class="vd-name__line"><span class="su-name">${esc(name)}</span>${user.role === 'Manager' ? ' <span class="vd-pill vd-pill--portal">Manager</span>' : ''}${isActive ? '' : ' <span class="vd-pill vd-pill--none">Inactive</span>'}</div>
+          <span class="vd-muted">${esc(user.username || '—')}</span>
+        </div></div></td>
+        <td data-label="Group">${esc(groups)}</td>
+        <td data-label="Role">${esc(user.role || 'Employee')}</td>
+        <td data-label="Manager">${manager === '—' ? '<span class="vd-muted">—</span>' : esc(manager)}</td>
+        <td data-label="Status"><span class="vd-status ${isActive ? 'vd-status--ok' : 'vd-status--bad'}">${isActive ? 'Active' : 'Inactive'}</span></td>
+        <td class="is-right"><span class="su-chevron" aria-hidden="true">›</span></td>
+      </tr>
     `;
   }).join('');
+}
+
+function updateCount() {
+  const total = allUsers.length;
+  const active = allUsers.filter((user) => user.active !== false).length;
+  if (userCount) userCount.textContent = String(total);
+  const activeEl = document.getElementById('userActiveCount');
+  if (activeEl) activeEl.textContent = total ? `· ${active} active` : '';
+}
+
+function openUserModal(user) {
+  if (!user || !userModalOverlay) return;
+  showDetailsForm(user);
+  setMessage(userFormMessage, '', '');
+  userModalOverlay.classList.remove('hidden');
+  document.body.classList.add('popup-active');
+}
+
+function closeUserModal() {
+  if (!userModalOverlay) return;
+  userModalOverlay.classList.add('hidden');
+  document.body.classList.remove('popup-active');
+  selectedUserId = null;
 }
 
 // 2026-08-20: Group used to be a free-text input — the only place in the app
@@ -178,23 +241,20 @@ function populateManagerOptions() {
   const currentValue = staffManagerInput.value;
   const options = allUsers
     .filter((user) => String(user.id) !== String(selectedUserId))
-    .map((user) => `<option value="${user.id}">${user.full_name || user.username || 'Unnamed'}</option>`)
+    .map((user) => `<option value="${esc(user.id)}">${esc(user.full_name || user.username || 'Unnamed')}</option>`)
     .join('');
   staffManagerInput.innerHTML = `<option value="">— None —</option>${options}`;
   staffManagerInput.value = currentValue;
 }
 
 function showDetailsForm(user) {
-  if (!user) {
-    if (directoryEmptyState) directoryEmptyState.style.display = 'flex';
-    if (userDetailsForm) userDetailsForm.style.display = 'none';
-    return;
-  }
-
-  if (directoryEmptyState) directoryEmptyState.style.display = 'none';
-  if (userDetailsForm) userDetailsForm.style.display = 'flex';
+  if (!user) return;
 
   selectedUserId = user.id;
+  if (userModalTitle) userModalTitle.textContent = user.full_name || user.username || 'Staff user';
+  if (userModalSubtitle) {
+    userModalSubtitle.textContent = `${user.username || '—'} · ${user.active === false ? 'Inactive' : 'Active'}`;
+  }
   if (selectedUserIdInput) selectedUserIdInput.value = user.id || '';
   if (fullNameInput) fullNameInput.value = user.full_name || '';
   if (usernameInput) usernameInput.value = user.username || '';
@@ -246,12 +306,13 @@ async function loadStaffUsers() {
       : false;
 
   if (!isAllowed) {
-    setMessage(directoryMessage, 'Access denied. Only IT users can view all staff accounts.', 'error');
-    if (userList) userList.innerHTML = '';
-    if (directoryEmptyState) directoryEmptyState.style.display = 'flex';
-    if (userDetailsForm) userDetailsForm.style.display = 'none';
+    if (restrictedView) restrictedView.style.display = '';
+    if (staffUsersContent) staffUsersContent.style.display = 'none';
     return;
   }
+
+  if (restrictedView) restrictedView.style.display = 'none';
+  if (staffUsersContent) staffUsersContent.style.display = '';
 
   const config = window.SUPABASE_CONFIG || {};
   if (!config.url || config.url === 'YOUR_SUPABASE_URL' || !config.anonKey || config.anonKey === 'YOUR_SUPABASE_ANON_KEY') {
@@ -271,18 +332,12 @@ async function loadStaffUsers() {
     return;
   }
 
-  allUsers = data || [];
-  filteredUsers = allUsers;
-  renderUserList(filteredUsers);
-
-  if (allUsers.length) {
-    const initialUser = allUsers[0];
-    showDetailsForm(initialUser);
-    setMessage(directoryMessage, `Showing ${allUsers.length} staff user${allUsers.length === 1 ? '' : 's'}.`, 'success');
-  } else {
-    showDetailsForm(null);
-    setMessage(directoryMessage, 'No staff users found in Supabase.', 'success');
-  }
+  setMessage(directoryMessage, '', '');
+  allUsers = (data || []).slice().sort((a, b) =>
+    String(a.full_name || a.username || '').localeCompare(String(b.full_name || b.username || ''))
+  );
+  updateCount();
+  applySearch(userSearch ? userSearch.value : '');
 }
 
 async function updateSelectedUser(updates) {
@@ -300,29 +355,52 @@ async function updateSelectedUser(updates) {
     .update(updates, { count: 'exact' })
     .eq('id', selectedUserId);
   if (error) {
-    setMessage(directoryMessage, error.message || 'Unable to update user.', 'error');
+    setMessage(userFormMessage, error.message || 'Unable to update user.', 'error');
     return false;
   }
 
   if (!count) {
-    setMessage(directoryMessage, 'No changes were saved — the update matched 0 rows (likely a Supabase RLS permission issue on staff_users, or the selected user no longer exists).', 'error');
+    setMessage(userFormMessage, 'No changes were saved — the update matched 0 rows (likely a Supabase RLS permission issue on staff_users, or the selected user no longer exists).', 'error');
     return false;
   }
 
-  setMessage(directoryMessage, 'User updated successfully.', 'success');
+  setMessage(userFormMessage, 'User updated successfully.', 'success');
   window.showToast?.('User updated successfully.'); // shared bottom-right popup (js/toast.js)
   await loadStaffUsers();
   return true;
 }
 
-userList.addEventListener('click', async function (event) {
-  const button = event.target.closest('button[data-user-id]');
-  if (!button) return;
-  const userId = button.getAttribute('data-user-id');
+function openRow(row) {
+  if (!row) return;
+  const userId = row.getAttribute('data-user-id');
   const selectedUser = allUsers.find((user) => String(user.id) === String(userId));
-  if (!selectedUser) return;
-  showDetailsForm(selectedUser);
-  renderUserList(filteredUsers);
+  openUserModal(selectedUser);
+}
+
+userList.addEventListener('click', function (event) {
+  openRow(event.target.closest('tr[data-user-id]'));
+});
+
+userList.addEventListener('keydown', function (event) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const row = event.target.closest('tr[data-user-id]');
+  if (!row) return;
+  event.preventDefault();
+  openRow(row);
+});
+
+closeUserModalBtn?.addEventListener('click', closeUserModal);
+
+// Tap the area behind the popup to close (also what a phone swipe-down
+// falls back to — see sheet-swipe.js).
+userModalOverlay?.addEventListener('click', function (event) {
+  if (event.target === userModalOverlay) closeUserModal();
+});
+
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape' && userModalOverlay && !userModalOverlay.classList.contains('hidden')) {
+    closeUserModal();
+  }
 });
 
 userSearch.addEventListener('input', function (event) {
@@ -333,7 +411,7 @@ userDetailsForm.addEventListener('submit', async function (event) {
   event.preventDefault();
 
   if (!staffCan('staff.edit_account_details')) {
-    setMessage(directoryMessage, "You don't have permission to do this.", 'error');
+    setMessage(userFormMessage, "You don't have permission to do this.", 'error');
     return;
   }
 
@@ -350,7 +428,7 @@ userDetailsForm.addEventListener('submit', async function (event) {
   const newPassword = passwordInput.value.trim();
 
   if (newPassword && !staffCan('staff.reset_password')) {
-    setMessage(directoryMessage, "You don't have permission to reset passwords.", 'error');
+    setMessage(userFormMessage, "You don't have permission to reset passwords.", 'error');
     return;
   }
 
@@ -361,9 +439,9 @@ userDetailsForm.addEventListener('submit', async function (event) {
   if (pendingPasswordReset) {
     const result = await resetPasswordViaFunction(pendingPasswordReset, newPassword);
     if (result.error) {
-      setMessage(directoryMessage, result.error, 'error');
+      setMessage(userFormMessage, result.error, 'error');
     } else if (savedFields) {
-      setMessage(directoryMessage, 'User updated and password reset successfully.', 'success');
+      setMessage(userFormMessage, 'User updated and password reset successfully.', 'success');
       window.showToast?.('User updated and password reset successfully.');
     }
   }
@@ -380,7 +458,11 @@ toggleActiveBtn.addEventListener('click', async function () {
   const currentUser = allUsers.find((user) => String(user.id) === String(selectedUserId));
   if (!currentUser) return;
   const nextActiveState = currentUser.active === false;
-  await updateSelectedUser({ active: nextActiveState });
+  const ok = await updateSelectedUser({ active: nextActiveState });
+  if (ok) {
+    const refreshedUser = allUsers.find((user) => String(user.id) === String(selectedUserId));
+    if (refreshedUser) showDetailsForm(refreshedUser);
+  }
 });
 
 window.addEventListener('DOMContentLoaded', async function () {

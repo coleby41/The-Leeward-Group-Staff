@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
     <link rel="manifest" href="/manifest.webmanifest">
     <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
@@ -11,348 +13,649 @@
     <meta name="apple-mobile-web-app-title" content="Leeward Staff">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="theme-color" content="#ffffff">
-  <title>Staff Users | The Leeward Group</title>
-  <link rel="stylesheet" href="/css/styles.css">
-  <script src="/js/splash.js"></script>
-  <style>
-    body.staff-directory-page {
-      margin: 0;
-      min-height: 100vh;
-      background: linear-gradient(135deg, #071220 0%, #13263d 100%);
-      color: #f5f7fb;
-      /* 2026-08-20: this page also has no independently-scrolling region
-         (unlike the dashboard pages), so it relies on styles.css's
-         `.auth-page` rule to allow the whole page to scroll once the
-         directory panel is taller than the viewport — see that rule's
-         comment for the admin-users.html bug this same issue came from.
-         Declared again here, directly alongside this page's own inline
-         styles, so it isn't only working by relying on cascade order
-         against a separate stylesheet. */
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
+    <title>The Leeward Group | Staff Users</title>
 
-    .directory-shell {
-      display: flex;
-      min-height: 100vh;
-      width: 100%;
-      padding: 1.25rem;
-      gap: 1rem;
-      box-sizing: border-box;
-    }
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="/js/splash.js"></script>
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Staff Users page only. -->
+    <style>
+        .su-panel-head .vd-panel__actions { flex: 0 1 320px; min-width: 0; }
+        .su-search { width: 100%; min-width: 0; padding-top: 8px; padding-bottom: 8px; }
+        .su-active-count { font-size: .8rem; font-weight: 600; color: var(--text-soft); }
 
-    .directory-panel {
-      background: rgba(7, 18, 32, 0.84);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 20px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
-      overflow: hidden;
-    }
+        .su-table tbody tr[data-user-id] { cursor: pointer; transition: background 0.15s ease; }
+        .su-table tbody tr[data-user-id]:hover td { background: var(--surface-alt); }
+        .su-table tbody tr[data-user-id]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .su-table tr.su-tr-inactive .vd-avatar { background: var(--surface-alt); color: var(--text-soft); }
+        .su-name { font-weight: 700; }
+        .su-chevron { color: var(--text-soft); font-size: 1.25rem; line-height: 1; }
+        .su-empty td { text-align: center; color: var(--text-soft); padding: 28px 18px; }
 
-    .directory-panel--list {
-      width: 36%;
-      min-width: 320px;
-      display: flex;
-      flex-direction: column;
-    }
+        /* Popup: two-up rows, light notes box to match the other fields. */
+        .su-popup { width: min(94vw, 560px); max-height: 88vh; overflow-y: auto; }
+        .su-popup .su-row { grid-template-columns: 1fr 1fr; }
+        .su-popup .workbook-preview-header { margin-bottom: 18px; }
+        .su-popup .auth-field textarea {
+            min-height: 96px;
+            background: white;
+            color: var(--text);
+            border-color: var(--border);
+        }
+        .su-popup .auth-field :is(input, select, textarea):disabled {
+            background: var(--surface-alt);
+            color: var(--text-soft);
+        }
+        .su-popup .popup-buttons { justify-content: space-between; }
+        .su-optional { font-weight: 400; color: var(--text-soft); }
+        .su-sr-only {
+            position: absolute; width: 1px; height: 1px; overflow: hidden;
+            clip: rect(0 0 0 0); white-space: nowrap;
+        }
 
-    .directory-panel--details {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
+        /* Phones: just the names; tap one to open the sheet. */
+        @media (max-width: 768px) {
+            .su-panel-head .vd-panel__actions { flex: 1 1 100%; }
+            .su-table td:not(.vd-td-main):not(.is-right) { display: none; }
+            .su-table td.vd-td-main { padding: 0 32px 0 0; }
+            .su-table td.is-right { top: 50%; transform: translateY(-50%); }
+        }
 
-    .directory-panel__header {
-      padding: 1.2rem 1.2rem 0.9rem;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .directory-panel__header h1 {
-      margin: 0 0 0.3rem;
-      font-size: 1.35rem;
-    }
-
-    .directory-panel__header p {
-      margin: 0;
-      color: #aeb9ca;
-      font-size: 0.95rem;
-    }
-
-    .directory-search {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      padding: 1rem 1.2rem;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .directory-search input {
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 10px;
-      padding: 0.7rem 0.85rem;
-      background: rgba(255,255,255,0.06);
-      color: #fff;
-    }
-
-    .directory-list {
-      padding: 0.8rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.6rem;
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .directory-user {
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 14px;
-      padding: 0.8rem;
-      background: rgba(255,255,255,0.04);
-      text-align: left;
-      color: inherit;
-      cursor: pointer;
-      transition: border-color 0.2s ease, transform 0.2s ease;
-    }
-
-    .directory-user:hover,
-    .directory-user.is-active {
-      border-color: #6aa7ff;
-      transform: translateY(-1px);
-    }
-
-    .directory-user__name {
-      font-weight: 600;
-      margin-bottom: 0.2rem;
-    }
-
-    .directory-user__meta {
-      color: #aeb9ca;
-      font-size: 0.9rem;
-    }
-
-    .directory-user__badge {
-      display: inline-block;
-      margin-top: 0.45rem;
-      padding: 0.2rem 0.55rem;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      background: rgba(106, 167, 255, 0.15);
-      color: #8fc2ff;
-    }
-
-    .directory-user__badge.is-inactive {
-      background: rgba(255, 116, 116, 0.16);
-      color: #ffb1b1;
-    }
-
-    .directory-details {
-      padding: 1.2rem;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      flex: 1;
-    }
-
-    .directory-empty {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 250px;
-      color: #aeb9ca;
-      border: 1px dashed rgba(255,255,255,0.18);
-      border-radius: 16px;
-      padding: 1rem;
-      text-align: center;
-    }
-
-    .directory-form {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .directory-form__row {
-      display: grid;
-      gap: 1rem;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .directory-form label {
-      display: flex;
-      flex-direction: column;
-      gap: 0.35rem;
-      color: #dbe4f0;
-      font-size: 0.95rem;
-    }
-
-    .directory-form input,
-    .directory-form select {
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 10px;
-      padding: 0.75rem 0.85rem;
-      background: rgba(255,255,255,0.06);
-      color: #fff;
-    }
-
-    .directory-actions {
-      display: flex;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
-
-    @media (max-width: 900px) {
-      .directory-shell {
-        flex-direction: column;
-      }
-
-      .directory-panel--list {
-        width: 100%;
-        min-width: 0;
-        max-height: 45vh;
-      }
-    }
-
-    /* The two-column form grid (name/username, group/password, etc.) never
-       collapsed below 900px — on a phone-width screen each field shrank to
-       roughly 150px, too narrow to type or read into. Stack to one column
-       once there's no room for two comfortably. */
-    @media (max-width: 560px) {
-      .directory-shell {
-        padding: 0.75rem;
-        gap: 0.75rem;
-      }
-
-      .directory-form__row {
-        grid-template-columns: 1fr;
-      }
-
-      .directory-actions {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .directory-actions .auth-button,
-      .directory-actions a {
-        text-align: center;
-      }
-    }
-  </style>
+        @media (max-width: 480px) {
+            .su-popup .su-row { grid-template-columns: 1fr; }
+        }
+    </style>
     <!-- Vercel Web Analytics -->
     <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
     <script defer src="/_vercel/insights/script.js"></script>
 </head>
-<body class="auth-page staff-directory-page">
-  <div class="directory-shell">
-    <section class="directory-panel directory-panel--list">
-      <div class="directory-panel__header">
-        <h1>Staff directory</h1>
-        <p>IT administrators can manage full account settings.</p>
-      </div>
 
-      <label class="directory-search">
-        <span>Search users</span>
-        <input id="userSearch" type="search" placeholder="Search by name or username">
-      </label>
+<body>
 
-      <div id="userList" class="directory-list"></div>
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+
+        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+            ☰
+        </button>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+
+                            <button
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+</div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-header">
+        COMPANY WIDE
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="/pages/dashboard.html" class="nav-item">
+            <span class="home-nav-icon"></span>
+            <span class="nav-text">
+                Dashboard
+            </span>
+        </a>
+
+        <div class="nav-item-group" id="companyDocsNavGroup">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="docs-nav-icon"></span>
+                <span class="nav-text">
+                    Company docs
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav">
+
+                <a href="/pages/excel-workbook.html" class="subnav-item">
+                    <span class="nav-text">
+                        Excel Workbook Templates
+                    </span>
+                </a>
+
+                <a href="/pages/form-template.html" class="subnav-item">
+                    <span class="nav-text">
+                        Form Templates
+                    </span>
+                </a>
+            </div>
+        </div>
+
+       <a href="/pages/timesheet.html" class="nav-item">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">
+                Staff Finance
+            </span>
+        </a>
+
+        <a href="/pages/project-home.html" class="nav-item">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">
+                Project Overview
+            </span>
+        </a>
+
+        <a href="https://www.theleewardgroup.us/"
+           class="nav-item"
+           target="_blank">
+            <span class="website-nav-icon"></span>
+            <span class="nav-text">
+                Company site
+            </span>
+        </a>
+
+        <a href="/pages/vendors.html" class="nav-item">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">
+                Vendor Information
+            </span>
+        </a>
+
+        <a href="/pages/incident-report.html" class="nav-item" id="incidentReportNavItem">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Incident Report</span>
+        </a>
+
+        <a href="/pages/account-activity.html" class="nav-item" id="accountActivityNavItem">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Account Activity</span>
+            <span class="nav-item-badge" id="accountActivityNavBadge"></span>
+        </a>
+
+        <a href="/pages/payroll-tools.html"
+           class="nav-item"
+           id="payrollToolsNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Payroll Tools
+            </span>
+        </a>
+
+        <a href="/pages/manage-employees.html"
+           class="nav-item"
+           id="manageEmployeesNavItem"
+           style="display:none;">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">
+                Manage Employees
+            </span>
+        </a>
+
+        <div class="nav-item-group"
+             id="adminNavGroup"
+             style="display:none;">
+
+            <a href="#"
+               class="nav-item nav-parent"
+               onclick="toggleSubnav(event, this)">
+                <span class="it-tools-nav-icon"></span>
+                <span class="nav-text">
+                    IT Tools
+                </span>
+                <span class="nav-arrow"></span>
+            </a>
+
+            <div class="subnav expanded">
+
+                <a href="/pages/admin-users.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Create account
+                    </span>
+                </a>
+
+                <a href="/pages/staff-users.html"
+                   class="subnav-item active">
+                    <span class="nav-text">
+                        Staff users
+                    </span>
+                </a>
+
+                <a href="/pages/workgroups.html"
+                   class="subnav-item">
+                    <span class="nav-text">
+                        Workgroups
+                    </span>
+                </a>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">
+            LeeWard Group
+        </div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="/pages/changelog.html">Release Notes</a> - <a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <section class="hero-section">
+        <div>
+            <p class="eyebrow">IT Tools</p>
+            <h1>Staff Users</h1>
+            <p>Every staff account in the portal. Click a name to edit their details, reset their password, or deactivate the account.</p>
+        </div>
     </section>
 
-    <section class="directory-panel directory-panel--details">
-      <div class="directory-details">
-        <div id="directoryEmptyState" class="directory-empty">Select a user to edit full account settings.</div>
+    <div id="restrictedView" class="restricted-wrap" style="display:none;">
+        <h2>Restricted</h2>
+        <p>Only IT and Super Admin accounts can manage staff users.</p>
+    </div>
 
-        <form id="userDetailsForm" class="directory-form" style="display: none;">
-          <input type="hidden" id="selectedUserId">
+    <div id="staffUsersContent" style="display:none;">
 
-          <div class="directory-form__row">
-            <label>
-              Full name
-              <input id="fullName" type="text" required>
+        <div id="directoryMessage" class="workbook-page-message" style="display:none;"></div>
+
+        <section class="vd-panel">
+            <div class="vd-panel__head su-panel-head">
+                <h3 class="vd-panel__title">Staff <span class="vd-count" id="userCount">0</span> <span class="su-active-count" id="userActiveCount"></span></h3>
+                <div class="vd-panel__actions">
+                    <input type="search" id="userSearch" class="workbook-search-input su-search" placeholder="Search by name, username or group" autocomplete="off">
+                </div>
+            </div>
+            <table class="vd-table su-table">
+                <thead><tr><th>Name</th><th>Group</th><th>Role</th><th>Manager</th><th>Status</th><th class="is-right"></th></tr></thead>
+                <tbody id="userList"></tbody>
+            </table>
+        </section>
+
+    </div>
+
+</main>
+
+
+<!-- Edit Staff User popup — opened by clicking a row. Bottom sheet with
+     swipe-to-close on phones (sheet-swipe.js); the ✕ is hidden there. -->
+<div class="popup-overlay hidden" id="userModalOverlay">
+    <div class="popup workbook-popup su-popup">
+
+        <div class="workbook-preview-header">
+            <div>
+                <h2 id="userModalTitle">Staff user</h2>
+                <p class="auth-inline-copy" id="userModalSubtitle"></p>
+            </div>
+            <button type="button" class="menu-btn" id="closeUserModalBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="userDetailsForm">
+            <input type="hidden" id="selectedUserId">
+
+            <p class="company-form-section-title">Account</p>
+
+            <div class="company-form-row su-row">
+                <label class="auth-field">
+                    Full name
+                    <input id="fullName" type="text" required>
+                </label>
+                <label class="auth-field">
+                    Username
+                    <input id="username" type="text" required autocapitalize="off" spellcheck="false">
+                </label>
+            </div>
+
+            <label class="auth-field">
+                <span>Employee ID <span class="su-optional">(optional)</span></span>
+                <input id="employeeCode" type="text" placeholder="e.g. EMP-014">
             </label>
-            <label>
-              Username
-              <input id="username" type="text" required>
+
+            <p class="company-form-section-title">Access</p>
+
+            <div class="company-form-row su-row">
+                <label class="auth-field">
+                    Group
+                    <!-- Hardcoded fallback; staff-users.js swaps in the live Workgroups list. -->
+                    <select id="group">
+                        <option value="Owner">Owner</option>
+                        <option value="Field">Field</option>
+                        <option value="IT">IT</option>
+                        <option value="Office">Office</option>
+                        <option value="Accounting">Accounting</option>
+                    </select>
+                </label>
+                <label class="auth-field">
+                    Role
+                    <select id="staffRole">
+                        <option value="Employee">Employee</option>
+                        <option value="Manager">Manager</option>
+                    </select>
+                </label>
+            </div>
+
+            <label class="auth-field">
+                Manager
+                <select id="staffManager">
+                    <option value="">— None —</option>
+                </select>
             </label>
-          </div>
 
-          <div class="directory-form__row">
-            <label>
-              Group
-              <!-- 2026-08-20: was a free-text input — the only place in the
-                   app someone's workgroup could be typed by hand instead of
-                   picked from the live Workgroups list, same inconsistency
-                   already fixed on admin-users.html's Create-a-staff-account
-                   form. Ships with the same hardcoded fallback options so
-                   editing an account still works before
-                   supabase-workgroups-setup.sql has been run; staff-users.js
-                   swaps these for the live Workgroups list on load, same as
-                   admin-users.js does. -->
-              <select id="group">
-                <option value="Owner">Owner</option>
-                <option value="Field">Field</option>
-                <option value="IT">IT</option>
-                <option value="Office">Office</option>
-                <option value="Accounting">Accounting</option>
-              </select>
+            <p class="company-form-section-title">Password</p>
+
+            <label class="auth-field">
+                New password
+                <input id="password" type="password" autocomplete="new-password" placeholder="Leave blank to keep current password">
             </label>
-            <label>
-            New password
-            <input id="password" type="password" placeholder="Leave blank to keep current password">
-          </label>
-          </div>
 
-          <div class="directory-form__row">
-            <label>
-              Role
-              <select id="staffRole">
-                <option value="Employee">Employee</option>
-                <option value="Manager">Manager</option>
-              </select>
+            <p class="company-form-section-title">Account Notes</p>
+
+            <label class="auth-field">
+                <span class="su-sr-only">Account notes</span>
+                <textarea id="accountNotes" rows="4" placeholder="Internal notes about this account"></textarea>
             </label>
-            <label>
-              Manager
-              <select id="staffManager">
-                <option value="">— None —</option>
-              </select>
-            </label>
-          </div>
 
-          <div class="directory-form__row">
-            <label>
-              Employee ID <span style="opacity:.65;font-weight:400;">(optional)</span>
-              <input id="employeeCode" type="text" placeholder="e.g. EMP-014">
-            </label>
-          </div>
+            <p id="userFormMessage" class="auth-message" role="status"></p>
 
-          <label class="auth-field">
-    Account Notes
-    <textarea 
-        id="accountNotes" 
-        rows="5" 
-        placeholder="Internal notes about this account">
-    </textarea>
-</label>
-
-          <div class="directory-actions">
-            <button class="auth-button auth-button--secondary" id="saveUserDetailsBtn" type="submit">Save changes</button>
-            <button class="auth-button auth-button--red" id="toggleActiveBtn" type="button">Deactivate</button>
-            <a class="auth-button auth-button--dash" href="/pages/dashboard.html">Back to dashboard</a>
-          </div>
-
-          <p id="directoryMessage" class="auth-message" role="status"></p>
+            <div class="popup-buttons">
+                <button class="auth-button auth-button--red" id="toggleActiveBtn" type="button">Deactivate</button>
+                <button class="auth-button auth-button--secondary" id="saveUserDetailsBtn" type="submit">Save changes</button>
+            </div>
         </form>
-      </div>
-    </section>
-  </div>
+    </div>
+</div>
 
-  <script src="/js/supabase-config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="/js/supabase-auth.js"></script>
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script src="/js/script.js"></script>
+<script src="/js/mobile-app.js"></script>
+<script src="/js/sheet-swipe.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-auth.js"></script>
 <script src="/js/toast.js"></script>
 <script src="/js/morning-check.js"></script>
-  <script src="/js/auth-guard.js"></script>
-  <script src="/js/permissions.js"></script>
-  <script src="/js/staff-users.js"></script>
-  <script src="/js/timeout.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/staff-users.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/nav-approvals-badge.js"></script>
+
+
+<script>
+
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+
+const signOutButton =
+    document.getElementById("signOutButton");
+
+
+if (signOutButton) {
+
+    signOutButton.addEventListener("click", function(event) {
+
+        event.stopPropagation();
+
+
+        if (typeof window.signOutUser === "function") {
+
+            window.signOutUser();
+
+        } else {
+
+            console.error("signOutUser() is not available");
+
+        }
+
+    });
+
+}
+
+
+/* ===========================
+   ELEMENTS
+=========================== */
+
+
+const userNameElement =
+    document.getElementById("headerUserName");
+
+
+const brandInitials =
+    document.getElementById("brandInitials");
+
+
+/* ===========================
+   UPDATE STAFF NAME
+=========================== */
+
+
+function updateStaffName(profile) {
+
+    if (!profile) return;
+
+    const name =
+        profile.full_name ||
+        profile.username ||
+        "Staff";
+
+    if (userNameElement) {
+        userNameElement.textContent = name;
+    }
+
+    if (brandInitials) {
+
+        const words =
+            String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+
+        const initials =
+            words.length >= 2
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+            : words[0]?.substring(0,2).toUpperCase() || "ST";
+
+        brandInitials.textContent = initials;
+    }
+
+    const sidebarGroupPill =
+        document.getElementById("sidebarGroupPill");
+
+    if (sidebarGroupPill) {
+
+        const groups =
+            window.getSupabaseUserGroups
+            ? window.getSupabaseUserGroups(profile)
+            : [];
+
+        sidebarGroupPill.textContent =
+            groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+
+const storedProfile =
+    localStorage.getItem("staffProfile");
+
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+    } catch(error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function() {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+    }
+    // Nav item visibility (including the adminNavGroup wrapper) is handled
+    // by nav-access.js. This page's own IT/Super-Admin gate is handled by
+    // staff-users.js (IT / Super Admin only), independent of that system.
+});
+
+
+</script>
+
+
 </body>
+
 </html>
