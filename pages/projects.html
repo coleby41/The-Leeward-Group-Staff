@@ -206,6 +206,8 @@
                 <h3>Attention Needed</h3>
                 <div id="attentionNeededBody"></div>
             </div>
+            <!-- COI template (js/coi-template.js) — shown to anyone who can see bid invites -->
+            <div class="dashboard-panel" id="coiTemplatePanel" style="display:none"></div>
             <div class="dashboard-panel">
                 <h3>Upcoming Events</h3>
                 <div id="upcomingEventsBody"></div>
@@ -280,6 +282,7 @@
 <script src="/js/nav-access.js"></script>
 <script src="/js/project-fields.js"></script>
 <script src="/js/project-shell.js"></script>
+<script src="/js/coi-template.js"></script>
 <script src="/js/project-invoices.js"></script>
 <script src="/js/project-photos.js"></script>
 
@@ -728,7 +731,20 @@ window.addEventListener("project-shell:ready", (event) => {
     setOverviewMessage("", "");
     renderProjectOverview(project);
     loadDashboardWidgets(project);
+    mountCoiTemplate(project);
 });
+
+// Overview's COI Template panel (2026-11-10). Viewing needs bid-invite access;
+// uploading/replacing needs projects.manage_bid_invites (same as the database).
+let coiTemplateMounted = false;
+async function mountCoiTemplate(project) {
+    if (!project || coiTemplateMounted || !window.CoiTemplate) return;
+    try { await window.Permissions?.initPermissions(); } catch (e) { /* fails closed below */ }
+    const has = k => Boolean(window.Permissions?.hasPermission(k));
+    if (!has("vendors.send_bid_invites") && !has("projects.manage_bid_invites")) return;
+    coiTemplateMounted = true;
+    window.CoiTemplate.mount(document.getElementById("coiTemplatePanel"), { project, canManage: has("projects.manage_bid_invites") });
+}
 
 </script>
 

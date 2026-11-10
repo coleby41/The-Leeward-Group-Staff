@@ -10,6 +10,8 @@
 //       the winner's award email also asks for their COI PDF (unless the
 //       vendor is COI-exempt); without the email, use request_coi
 //   { action: "request_coi", invite_id }         → (re)sends the COI request to the awarded vendor
+//   award (when a COI is needed) and request_coi refuse with code "no_template"
+//   until the project has a COI template (project_coi_templates).
 //
 // Every email's "View Invite & Bid" button signs the vendor into the Vendor
 // Portal (VENDOR_PORTAL_URL). Emails go out in the language the vendor
@@ -189,6 +191,13 @@ async function handleAward(body: Row, staffName: string) {
   if (winner.status !== "bid_received") return json({ ok: false, error: "This vendor hasn't submitted a bid yet." }, 400);
 
   const losers = (invites || []).filter((i: Row) => i.id !== inviteId && i.status === "bid_received");
+
+  // The award asks the winner for a COI, so the project needs a COI template
+  // first (vendors can't upload without one) — unless they're COI-exempt. (2026-11-10)
+  const coiNeeded = await needsCoi(admin, winner.company_id);
+  if (coiNeeded && !(await hasCoiTemplate(admin, pkg.project_id))) {
+    return json({ ok: false, error: "Post this project's COI template before awarding. Vendors can't upload their COI without it.", code: "no_template" }, 409);
+  }
   const now = new Date().toISOString();
 
   // Close the package first (only if it's still open, so two people
@@ -202,8 +211,7 @@ async function handleAward(body: Row, staffName: string) {
   if (closeError) throw closeError;
   if (!closed?.length) return json({ ok: false, error: "This bid invite has already been awarded or closed." }, 409);
 
-  // The COI PDF is only requested once a vendor is awarded the job.
-  const coiNeeded = await needsCoi(admin, winner.company_id);
+  // The COI PDF is only requested once a vendor is awarded the job (coiNeeded, above).
   const { error: winError } = await admin.from("bid_invites").update({ status: "awarded" }).eq("id", winner.id);
   if (winError) throw winError;
   if (losers.length) {
@@ -248,6 +256,13 @@ async function needsCoi(admin: any, companyId: unknown): Promise<boolean> {
   return !data?.COIExempt;
 }
 
+// deno-lint-ignore no-explicit-any
+async function hasCoiTemplate(admin: any, projectId: unknown): Promise<boolean> {
+  if (projectId == null) return false;
+  const { data } = await admin.from("project_coi_templates").select("project_id").eq("project_id", projectId).maybeSingle();
+  return Boolean(data);
+}
+
 async function handleRequestCoi(body: Row) {
   const inviteId = String(body.invite_id || "");
   if (!inviteId) return json({ ok: false, error: "invite_id is required" }, 400);
@@ -259,6 +274,9 @@ async function handleRequestCoi(body: Row) {
   if (!isValidEmail(invite.contact_email)) return json({ ok: false, error: "This vendor contact has no valid email." }, 400);
   const loaded = await loadPackage(invite.package_id);
   if (!loaded) return json({ ok: false, error: "That bid invite doesn't exist anymore." }, 404);
+  if (!(await hasCoiTemplate(admin, loaded.pkg.project_id))) {
+    return json({ ok: false, error: "Post this project's COI template first. Vendors can't upload their COI without it.", code: "no_template" }, 409);
+  }
   const langs = await languagesFor(admin, [invite.contact_email]);
   const email = renderBidEmail("coi_request", packageForEmail(loaded.pkg, loaded.project), invite, { lang: langs.get(normalizeEmail(invite.contact_email)) || "en" });
   const result = await sendEmail({ to: invite.contact_email, subject: email.subject, html: email.html, text: email.text, replyTo: loaded.pkg.contact_email });

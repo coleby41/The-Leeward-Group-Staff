@@ -591,6 +591,8 @@ async function projectCoiUploadUrl(ctx: VendorContext, body: Row) {
   const id = validProjectId(body.project_id);
   const [project] = id ? await awardedProjects(ctx, id) : [];
   if (!project) return fail("not_found", 404);
+  // No COI template posted for this project yet → COI upload stays closed (2026-11-10).
+  if (!project.coi_template) return fail("no_template", 409);
   const name = safeFileName(body.file_name);
   if (!/\.pdf$/i.test(name)) return fail("pdf_only");
   const path = `${project.id}/${BIDS_CATEGORY}/${VENDOR_FILES_SUBFOLDER}/${Date.now()}-coi-${ctx.company!.id}-${name}`;
@@ -604,6 +606,8 @@ async function saveProjectCoi(ctx: VendorContext, body: Row) {
   const id = validProjectId(body.project_id);
   const [project] = id ? await awardedProjects(ctx, id) : [];
   if (!project) return fail("not_found", 404);
+  // No COI template posted for this project yet → COI upload stays closed (2026-11-10).
+  if (!project.coi_template) return fail("no_template", 409);
   const path = String(body.path || "");
   const prefix = `${project.id}/${BIDS_CATEGORY}/${VENDOR_FILES_SUBFOLDER}/`;
   if (!path.startsWith(prefix) || !path.includes(`-coi-${ctx.company!.id}-`) || path.includes("..")) return fail("missing_file", 400, { fields: ["file"] });

@@ -149,6 +149,7 @@
     /* ---------- open / close ---------- */
 
     function resetForm() {
+        renderWizardTemplate(null);
         step = 1;
         chosenFiles = [];
         tagFilters = [];
@@ -389,8 +390,29 @@
         return projects.find(p => String(p.id) === String(id)) || null;
     }
 
+    // Step 1's COI Template box (js/coi-template.js, 2026-11-10): post it now so
+    // the project is ready when this invite is awarded. A fresh element per
+    // project so each mount has its own listeners.
+    function renderWizardTemplate(project) {
+        const slot = $("bidCoiTemplateSlot");
+        if (!slot) return;
+        slot.innerHTML = "";
+        slot.classList.toggle("hidden", !project);
+        if (!project || !window.CoiTemplate) return;
+        const box = document.createElement("div");
+        box.className = "card bid-package-card";
+        box.style.margin = "0";
+        slot.appendChild(box);
+        window.CoiTemplate.mount(box, {
+            project,
+            canManage: can("projects.manage_bid_invites"),
+            intro: "Awarding this invite asks the vendor for their COI, and they can't upload it until this project has a COI template. Post it now or any time before you award.",
+        });
+    }
+
     async function onProjectChange() {
         const project = currentProject();
+        renderWizardTemplate(project);
         // Files picked from the previous project don't belong to this one.
         chosenFiles = chosenFiles.filter(f => f.kind === "upload");
         renderFiles();

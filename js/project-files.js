@@ -29,6 +29,15 @@
     const FORM_SUBMISSIONS_BUCKET = "form-submissions";
 
     let currentProject = null;
+
+    // COI template (2026-11-10, js/coi-template.js): its card shows in
+    // Contracts & Procurement › Vendors, the template file gets a chip, and
+    // any PDF's ⋯ menu can "Set as COI template".
+    const COI_TPL_FOLDER = { category: "contracts_procurement", subfolder: "vendors" };
+    let coiTpl = null;            // { file, ... } | null
+    let coiTplView = false;       // can see bid invites
+    let coiTplManage = false;     // projects.manage_bid_invites
+    let coiTplCard = null;
     let myProjectRole = null;        // via project_role() RPC — gates the Delete button the same way the RLS policy does
     let allFiles = [];               // project_files rows for this project, every folder
     let projectForms = [];           // form_templates rows with a folder mapping (default_category/default_subfolder set)
@@ -514,6 +523,13 @@
         const childGridEl = document.getElementById("filesPanelChildGrid");
         if (!titleEl || !actionsEl || !listEl) return;
 
+        const tplSlot = document.getElementById("filesCoiTemplateSlot");
+        const inVendors = coiTplView && selectedCategory === COI_TPL_FOLDER.category && selectedSubfolder === COI_TPL_FOLDER.subfolder && !selectedSubSubfolder;
+        if (tplSlot) {
+            if (inVendors && !coiTplCard && currentProject) coiTplCard = window.CoiTemplate.mount(tplSlot, { project: currentProject, canManage: coiTplManage });
+            tplSlot.style.display = inVendors ? "" : "none";
+        }
+
         if (!selectedCategory || !selectedSubfolder) {
             titleEl.textContent = "Select a folder";
             actionsEl.innerHTML = "";
@@ -643,7 +659,7 @@
                     <div class="all-files-file-name-cell">
                         <span class="file-type-icon file-type-icon--${meta.type}"></span>
                         <div class="all-files-file-name-text">
-                            <div class="all-files-file-name-main">${escapeHtmlFiles(file.file_name)}</div>
+                            <div class="all-files-file-name-main">${escapeHtmlFiles(file.file_name)}${coiTpl && String(coiTpl.file.id) === String(file.id) ? ` <span class="chip chip--success">COI template</span>` : ""}</div>
                             ${isFormFiled ? `
                                 <div class="all-files-file-name-sub">
                                     <span class="chip chip--info">Form: ${escapeHtmlFiles(file.form_submissions?.form_title || "submission")}</span>
@@ -680,6 +696,9 @@
                             <button type="button" class="all-files-file-menu-item" data-action="download">Download</button>
                             ${canManage ? `<button type="button" class="all-files-file-menu-item" data-action="rename">Rename</button>` : ""}
                             <button type="button" class="all-files-file-menu-item" data-action="copy-link">Copy link</button>
+                            ${coiTplManage && /\.pdf$/i.test(file.file_name || "") ? (coiTpl && String(coiTpl.file.id) === String(file.id)
+                                ? `<button type="button" class="all-files-file-menu-item" data-action="coi-tpl-unset">Remove as COI template</button>`
+                                : `<button type="button" class="all-files-file-menu-item" data-action="coi-tpl-set">${coiTpl ? "Use as COI template (replaces current)" : "Set as COI template"}</button>`) : ""}
                             ${canManage ? `
                                 <div class="all-files-file-menu-divider"></div>
                                 <button type="button" class="all-files-file-menu-item all-files-file-menu-item--danger" data-action="delete">Delete</button>
@@ -737,6 +756,8 @@
             row.querySelector('[data-action="rename"]')?.addEventListener("click", () => { closeAllFileMenus(); openRenameFileModal(file); });
             row.querySelector('[data-action="copy-link"]')?.addEventListener("click", () => { closeAllFileMenus(); copyFileLink(file); });
             row.querySelector('[data-action="delete"]')?.addEventListener("click", () => { closeAllFileMenus(); openDeleteFileConfirm(file); });
+            row.querySelector('[data-action="coi-tpl-set"]')?.addEventListener("click", () => { closeAllFileMenus(); setCoiTemplate(file); });
+            row.querySelector('[data-action="coi-tpl-unset"]')?.addEventListener("click", () => { closeAllFileMenus(); unsetCoiTemplate(); });
         });
 
         renderFilesPagination(files.length);
@@ -1630,6 +1651,38 @@
         renderMainPanel();
     });
 
+    async function setCoiTemplate(file) {
+        try {
+            coiTpl = await window.CoiTemplate.useExisting(currentProject.id, file.id);
+            showToastSafe(`${file.file_name} is now this project's COI template`);
+        } catch (err) { showToastSafe(`Couldn't set the COI template: ${err.message || err}`, "error"); }
+        renderMainPanel();
+    }
+    async function unsetCoiTemplate() {
+        try {
+            await window.CoiTemplate.remove(currentProject.id);
+            coiTpl = null;
+            showToastSafe("COI template removed (the file stays here). Vendors can't upload their COI until a new one is posted.");
+        } catch (err) { showToastSafe(`Couldn't remove it: ${err.message || err}`, "error"); }
+        renderMainPanel();
+    }
+    function showToastSafe(text, type) {
+        if (typeof window.showToast === "function") window.showToast(text, { type: type || "success" });
+    }
+    async function loadCoiTemplate(projectId) {
+        if (!window.CoiTemplate || !window.Permissions) return;
+        try { await window.Permissions.initPermissions(); } catch (e) { /* fails closed */ }
+        coiTplManage = window.Permissions.hasPermission("projects.manage_bid_invites");
+        coiTplView = coiTplManage || window.Permissions.hasPermission("vendors.send_bid_invites");
+        if (coiTplView) coiTpl = await window.CoiTemplate.load(projectId);
+    }
+    window.addEventListener("coi-template:changed", (event) => {
+        if (!currentProject || String(event.detail.projectId) !== String(currentProject.id)) return;
+        coiTpl = event.detail.template;
+        // An upload from the card adds a new file to this folder.
+        loadFiles(currentProject.id).then(() => render()).catch(() => render());
+    });
+
     window.addEventListener("project-shell:ready", async (event) => {
         const { project, error } = event.detail;
         currentProject = project;
@@ -1643,7 +1696,8 @@
         await Promise.all([
             loadMyProjectRole(project.id),
             loadFiles(project.id),
-            loadProjectForms()
+            loadProjectForms(),
+            loadCoiTemplate(project.id)
         ]);
 
         document.getElementById("filesLoadingState").style.display = "none";
