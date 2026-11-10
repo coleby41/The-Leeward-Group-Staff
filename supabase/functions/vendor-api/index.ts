@@ -41,6 +41,7 @@
 import { CORS_HEADERS, formatMoney, json, sendEmail, serviceClient } from "../_shared/bid-common.ts";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { renderTeamInviteEmail } from "../_shared/bid-email.ts";
+import { paperworkState } from "../_shared/paperwork.ts";
 import {
   STAFF_PORTAL_URL, TEAM_INVITE_LINK_HOURS, type Row, type VendorContext, clean, createLoginLink,
   findVendorUserByEmail, lang, maskTaxId, normalizeEmail, notifyStaff, requireVendor, safeFileName,
@@ -424,6 +425,7 @@ async function saveDoc(ctx: VendorContext, body: Row) {
   }
   const { error } = await ctx.admin.from("Companies").update(patch).eq("id", ctx.company!.id);
   if (error) throw error;
+  Object.assign(ctx.company!, patch);   // so notifyIfReady sees the new W-9
 
   const label = kind === "coi" ? `a new COI (expires ${body.expires_on})` : "a new W-9";
   const editors = await staffWithPermission(ctx.admin, "vendors.add_edit_vendor");
@@ -434,6 +436,7 @@ async function saveDoc(ctx: VendorContext, body: Row) {
     link_url: `${STAFF_PORTAL_URL}/pages/vendor.html?id=${ctx.company!.id}`,
     link_label: "View vendor",
   });
+  if (kind === "w9") await notifyIfReady(ctx);   // a W-9 counts on every project
   return json({ ok: true });
 }
 
@@ -466,7 +469,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   ])].filter((id) => id && !hiddenIds.has(id) && (!onlyProjectId || id === onlyProjectId));
 
   // Round 2: the projects, their COI templates and this vendor's contracts.
-  const [projects, templates, contractRows] = projectIds.length
+  const [projects, templates, contractRows, reviewRows] = projectIds.length
     ? await Promise.all([
       ctx.admin.from("projects").select("id, name, site_address, site_city, site_state, site_zip").in("id", projectIds),
       // Leeward's COI template for each project (sample COI with the coverage it needs).
@@ -475,8 +478,12 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
       ctx.admin.from("project_vendor_contracts")
         .select("id, project_id, file_id, signed_file_id, not_needed, signed_at, signed_in_portal, signer_name")
         .eq("company_id", ctx.company!.id).in("project_id", projectIds),
+      // Leeward's review of this vendor's paperwork on each project (2026-11-10).
+      ctx.admin.from("project_vendor_reviews").select("*")
+        .eq("company_id", ctx.company!.id).in("project_id", projectIds),
     ]).then((rs) => rs.map(must))
-    : [[], [], []];
+    : [[], [], [], []];
+  const reviewByProject = new Map(reviewRows.map((r: Row) => [r.project_id, r]));
   const templateByProject = new Map(templates.map((t: Row) => [t.project_id, t]));
   const contractByProject = new Map(contractRows.map((c: Row) => [c.project_id, c]));
 
@@ -502,24 +509,35 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
     const outstanding = mine.some((r: Row) => r.coi_requested_at && !r.coi_received_at);
     const k: Row = contractByProject.get(p.id) || null;
     const kFile = (id: unknown) => id && fileById.get(id) ? { id, name: (fileById.get(id) as Row).file_name } : null;
+    const c = ctx.company!;
+    const coiFileId = withCoi && fileById.get(withCoi.coi_file_id) ? withCoi.coi_file_id : null;
+    const pw = paperworkState({ contract: k, company: c, coiFileId, review: reviewByProject.get(p.id) || null });
     const contract = {
-      status: k?.not_needed ? "not_needed" : k?.signed_file_id ? "signed" : k?.file_id ? "to_sign" : "waiting",
+      // A returned contract goes back to "to_sign" so the vendor signs it again.
+      status: k?.not_needed ? "not_needed" : pw.items.contract.state === "returned" ? "to_sign" : k?.signed_file_id ? "signed" : k?.file_id ? "to_sign" : "waiting",
       file: kFile(k?.file_id),
       signed_file: kFile(k?.signed_file_id),
       signed_at: k?.signed_at || null,
       signed_in_portal: Boolean(k?.signed_in_portal),
       signer_name: k?.signer_name || null,
     };
-    const c = ctx.company!;
-    const checklist = {
-      contract: contract.status === "signed" || contract.status === "not_needed",
-      w9: Boolean(c.W9FilePath) || Boolean(c.W9Exempt),
-      coi: Boolean(withCoi && fileById.get(withCoi.coi_file_id)) || Boolean(c.COIExempt),
-    };
+    const done = (key: "contract" | "w9" | "coi") => pw.items[key].state === "submitted" || pw.items[key].state === "exempt";
+    const checklist = { contract: done("contract"), w9: done("w9"), coi: done("coi") };
     return {
       contract,
       checklist,
-      locked: !(checklist.contract && checklist.w9 && checklist.coi),
+      // Unlocks only once Leeward approves every item (not just when it's all in).
+      locked: pw.status !== "approved",
+      review: {
+        status: pw.status,                     // open | in_review | approved
+        returned: {
+          contract: pw.items.contract.state === "returned" ? (pw.items.contract.note || "") : null,
+          w9: pw.items.w9.state === "returned" ? (pw.items.w9.note || "") : null,
+          coi: pw.items.coi.state === "returned" ? (pw.items.coi.note || "") : null,
+        },
+        note: pw.note,
+        decided_at: pw.decided_at,
+      },
       id: p.id,
       name: p.name,
       location: [p.site_address, [p.site_city, p.site_state].filter(Boolean).join(", "), p.site_zip].filter(Boolean).join(" "),
@@ -555,6 +573,50 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
 // A locked project shows only its name, location and the paperwork checklist.
 function lockedView(p: Row): Row {
   return p.locked ? { ...p, scopes: [] } : p;
+}
+
+// When the vendor's last piece of paperwork comes in, ring the bell for the
+// staff who set the vendor up on the project ("ready for review"). Once per
+// review round: again only after Leeward has returned something since.
+async function notifyIfReady(ctx: VendorContext, onlyProjectId?: string) {
+  try {
+    const projects = await awardedProjects(ctx, onlyProjectId);
+    for (const project of projects) {
+      if (project.review.status !== "in_review") continue;
+      const { data: r } = await ctx.admin.from("project_vendor_reviews").select("ready_notified_at, decided_at")
+        .eq("project_id", project.id).eq("company_id", ctx.company!.id).maybeSingle();
+      if (r?.ready_notified_at && (!r.decided_at || r.ready_notified_at > r.decided_at)) continue;
+      const staff = await projectStaff(ctx, project);
+      if (staff.length) {
+        await notifyStaff(ctx.admin, staff, {
+          title: "Paperwork ready for review",
+          message: `${companyName(ctx)} finished their paperwork for ${project.name}. Review and approve it on the project's Bid Invites page.`,
+          type: "vendor_document",
+          link_url: `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${project.id}`,
+          link_label: "Review paperwork",
+        });
+      }
+      await ctx.admin.from("project_vendor_reviews").upsert({
+        project_id: project.id, company_id: ctx.company!.id, ready_notified_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      }, { onConflict: "project_id,company_id" });
+    }
+  } catch (error) {
+    console.error("notifyIfReady failed (non-fatal):", error);
+  }
+}
+
+// Staff who set this vendor up on the project: bid package creators + whoever
+// added them directly (vendor page › Manage Projects).
+async function projectStaff(ctx: VendorContext, project: Row): Promise<string[]> {
+  const inviteIds = project.scopes.map((sc: Row) => sc.invite_id).filter(Boolean);
+  const assignmentIds = project.scopes.map((sc: Row) => sc.assignment_id).filter(Boolean);
+  const { data: invRows } = inviteIds.length ? await ctx.admin.from("bid_invites").select("package_id").in("id", inviteIds) : { data: [] };
+  const pkgIds = [...new Set((invRows || []).map((r: Row) => r.package_id))];
+  const { data: pkgs } = pkgIds.length ? await ctx.admin.from("bid_packages").select("created_by").in("id", pkgIds) : { data: [] };
+  const { data: asgRows } = assignmentIds.length
+    ? await ctx.admin.from("vendor_project_assignments").select("added_by").in("id", assignmentIds)
+    : { data: [] };
+  return [...new Set([...(pkgs || []).map((r: Row) => r.created_by), ...(asgRows || []).map((r: Row) => r.added_by)].filter(Boolean))] as string[];
 }
 
 async function projectsList(ctx: VendorContext) {
@@ -651,6 +713,7 @@ async function saveProjectCoi(ctx: VendorContext, body: Row) {
       link_label: inviteIds.length ? "View bids" : "View vendor",
     });
   }
+  await notifyIfReady(ctx, project.id);
   return json({ ok: true });
 }
 
@@ -785,6 +848,7 @@ async function signContract(ctx: VendorContext, body: Row) {
       link_label: "View accounts",
     });
   }
+  await notifyIfReady(ctx, project.id);
   return json({ ok: true });
 }
 

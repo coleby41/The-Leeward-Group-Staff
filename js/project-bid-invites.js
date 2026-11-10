@@ -225,9 +225,13 @@
     // js/coi-template.js (shared with Overview, Project Files and the wizard).
     // Here it only gates Award and Request COI.
     let templateCard = null;
+    let paperwork = null;     // Vendor Paperwork card (js/vendor-paperwork.js)
     async function loadTemplate() {
         coiTemplate = await window.CoiTemplate.load(project.id);
         if (!templateCard && $("bidCoiTemplate")) templateCard = window.CoiTemplate.mount($("bidCoiTemplate"), { project, canManage });
+        // Mounting loads it; after that, refresh it with the rest of the page (e.g. after an award).
+        if (!paperwork && $("bidPaperwork") && window.VendorPaperwork) paperwork = window.VendorPaperwork.mount($("bidPaperwork"), { project, canManage, call: callBidFunction });
+        else if (paperwork) paperwork.reload();
     }
     window.addEventListener("coi-template:changed", e => {
         if (!project || String(e.detail.projectId) !== String(project.id)) return;

@@ -18590,3 +18590,17 @@ html:has(body.changelog-page) { height: auto; }
 /* COI template card — js/coi-template.js (2026-11-10) */
 .coi-tpl-warning { margin: 0 0 10px; padding: 10px 12px; border-radius: 8px; background: #FDF0DF; color: #9A4508; font-size: 14px; border: 1px solid #E9C79B; }
 .coi-tpl-blocked { display: block; margin-top: 4px; font-size: 12px; color: #9A4508; }
+
+/* Vendor Paperwork review — js/vendor-paperwork.js (2026-11-10) */
+.vp-paper-table td .bid-cell-sub { display: block; margin-top: 2px; }
+.vp-paper-popup { max-width: 640px; }
+.vp-paper-items { display: flex; flex-direction: column; gap: 12px; margin: 12px 0; }
+.vp-paper-item { border: 1px solid var(--border, #D8DEE4); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.vp-paper-item__head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.vp-paper-item__head .workbook-btn { margin-left: auto; width: auto; }
+.vp-paper-note { margin: 0; padding: 8px 10px; border-radius: 6px; background: #FDECEA; color: #B42318; font-size: 13px; }
+.vp-paper-choice { display: flex; gap: 8px; flex-wrap: wrap; }
+.vp-paper-btn { border: 1px solid var(--border, #D8DEE4); background: #fff; border-radius: 6px; padding: 8px 14px; font-weight: 600; cursor: pointer; font: inherit; }
+.vp-paper-btn.is-approve { background: #E4F2EA; border-color: #17663E; color: #17663E; }
+.vp-paper-btn.is-return { background: #FDECEA; border-color: #B42318; color: #B42318; }
+.vp-paper-item .auth-field textarea { width: 100%; }

@@ -491,3 +491,41 @@ export function renderProjectCoiEmail(lng: Lang, name: string, companyName: stri
     text: textOf(name, lng, paras, link, note),
   };
 }
+
+// Leeward's decision on a vendor's project paperwork (2026-11-10, bid-invites
+// "paperwork_decide"): either everything approved (project unlocked) or one or
+// more items returned with Leeward's notes.
+export function renderPaperworkEmail(
+  lng: Lang,
+  name: string,
+  companyName: string,
+  projectName: string,
+  approved: boolean,
+  returned: { label: string; note: string }[],
+  note: string | null,
+  link: string,
+  hours: number,
+): Rendered {
+  const es = lng === "es";
+  const c = escapeHtml(companyName);
+  const p = escapeHtml(projectName);
+  const paras: string[] = [];
+  if (approved) {
+    paras.push(es
+      ? `The Leeward Group aprobó los documentos de <b>${c}</b> para <b>${p}</b>. El alcance, los documentos y los contactos del proyecto ya están disponibles en el Portal de Proveedores.`
+      : `The Leeward Group approved <b>${c}</b>'s paperwork for <b>${p}</b>. The project's scope, documents and contacts are now open in the Vendor Portal.`);
+  } else {
+    paras.push(es
+      ? `The Leeward Group revisó los documentos de <b>${c}</b> para <b>${p}</b> y devolvió lo siguiente. Corríjalo y vuelva a subirlo en la carpeta del proyecto en el Portal de Proveedores:`
+      : `The Leeward Group reviewed <b>${c}</b>'s paperwork for <b>${p}</b> and returned the following. Please correct it and upload it again in the project's folder in the Vendor Portal:`);
+    returned.forEach((r) => paras.push(`<b>${escapeHtml(r.label)}:</b> ${escapeHtml(r.note)}`));
+  }
+  if (note) paras.push(`<b>${es ? "Nota de The Leeward Group:" : "Note from The Leeward Group:"}</b> ${escapeHtml(note)}`);
+  const subject = approved
+    ? (es ? `Documentos aprobados – ${projectName}` : `Paperwork approved – ${projectName}`)
+    : (es ? `Documentos devueltos – ${projectName}` : `Paperwork returned – ${projectName}`);
+  const banner = approved ? (es ? "Documentos Aprobados" : "Paperwork Approved") : (es ? "Documentos Devueltos" : "Paperwork Returned");
+  const button = es ? "Abrir el proyecto" : "Open the project";
+  const linkNote = strings(lng).approvedNote(hours);
+  return { subject, html: simpleEmail(lng, banner, name, paras, link, button, linkNote), text: textOf(name, lng, paras, link, linkNote) };
+}

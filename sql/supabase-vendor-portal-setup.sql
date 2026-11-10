@@ -660,3 +660,46 @@ create policy project_coi_templates_write on public.project_coi_templates
 --   select format_type(atttypid, atttypmod) from pg_attribute
 --     where attrelid = 'public.vendor_users'::regclass and attname = 'contact_id';   -- same type as "Contacts".id
 -- ============================================================================
+
+
+-- 9c. project_vendor_reviews: Leeward's review of a vendor's project paperwork (2026-11-10) ---
+-- Contract, W-9 and COI. Once all three are in, staff approve or return each
+-- one on Project Bid Invites and send the decision to the vendor in one
+-- request (bid-invites "paperwork_decide"). The project unlocks in the Vendor
+-- Portal only when every item is approved (approved_at). A returned item
+-- remembers the file it was returned with (*_returned_*); it counts as in
+-- again once the vendor replaces that file. Rules: supabase/functions/_shared/paperwork.ts.
+-- Written only by the Edge Functions (service role); staff can read it.
+
+create table if not exists public.project_vendor_reviews (
+  project_id uuid not null references public.projects(id) on delete cascade,
+  company_id bigint not null references public."Companies"(id) on delete cascade,
+  contract_status text check (contract_status in ('approved', 'returned')),
+  w9_status text check (w9_status in ('approved', 'returned')),
+  coi_status text check (coi_status in ('approved', 'returned')),
+  contract_note text,
+  w9_note text,
+  coi_note text,
+  note text,                                  -- general note to the vendor
+  contract_returned_file_id uuid,
+  w9_returned_path text,
+  coi_returned_file_id uuid,
+  last_decision text check (last_decision in ('approved', 'returned')),
+  decided_at timestamptz,
+  decided_by_name text,
+  approved_at timestamptz,                    -- set = project unlocked for this vendor
+  ready_notified_at timestamptz,              -- last "ready for review" bell
+  updated_at timestamptz not null default now(),
+  primary key (project_id, company_id)
+);
+
+alter table public.project_vendor_reviews enable row level security;
+revoke all on public.project_vendor_reviews from anon, authenticated;
+grant select on public.project_vendor_reviews to authenticated;
+grant all on public.project_vendor_reviews to service_role;
+
+drop policy if exists project_vendor_reviews_select on public.project_vendor_reviews;
+create policy project_vendor_reviews_select on public.project_vendor_reviews
+  for select to authenticated using (public.can_view_bid_invites());
+
+-- Sanity check:  select count(*) from public.project_vendor_reviews;   -- 0 at first
