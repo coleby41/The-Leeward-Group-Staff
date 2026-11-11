@@ -703,3 +703,12 @@ create policy project_vendor_reviews_select on public.project_vendor_reviews
   for select to authenticated using (public.can_view_bid_invites());
 
 -- Sanity check:  select count(*) from public.project_vendor_reviews;   -- 0 at first
+
+
+-- 9d. Terms of Use acceptance on vendor applications (2026-11-11) -------------------------
+-- The applicant must scroll through and accept the Terms of Use in a popup
+-- when they submit (Vendor Portal apply.html). We keep which version, when,
+-- and from what IP. Version = VERSION in the Vendor Portal's js/terms.js.
+alter table public.vendor_applications add column if not exists terms_version text;
+alter table public.vendor_applications add column if not exists terms_accepted_at timestamptz;
+alter table public.vendor_applications add column if not exists terms_accepted_ip text;

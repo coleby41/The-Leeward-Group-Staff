@@ -46,6 +46,10 @@ async function submit(body: Row) {
     w9_path: clean(body.w9_path, 400),
     coi_expires_on: /^\d{4}-\d{2}-\d{2}$/.test(String(body.coi_expires_on || "")) ? String(body.coi_expires_on) : null,
     language: lang(body.lang),
+    // Terms of Use accepted in the popup on Submit (2026-11-11). Version = js/terms.js VERSION.
+    terms_version: clean(body.terms_version, 40),
+    terms_accepted_at: new Date().toISOString(),
+    terms_accepted_ip: clean(body._ip, 80),
   };
 
   const missing = Object.entries({
@@ -54,6 +58,7 @@ async function submit(body: Row) {
     ssn_fid: f.ssn_fid, w9_path: f.w9_path,
   }).filter(([, v]) => !v).map(([k]) => k);
   if (missing.length) return json({ ok: false, error: "missing_fields", fields: missing }, 400);
+  if (body.terms_accepted !== true || !f.terms_version) return json({ ok: false, error: "terms_required" }, 400);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.contact_email)) return json({ ok: false, error: "bad_email", fields: ["contact_email"] }, 400);
   if (!/^[0-9]{9}$/.test(f.ssn_fid!.replace(/[^0-9]/g, ""))) return json({ ok: false, error: "bad_tax_id", fields: ["ssn_fid"] }, 400);
   if (!f.w9_path!.startsWith("applications/") || f.w9_path!.includes("..")) return json({ ok: false, error: "missing_fields", fields: ["w9_path"] }, 400);
@@ -132,6 +137,7 @@ Deno.serve(async (req: Request) => {
   let body: Row;
   try { body = await req.json(); } catch { return json({ ok: false, error: "Invalid JSON body" }, 400); }
   const action = String(body?.action || "");
+  body._ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("cf-connecting-ip") || null;
   try {
     if (action === "w9_upload_url") return await w9UploadUrl(body);
     if (action === "submit") return await submit(body);

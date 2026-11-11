@@ -159,6 +159,10 @@
             ["COI expires", esc(app.coi_expires_on ? new Date(`${app.coi_expires_on}T00:00:00`).toLocaleDateString("en-US") : "Not given (COIs are collected per vendor later)")],
             ["Language", app.language === "es" ? "Spanish" : "English"],
             ["Applied", esc(new Date(app.created_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }))],
+            // Terms of Use accepted on submit (2026-11-11); older applications have none.
+            ["Terms of Use", app.terms_accepted_at
+                ? esc(`Accepted (version ${app.terms_version || "?"}) on ${new Date(app.terms_accepted_at).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}${app.terms_accepted_ip ? ` · IP ${app.terms_accepted_ip}` : ""}`)
+                : "Not recorded"],
         ];
         $("vendorAppDetailList").innerHTML = rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("");
         $("vendorAppRevealBtn").addEventListener("click", () => { revealed = !revealed; renderDetail(); });
