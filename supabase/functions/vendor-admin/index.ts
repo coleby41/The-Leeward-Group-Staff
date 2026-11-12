@@ -16,12 +16,16 @@
 //       After staff add a vendor to a project (vendor page › Manage Projects):
 //       emails the vendor's account holder a 72-hour sign-in link that opens
 //       that project's folder in the Vendor Portal to upload the COI.
+//   { action: "view_as", company_id }   (vendors.view_as_vendor, 2026-11-12)
+//       A read-only, 1-hour Vendor Portal session as the vendor's account
+//       holder, for staff portal › Vendor Portal Preview. vendor-api refuses
+//       every change on it.
 //
 // Deploy:  supabase functions deploy vendor-admin
 
 import { CORS_HEADERS, json, requireStaffPermission, sendEmail, serviceClient } from "../_shared/bid-common.ts";
 import { renderApprovedEmail, renderProjectCoiEmail, renderRejectedEmail } from "../_shared/bid-email.ts";
-import { type Row, TEAM_INVITE_LINK_HOURS, clean, createLoginLink, lang, normalizeEmail } from "../_shared/vendor-common.ts";
+import { PORTAL_URL, type Row, TEAM_INVITE_LINK_HOURS, clean, createLoginLink, createPreviewSession, lang, normalizeEmail } from "../_shared/vendor-common.ts";
 
 const APPROVE = "vendors.approve_applications";
 
@@ -261,19 +265,39 @@ async function requestProjectCoi(body: Row) {
   return json({ ok: true, sent_to: user.email });
 }
 
+// Staff "View as vendor": a read-only portal session as the account holder.
+async function viewAs(body: Row, staff: Row) {
+  const admin = serviceClient();
+  const companyId = Number(body.company_id);
+  if (!Number.isFinite(companyId)) return json({ ok: false, error: "company_id is required" }, 400);
+  const { data: company } = await admin.from("Companies").select("id, Name, FriendlyName").eq("id", companyId).maybeSingle();
+  if (!company) return json({ ok: false, error: "That vendor doesn't exist anymore." }, 404);
+  const { data: users } = await admin.from("vendor_users").select("id, name, email, role, status, created_at")
+    .eq("company_id", companyId).eq("status", "active").order("created_at", { ascending: true });
+  const holder = (users || []).find((u: Row) => u.role === "holder") || (users || [])[0];
+  if (!holder) return json({ ok: false, error: "This vendor doesn't have a Vendor Portal login yet, so there's nothing to preview." }, 404);
+  const staffName = staff.full_name || staff.username || "Staff";
+  const { token, expires_at } = await createPreviewSession(admin, holder.id, staff.id, staffName);
+  return json({
+    ok: true, token, expires_at, portal_url: PORTAL_URL,
+    company_name: company.FriendlyName || company.Name, as_name: holder.name || holder.email, as_email: holder.email,
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
   let body: Row;
   try { body = await req.json(); } catch { return json({ ok: false, error: "Invalid JSON body" }, 400); }
   const action = String(body?.action || "");
-  if (!["approve", "reject", "w9_url", "request_project_coi"].includes(action)) return json({ ok: false, error: `Unknown action "${action}"` }, 400);
+  if (!["approve", "reject", "w9_url", "request_project_coi", "view_as"].includes(action)) return json({ ok: false, error: `Unknown action "${action}"` }, 400);
 
-  const auth = await requireStaffPermission(req, action === "request_project_coi" ? "vendors.add_edit_vendor" : APPROVE);
+  const auth = await requireStaffPermission(req, action === "request_project_coi" ? "vendors.add_edit_vendor" : action === "view_as" ? "vendors.view_as_vendor" : APPROVE);
   if (auth.error) return auth.error;
 
   try {
     if (action === "request_project_coi") return await requestProjectCoi(body);
+    if (action === "view_as") return await viewAs(body, auth.staff);
     if (action === "approve") return await approve(body, auth.staff);
     if (action === "reject") return await reject(body, auth.staff);
     return await w9Url(body);

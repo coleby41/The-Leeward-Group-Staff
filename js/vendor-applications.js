@@ -283,11 +283,18 @@
         if (window.Permissions) {
             try { await window.Permissions.initPermissions(); } catch (e) { /* hasPermission fails open */ }
         }
+        // More Actions › Vendor Portal Preview (2026-11-12): vendors.view_as_vendor only.
+        const preview = $("vendorPreviewLink");
+        if (preview) {
+            const ok = Boolean(window.Permissions && window.Permissions.hasPermission("vendors.view_as_vendor"));
+            preview.classList.toggle("hidden", !ok);
+            if (ok) $("vendorAppsDivider")?.classList.remove("hidden");
+        }
         const btn = $("vendorAppsBtn");
         if (!btn || !$("vendorAppsOverlay")) return;
         const allowed = can();
         btn.classList.toggle("hidden", !allowed);
-        $("vendorAppsDivider")?.classList.toggle("hidden", !allowed);
+        $("vendorAppsDivider")?.classList.toggle("hidden", !allowed && !(preview && !preview.classList.contains("hidden")));
         if (!allowed) return;
 
         btn.addEventListener("click", open);

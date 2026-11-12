@@ -109,6 +109,8 @@ async function me(ctx: VendorContext) {
     user: { id: u.id, name: u.name, email: u.email, title: u.title, phone: u.phone, role: u.role, status: u.status, language: u.language },
     company: ctx.company ? { id: ctx.company.id, name: ctx.company.Name, friendly_name: ctx.company.FriendlyName || null } : null,
     application,
+    // Staff "View as vendor" preview: the portal shows a banner and stays view-only.
+    preview: ctx.readOnly ? { by: ctx.previewBy } : null,
   });
 }
 
@@ -162,7 +164,7 @@ async function invite(ctx: VendorContext, body: Row) {
   if (!loaded) return fail("not_found", 404);
   const { invite: inv, pkg } = loaded;
 
-  if (!inv.viewed_at) {
+  if (!inv.viewed_at && !ctx.readOnly) {   // a staff preview doesn't count as the vendor viewing it
     const patch: Row = { viewed_at: new Date().toISOString() };
     if (inv.status === "sent") patch.status = "viewed";
     await ctx.admin.from("bid_invites").update(patch).eq("id", inv.id);
@@ -949,6 +951,13 @@ const ACTIONS: Record<string, (ctx: VendorContext, body: Row) => Promise<Respons
   save_project_coi: saveProjectCoi, project_file_url: projectFileUrl, sign_contract: signContract, doc_url: docUrl, team_add: teamAdd, team_remove: teamRemove,
 };
 
+// Everything that changes data. Refused on a staff preview session.
+const WRITE_ACTIONS = new Set([
+  "set_language", "update_me", "respond", "bid_upload_url", "submit_bid", "update_company",
+  "doc_upload_url", "save_doc", "set_coi_date", "project_coi_upload_url", "save_project_coi",
+  "sign_contract", "team_add", "team_remove",
+]);
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return json({ ok: false, error: "POST only" }, 405);
@@ -960,6 +969,8 @@ Deno.serve(async (req: Request) => {
   try {
     const auth = await requireVendor(body.session);
     if (auth.error) return auth.error;
+    // Staff "View as vendor" preview: look, don't touch (2026-11-12).
+    if (auth.ctx.readOnly && WRITE_ACTIONS.has(action)) return json({ ok: false, error: "view_only" }, 403);
     // For the signature record (sign_contract). Never trusted from the client.
     body._ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || req.headers.get("cf-connecting-ip") || null;
     return await handler(auth.ctx, body);

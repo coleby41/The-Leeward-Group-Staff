@@ -111,6 +111,26 @@ export interface VendorContext {
   user: Row;              // vendor_users row
   company: Row | null;    // Companies row (null while the application is pending)
   sessionId: string;
+  readOnly: boolean;      // staff "View as vendor" preview: no changes allowed
+  previewBy: string | null;
+}
+
+// Staff "View as vendor" preview session: read-only, 1 hour, never renews (2026-11-12).
+export const PREVIEW_MINUTES = 60;
+export async function createPreviewSession(admin: SupabaseClient, vendorUserId: string, staffId: string, staffName: string): Promise<{ token: string; expires_at: string }> {
+  const token = randomToken();
+  const expires_at = new Date(Date.now() + PREVIEW_MINUTES * 60 * 1000).toISOString();
+  const { error } = await admin.from("vendor_sessions").insert({
+    vendor_user_id: vendorUserId,
+    token_hash: await sha256(token),
+    expires_at,
+    user_agent: `Staff preview by ${staffName}`.slice(0, 300),
+    read_only: true,
+    preview_by_staff_id: staffId,
+    preview_by_name: staffName,
+  });
+  if (error) throw error;
+  return { token, expires_at };
 }
 
 // Looks up the session token the portal sent. Returns the vendor or an
@@ -122,7 +142,7 @@ export async function requireVendor(sessionToken: unknown): Promise<{ ctx: Vendo
   // One round trip: session + its login + the login's company.
   const { data: session, error } = await admin
     .from("vendor_sessions")
-    .select("id, vendor_user_id, expires_at, last_seen_at, vendor_users(*, Companies(*))")
+    .select("id, vendor_user_id, expires_at, last_seen_at, read_only, preview_by_name, vendor_users(*, Companies(*))")
     .eq("token_hash", await sha256(token))
     .maybeSingle();
   if (error) throw error;
@@ -138,14 +158,15 @@ export async function requireVendor(sessionToken: unknown): Promise<{ ctx: Vendo
   }
   const company = user.company_id ? one(user.Companies) || null : null;
   delete user.Companies;
-  // Sliding expiry: touch at most once an hour.
-  if (Date.now() - new Date(session.last_seen_at).getTime() > 60 * 60 * 1000) {
+  const readOnly = Boolean(session.read_only);
+  // Sliding expiry: touch at most once an hour. Staff previews never renew.
+  if (!readOnly && Date.now() - new Date(session.last_seen_at).getTime() > 60 * 60 * 1000) {
     await admin.from("vendor_sessions").update({
       last_seen_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000).toISOString(),
     }).eq("id", session.id);
   }
-  return { ctx: { admin, user, company, sessionId: session.id } };
+  return { ctx: { admin, user, company, sessionId: session.id, readOnly, previewBy: readOnly ? (session.preview_by_name || "Staff") : null } };
 }
 
 // Staff (by staff_users.id) who have a permission through one of their

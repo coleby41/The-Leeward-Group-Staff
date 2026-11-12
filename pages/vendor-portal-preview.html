@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Leeward Staff Portal | Vendor Portal Preview</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="/js/splash.js"></script>
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<header class="header">
+
+    <div class="header-left">
+
+        <div class="brand-mark">
+
+            <div class="brand-mark__icon" id="brandInitials">
+                ST
+            </div>
+
+            <div>
+                <div class="brand-title">
+                    The Leeward Group
+                </div>
+
+                <div class="brand-subtitle">
+                    Staff Portal
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="header-right">
+
+        <div class="header-user-area">
+
+            <div class="header-user-pill" id="headerUserPill">
+
+
+                <span id="headerUserName">
+                    Staff
+                </span>
+
+
+
+                <div class="notification-wrapper">
+
+
+                    <button
+                        class="notification-bell"
+                        id="notificationBell"
+                        aria-label="Notifications">
+
+                        <span class="notification-bell-icon"></span>
+
+                        <span class="notification-count">
+                            3
+                        </span>
+
+                    </button>
+
+
+
+
+                    <div class="notification-dropdown" id="notificationDropdown">
+
+
+                        <div class="notification-header">
+                        <span>Notifications</span>
+                        <button class="mark-read-btn">Mark as read</button>
+                        </div>
+
+
+                        <div id="notificationList"></div>
+
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+
+
+                        <div class="notification-footer">
+
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+
+                            <button
+                                class="auth-button auth-button--secondary header-signout"
+                                id="signOutButton"
+                                type="button">
+
+                                Sign out
+
+                            </button>
+
+                        </div>
+</div>
+
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+</header>
+
+
+
+
+
+<main class="main-content expanded vpp-main">
+
+    <!-- No sidebar on this page, so give people a way back out. -->
+    <a href="/pages/vendors.html" class="nc-back-link"
+       onclick="if (history.length > 1 && document.referrer.startsWith(location.origin)) { history.back(); return false; }">← Back</a>
+
+    <!-- Vendor Portal Preview (2026-11-12): see the Vendor Portal exactly as a
+         vendor does, view only (js/vendor-portal-preview.js). -->
+    <div class="vpp-head">
+        <div>
+            <h1>Vendor Portal Preview</h1>
+            <p class="card-subtitle">See the Vendor Portal exactly as a vendor sees it. View only — nothing you do in the preview changes anything.</p>
+        </div>
+        <form class="vpp-pick" id="vppForm">
+            <select id="vppVendor" aria-label="Vendor" disabled><option value="">Loading vendors…</option></select>
+            <button type="submit" class="auth-button" id="vppGo" disabled>View as vendor</button>
+        </form>
+    </div>
+
+    <p class="auth-message hidden" id="vppMessage" role="alert"></p>
+
+    <div class="vpp-bar hidden" id="vppBar">
+        <span><strong id="vppAs"></strong> <span class="vpp-bar-sub" id="vppAsSub"></span></span>
+        <span class="vpp-bar-actions">
+            <button type="button" class="workbook-btn" id="vppReload">Reload</button>
+            <button type="button" class="workbook-btn" id="vppEnd">End preview</button>
+        </span>
+    </div>
+
+    <div class="vpp-frame-wrap" id="vppFrameWrap">
+        <div class="vpp-empty" id="vppEmpty">
+            <p>Pick a vendor above to see their Vendor Portal.</p>
+            <p class="card-subtitle">Only vendors with a Vendor Portal login are listed. You'll see the portal as their account holder.</p>
+        </div>
+    </div>
+
+</main>
+
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
+<script src="/js/mobile-app.js"></script>
+<script src="/js/sheet-swipe.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/nav-approvals-badge.js"></script>
+<script src="/js/vendor-portal-preview.js"></script>
+
+<script>
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") window.signOutUser();
+        else console.error("signOutUser() is not available");
+    });
+}
+
+const userNameElement = document.getElementById("headerUserName");
+const brandInitials = document.getElementById("brandInitials");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+    if (brandInitials) {
+        const words = String(name).trim().split(/\s+/).filter(Boolean);
+        const initials = words.length >= 2
+            ? `${words[0][0]}${words[words.length - 1][0]}`.toUpperCase()
+            : words[0]?.substring(0, 2).toUpperCase() || "ST";
+        brandInitials.textContent = initials;
+    }
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+function updateNavAccess(profile) {
+    const shouldShowAdminNav = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "IT") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    const adminNavGroup = document.getElementById("adminNavGroup");
+    if (adminNavGroup) adminNavGroup.style.display = shouldShowAdminNav ? "block" : "none";
+
+    const payrollToolsNavItem = document.getElementById("payrollToolsNavItem");
+    const shouldShowPayrollTools = window.isSupabaseUserInGroup
+        ? (window.isSupabaseUserInGroup(profile, "Office") || window.isSupabaseUserInGroup(profile, "Accounting") || window.isSupabaseUserInGroup(profile, "Super Admin"))
+        : false;
+    if (payrollToolsNavItem) payrollToolsNavItem.style.display = shouldShowPayrollTools ? "flex" : "none";
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        const parsedProfile = JSON.parse(storedProfile);
+        updateStaffName(parsedProfile);
+        updateNavAccess(parsedProfile);
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) {
+        updateStaffName(profile);
+        updateNavAccess(profile);
+    }
+});
+</script>
+
+</body>
+
+</html>

@@ -197,6 +197,17 @@
             pill.title = `Vendor Portal logins: ${members.map(m => m.name || m.email).join(", ")}`;
             $("vdHeadStatus").before(pill);
         }
+        // "View as vendor" → Vendor Portal Preview (2026-11-12), vendors.view_as_vendor only.
+        document.getElementById("vdPreviewLink")?.remove();
+        if (members.length && window.Permissions && window.Permissions.hasPermission("vendors.view_as_vendor")) {
+            const a = document.createElement("a");
+            a.id = "vdPreviewLink";
+            a.className = "workbook-btn vd-preview-link";
+            a.href = `/pages/vendor-portal-preview.html?company=${encodeURIComponent(company.id)}`;
+            a.textContent = "View as vendor";
+            a.title = "See the Vendor Portal as this vendor (view only)";
+            $("vdHeadStatus").after(a);
+        }
 
         const approved = missingRequirements().length === 0;
         const status = $("vdHeadStatus");

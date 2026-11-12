@@ -712,3 +712,29 @@ create policy project_vendor_reviews_select on public.project_vendor_reviews
 alter table public.vendor_applications add column if not exists terms_version text;
 alter table public.vendor_applications add column if not exists terms_accepted_at timestamptz;
 alter table public.vendor_applications add column if not exists terms_accepted_ip text;
+
+
+-- 9e. Staff "View as vendor" preview (2026-11-12) ------------------------------------------
+-- Staff with vendors.view_as_vendor open a read-only Vendor Portal session as a
+-- vendor's account holder (staff portal › Vendor Portal Preview). vendor-api
+-- refuses every change on a read_only session; it lasts 1 hour and never renews.
+alter table public.vendor_sessions add column if not exists read_only boolean not null default false;
+alter table public.vendor_sessions add column if not exists preview_by_staff_id uuid;
+alter table public.vendor_sessions add column if not exists preview_by_name text;
+
+do $$
+declare next_sort int;
+begin
+  select coalesce(max(sort_order), 0) + 1 into next_sort from public.permissions;
+  insert into public.permissions (key, category, page_label, label, description, governed_by, sort_order) values
+    ('vendors.view_as_vendor', 'Vendors & Companies', 'Vendor Contacts', 'View Vendor Portal as a Vendor',
+     'Vendor Portal Preview: see the Vendor Portal exactly as a vendor does (view only)', 'workgroup', next_sort)
+  on conflict (key) do update set
+    category = excluded.category, page_label = excluded.page_label,
+    label = excluded.label, description = excluded.description, governed_by = excluded.governed_by;
+end $$;
+
+insert into public.workgroup_permissions (workgroup_id, permission_key)
+select w.id, 'vendors.view_as_vendor' from public.workgroups w
+where w.name in ('IT', 'Super Admin')
+on conflict (workgroup_id, permission_key) do nothing;

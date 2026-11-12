@@ -18604,3 +18604,20 @@ html:has(body.changelog-page) { height: auto; }
 .vp-paper-btn.is-approve { background: #E4F2EA; border-color: #17663E; color: #17663E; }
 .vp-paper-btn.is-return { background: #FDECEA; border-color: #B42318; color: #B42318; }
 .vp-paper-item .auth-field textarea { width: 100%; }
+
+/* Vendor Portal Preview — pages/vendor-portal-preview.html (2026-11-12) */
+.vpp-main { display: flex; flex-direction: column; gap: 12px; }
+.vpp-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.vpp-head h1 { margin: 0 0 4px; }
+.vpp-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vpp-pick select { min-width: 260px; height: 42px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border, #D8DEE4); font: inherit; background: #fff; }
+.vpp-pick .auth-button { width: auto; margin: 0; }
+.vpp-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 8px; background: #FDF0DF; border: 1px solid #E9C79B; color: #7A3606; font-size: 14px; }
+.vpp-bar-sub { font-weight: 400; }
+.vpp-bar-actions { display: flex; gap: 8px; }
+.vpp-bar-actions .workbook-btn { width: auto; }
+.vpp-frame-wrap { flex: 1 1 auto; min-height: 70vh; border: 1px solid var(--border, #D8DEE4); border-radius: 10px; overflow: hidden; background: #fff; display: flex; }
+.vpp-frame { flex: 1 1 auto; width: 100%; min-height: 70vh; border: 0; display: block; }
+.vpp-empty { margin: auto; text-align: center; padding: 48px 24px; color: var(--text-soft, #5B6B7C); }
+.vpp-empty p { margin: 0 0 6px; }
+.vd-preview-link { width: auto; margin-left: 8px; display: inline-flex; align-items: center; }
