@@ -296,25 +296,19 @@ window.ProjectFields = (function () {
         return CONTACT_TYPES.find(t => t.key === key) || CONTACT_TYPES[CONTACT_TYPES.length - 1];
     }
 
+    // Onboarding wizard — trimmed 2026-11-16 so it's filled out ONCE at
+    // setup and never needs reopening. Everything that changes over a
+    // project's life now lives on the page that owns it:
+    //   progress / due date      → calculated from the Project Timeline
+    //   status                   → the status chip quick-edit (cards + Overview)
+    //   project manager          → Project Members (Accounts / Contacts)
+    //   owner / GC / POC / county → Accounts / Contacts › contacts
+    //   utilities, trash, potty  → Accounts / Contacts › utility accounts
+    //   site & permit plan files → Project Files
+    // The old columns stay in `projects` (nothing dropped) and
+    // sql/supabase-project-overview-plan.sql copies what was already entered
+    // into contacts / utility accounts / Project Files.
     const WIZARD_STEPS = [
-        {
-            key: "owner_contact",
-            title: "Property Owner Contact Info",
-            hint: "Who owns the property this job is on?",
-            page: "/pages/projects.html",
-            // These 4 steps (owner_contact/gc/poc/county_city) each collect a
-            // Name/Phone/Email-shaped contact — layout: "contact" renders
-            // them as one consistent grouped card (see wizard-contact-block
-            // in styles.css) instead of each hand-rolling its own layout.
-            // No fields were removed/merged — same columns, same data.
-            layout: "contact",
-            fields: [
-                { name: "owner_name", label: "Owner name", type: "text", placeholder: "e.g. Jane Smith" },
-                { name: "owner_phone", label: "Phone", type: "tel", placeholder: "e.g. (910) 555-0132" },
-                { name: "owner_email", label: "Email", type: "email", placeholder: "e.g. jane@email.com" },
-                { name: "owner_address", label: "Mailing address", type: "text", placeholder: "Start typing an address…", addressLookup: true }
-            ]
-        },
         {
             key: "job_name",
             title: "Job Name",
@@ -344,104 +338,15 @@ window.ProjectFields = (function () {
             ]
         },
         {
-            key: "gc",
-            title: "General Contractor",
-            hint: "Who's the GC of record for this job?",
-            page: "/pages/projects.html",
-            layout: "contact",
-            fields: [
-                { name: "gc_name", label: "General contractor name", type: "text" },
-                { name: "gc_phone", label: "Phone", type: "tel" },
-                { name: "gc_email", label: "Email", type: "email" }
-            ]
-        },
-        {
-            key: "poc",
-            title: "Project Point of Contact",
-            hint: "Who should staff reach out to with questions about this project?",
-            page: "/pages/projects.html",
-            layout: "contact",
-            fields: [
-                { name: "poc_name", label: "Name", type: "text" },
-                { name: "poc_role", label: "Role", type: "text", placeholder: "e.g. Project Manager" },
-                { name: "poc_phone", label: "Phone", type: "tel" },
-                { name: "poc_email", label: "Email", type: "email" }
-            ]
-        },
-        {
-            key: "site_plans",
-            title: "Site Plans",
-            hint: "Upload the site plan file if you have it, or just note where things stand.",
-            page: "project-site-plans.html",
-            fields: [
-                { name: "site_plans_status", label: "Status", type: "select", options: WIZARD_STATUS_OPTIONS },
-                { name: "site_plans_notes", label: "Notes", type: "textarea" },
-                { name: "site_plans_file", label: "Site plan file", type: "file", pathField: "site_plans_file_path", accept: ".pdf,.jpg,.jpeg,.png,.dwg" }
-            ]
-        },
-        {
-            key: "permit_plans",
-            title: "Permit Plans",
-            hint: "Upload the permit plan file if you have it, or just note where things stand.",
-            page: "project-site-plans.html",
-            fields: [
-                { name: "permit_number", label: "Permit number", type: "text" },
-                { name: "permit_plans_status", label: "Status", type: "select", options: WIZARD_STATUS_OPTIONS },
-                { name: "permit_plans_notes", label: "Notes", type: "textarea" },
-                { name: "permit_plans_file", label: "Permit plan file", type: "file", pathField: "permit_plans_file_path", accept: ".pdf,.jpg,.jpeg,.png,.dwg" }
-            ]
-        },
-        {
-            key: "utilities",
-            title: "Utilities Account Info",
-            hint: "",
-            page: "/pages/projects.html",
-            fields: [
-                { name: "electric_provider", label: "Electric provider", type: "text" },
-                { name: "electric_account_number", label: "Electric account #", type: "text" },
-                { name: "water_provider", label: "Water provider", type: "text" },
-                { name: "water_account_number", label: "Water account #", type: "text" },
-                { name: "other_utilities_notes", label: "Other utilities notes", type: "textarea" }
-            ]
-        },
-        {
-            key: "temp_services",
-            title: "Temporary Trash / Porta Potties",
-            hint: "",
-            page: "/pages/projects.html",
-            fields: [
-                { name: "trash_vendor", label: "Trash vendor", type: "text" },
-                { name: "trash_account_number", label: "Trash account #", type: "text" },
-                { name: "porta_potty_vendor", label: "Porta potty vendor", type: "text" },
-                { name: "porta_potty_account_number", label: "Porta potty account #", type: "text" },
-                { name: "temp_services_notes", label: "Notes", type: "textarea" }
-            ]
-        },
-        {
-            key: "county_city",
-            title: "County / City Office Contact",
-            hint: "Who do we call for permitting or inspections?",
-            page: "/pages/projects.html",
-            layout: "contact",
-            fields: [
-                { name: "county_city_office_name", label: "Office name", type: "text", placeholder: "e.g. New Hanover County Building Safety" },
-                { name: "county_city_contact_name", label: "Contact name", type: "text" },
-                { name: "county_city_phone", label: "Phone", type: "tel" },
-                { name: "county_city_email", label: "Email", type: "email" }
-            ]
-        },
-        {
-            key: "tracking",
-            title: "Status & Tracking",
-            hint: "Powers the Project Overview cards — the cover photo, status badge, value, progress bar, and due date. Update anytime by reopening this wizard or clicking a card's status badge.",
+            key: "setup",
+            title: "Contract & Start",
+            hint: "The original contract and start date. VPOs add to the contract automatically, and progress comes from the Project Timeline.",
             page: "/pages/projects.html",
             fields: [
                 { name: "cover_photo", label: "Cover photo", type: "file", pathField: "cover_photo_url", accept: "image/*", bucket: "project-covers", publicBucket: true },
-                { name: "status", label: "Status", type: "select", options: PROJECT_STATUSES, noBlankOption: true, default: "onboarding" },
-                { name: "project_manager_name", label: "Project manager", type: "text", placeholder: "e.g. John Smith" },
-                { name: "contract_value", label: "Contract value ($)", type: "number", placeholder: "e.g. 4200000", default: null },
-                { name: "progress_percent", label: "Progress (%)", type: "number", placeholder: "0–100", default: 0 },
-                { name: "due_date", label: "Due date", type: "date" }
+                { name: "contract_value", label: "Original contract value ($)", type: "number", placeholder: "e.g. 4200000", default: null },
+                { name: "start_date", label: "Start date", type: "date" },
+                { name: "permit_number", label: "Permit number (optional)", type: "text" }
             ]
         }
     ];

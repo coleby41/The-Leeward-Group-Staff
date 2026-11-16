@@ -552,7 +552,7 @@
      wizard for. Opened from the status badge on a card/row. -->
 <div class="popup-overlay hidden" id="projectQuickEditOverlay">
     <div class="popup">
-        <h2>Update project tracking</h2>
+        <h2>Update project status</h2>
         <p class="auth-inline-copy" id="projectQuickEditName"></p>
 
         <form class="auth-form" id="projectQuickEditForm" autocomplete="off">
@@ -568,25 +568,8 @@
                 </select>
             </label>
 
-            <label class="auth-field">
-                Project manager
-                <input type="text" name="project_manager_name" id="projectQuickEditPm" placeholder="e.g. John Smith" autocomplete="off">
-            </label>
-
-            <label class="auth-field">
-                Contract value ($)
-                <input type="number" name="contract_value" id="projectQuickEditValue" min="0" step="1000" placeholder="e.g. 4200000">
-            </label>
-
-            <label class="auth-field">
-                Progress (%)
-                <input type="number" name="progress_percent" id="projectQuickEditProgress" min="0" max="100" step="1" placeholder="0–100">
-            </label>
-
-            <label class="auth-field">
-                Due date
-                <input type="date" name="due_date" id="projectQuickEditDueDate">
-            </label>
+            <!-- 2026-11-16: status only. PM → Project Members, contract → onboarding
+                 (+ VPOs), progress + due date → calculated from the Project Timeline. -->
 
             <p class="auth-message" id="projectQuickEditMessage"></p>
 
@@ -754,6 +737,7 @@
 
 <!-- Project Overview grid + New Project Onboard wizard -->
 <script src="/js/project-fields.js"></script>
+<script src="/js/project-metrics.js"></script>
 <script src="/js/projects-page.js"></script>
 <script src="/js/project-invoices.js"></script>
 <script src="/js/project-members.js"></script>

@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     // ---- project ----
     // Same rule as is_project_member(): Super Admin, or listed in project_members.
-    let q = sb.from("projects").select("id, name").ilike("name", `%${project}%`).limit(5);
+    let q = sb.from("projects").select("id, name, plan_locked_at").ilike("name", `%${project}%`).limit(5);
     if (!who.superAdmin) {
       const { data: mine } = await sb.from("project_members").select("project_id").eq("user_id", who.authUserId ?? "");
       const ids = (mine ?? []).map((m: Row) => m.project_id);
@@ -86,7 +86,7 @@ Deno.serve(async (req) => {
     if (tk.error) throw tk.error;
     if (dp.error) throw dp.error;
     const phases: Row[] = ph.data ?? [], tasks: Row[] = tk.data ?? [], deps: Row[] = dp.data ?? [];
-    const ctx: Ctx = { who, projectId: proj.id, command: change, batch: crypto.randomUUID() };
+    const ctx: Ctx = { who, projectId: proj.id, command: change, batch: crypto.randomUUID(), planLocked: Boolean(proj.plan_locked_at) };
 
     if (cmd.kind === "add") return say(await addTask(cmd, proj.name, phases, tasks, ctx));
 
@@ -184,7 +184,7 @@ async function identify(token: string | null): Promise<Who | null> {
 
 // ================= writes (all logged for undo) =================
 
-type Ctx = { who: Who; projectId: string; command: string; batch: string };
+type Ctx = { who: Who; projectId: string; command: string; batch: string; planLocked: boolean };
 
 async function updateTask(t: Row, patch: Row, ctx: Ctx) {
   const before = Object.fromEntries(Object.keys(patch).map((k) => [k, t[k]]));
@@ -238,6 +238,10 @@ async function addTask(cmd: AddCmd, projName: string, phases: Row[], tasks: Row[
     name: titleCase(cmd.title),
     start_date: start,
     end_date: end,
+    // Plan locked → a task added by voice is new scope: its plan dates
+    // start equal to its own (see sql/supabase-project-overview-plan.sql).
+    plan_start_date: ctx.planLocked ? start : null,
+    plan_end_date: ctx.planLocked ? end : null,
     sort_order: sortOrder,
     created_by: ctx.who.id,
     created_by_name: ctx.who.name,

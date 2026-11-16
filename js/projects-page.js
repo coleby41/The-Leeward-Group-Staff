@@ -216,17 +216,18 @@ function formatProjectDate(dateStr) {
 // Returns { text, subtext, subClass } for the due-date row — "X days left",
 // "X days overdue", or just "Completed" once the project is marked done.
 function computeDueDateInfo(project) {
-    const formatted = formatProjectDate(project.due_date);
+    const sched = projectSchedules.get(project.id);
+    const dueISO = (sched && sched.finishDate) || project.due_date; // timeline finish first
+    const formatted = formatProjectDate(dueISO);
     if (!formatted) return { text: "No due date set", subtext: "", subClass: "" };
 
     if (project.status === "completed") {
         return { text: formatted, subtext: "Completed", subClass: "" };
     }
 
-    const due = new Date(project.due_date);
+    const due = new Date(`${String(dueISO).slice(0, 10)}T00:00:00`);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    due.setHours(0, 0, 0, 0);
     const diffDays = Math.round((due - today) / 86400000);
 
     if (diffDays < 0) {
@@ -253,6 +254,16 @@ function computeDueDateInfo(project) {
 function computeSchedulePace(project) {
     const statusKey = project.status || "onboarding";
     if (statusKey !== "active" && statusKey !== "onboarding") return null;
+
+    // Plan locked on the Timeline → days behind the original plan
+    // (js/project-metrics.js). Same rule the Overview page uses.
+    const sched = projectSchedules.get(project.id);
+    if (sched && sched.hasPlan) {
+        if (sched.daysBehind > 0) return { label: "Behind", cls: "behind" };
+        if (sched.daysBehind < 0) return { label: "Ahead of Schedule", cls: "ahead" };
+        return { label: "On Time", cls: "on-time" };
+    }
+    if (sched && sched.hasTasks) return null; // timeline exists but no plan locked yet — no guess
     if (!project.due_date) return null;
 
     const today = new Date();
@@ -316,6 +327,8 @@ function anyProjectOverlayOpen() {
    LOAD + RENDER GRID
 =========================== */
 
+let projectSchedules = new Map(); // projectId → ProjectMetrics.schedule()
+
 async function loadProjects() {
     const loadingState = document.getElementById("projectLoadingState");
     const emptyState = document.getElementById("projectEmptyState");
@@ -343,6 +356,15 @@ async function loadProjects() {
     }
 
     allProjects = data || [];
+
+    // Live schedule numbers from the timeline (js/project-metrics.js) —
+    // progress, pace and finish date on the cards come from here now, not
+    // from the hand-typed progress_percent / due_date fields.
+    projectSchedules = new Map();
+    if (window.ProjectMetrics && allProjects.length) {
+        try { projectSchedules = await window.ProjectMetrics.loadScheduleForProjects(allProjects); }
+        catch (e) { console.warn("Couldn't load timeline numbers for the cards:", e); }
+    }
 
     if (allProjects.length === 0) {
         if (emptyState) emptyState.style.display = "block";
@@ -425,11 +447,14 @@ function filterProjectsForGrid() {
 
 // Due date ascending, projects with no due date sink to the bottom.
 function sortProjectsByDueDate(projects) {
+    // Timeline finish date first, old due_date field as a fallback.
+    const dueOf = p => (projectSchedules.get(p.id) || {}).finishDate || p.due_date || null;
     return [...projects].sort((a, b) => {
-        if (!a.due_date && !b.due_date) return 0;
-        if (!a.due_date) return 1;
-        if (!b.due_date) return -1;
-        return new Date(a.due_date) - new Date(b.due_date);
+        const da = dueOf(a), db = dueOf(b);
+        if (!da && !db) return 0;
+        if (!da) return 1;
+        if (!db) return -1;
+        return String(da).localeCompare(String(db));
     });
 }
 
@@ -465,7 +490,10 @@ function renderProjectCards(projects) {
         const address = formatSiteAddress(project);
         const statusKey = project.status || "onboarding";
         const statusMeta = PROJECT_STATUS_META[statusKey] || PROJECT_STATUS_META.onboarding;
-        const progress = Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
+        const sched = projectSchedules.get(project.id);
+        const progress = sched && sched.hasTasks
+            ? sched.percentDone
+            : Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
         const dueInfo = computeDueDateInfo(project);
         const updatedDate = formatProjectDate(project.updated_at) || "—";
         const updatedBy = project.updated_by_name || project.created_by_name || "Staff Portal";
@@ -670,9 +698,8 @@ function initProjectTabs() {
 }
 
 /* ===========================
-   QUICK STATUS/TRACKING EDIT (separate from the 10-step wizard —
-   status, PM, value, progress, and due date get updated far more often
-   than the onboarding fields, so they shouldn't require the full wizard.)
+   QUICK STATUS EDIT — the one project field that still changes by hand
+   after onboarding (2026-11-16).
 =========================== */
 
 function openProjectQuickEdit(project) {
@@ -685,10 +712,6 @@ function openProjectQuickEdit(project) {
 
     document.getElementById("projectQuickEditName").textContent = project.name || "Untitled project";
     document.getElementById("projectQuickEditStatus").value = project.status || "onboarding";
-    document.getElementById("projectQuickEditPm").value = project.project_manager_name || "";
-    document.getElementById("projectQuickEditValue").value = project.contract_value ?? "";
-    document.getElementById("projectQuickEditProgress").value = project.progress_percent ?? 0;
-    document.getElementById("projectQuickEditDueDate").value = project.due_date || "";
 
     const messageEl = document.getElementById("projectQuickEditMessage");
     if (messageEl) { messageEl.textContent = ""; messageEl.className = "auth-message"; }
@@ -718,15 +741,10 @@ async function saveProjectQuickEdit() {
     if (messageEl) { messageEl.textContent = "Saving…"; messageEl.className = "auth-message"; }
 
     const staff = currentStaffInfo();
-    const progressRaw = Number(document.getElementById("projectQuickEditProgress").value);
-    const valueRaw = document.getElementById("projectQuickEditValue").value;
-
+    // Status only (2026-11-16) — the other tracking fields are now
+    // calculated (timeline, invoices, VPOs) or live on their own pages.
     const payload = {
         status: document.getElementById("projectQuickEditStatus").value,
-        project_manager_name: document.getElementById("projectQuickEditPm").value.trim() || null,
-        contract_value: valueRaw === "" ? null : Number(valueRaw),
-        progress_percent: Number.isNaN(progressRaw) ? 0 : Math.max(0, Math.min(100, progressRaw)),
-        due_date: document.getElementById("projectQuickEditDueDate").value || null,
         updated_by_id: staff.id,
         updated_by_name: staff.name
     };

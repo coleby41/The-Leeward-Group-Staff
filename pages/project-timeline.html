@@ -235,6 +235,13 @@
 
             <button type="button" class="sched-toolbar-btn" id="schedTodayBtn">Today</button>
 
+            <!-- Lock plan / Update plan (2026-11-16): copies every task's current
+                 dates into plan_start_date/plan_end_date. The Overview's
+                 "days behind" compares against these. See
+                 sql/supabase-project-overview-plan.sql. -->
+            <button type="button" class="sched-toolbar-btn" id="schedLockPlanBtn" style="display:none;">Lock plan</button>
+            <span class="sched-plan-note" id="schedPlanNote"></span>
+
             <!-- Add to Siri: sets up the "Modify Timeline" shortcut (js/siri-setup.js) -->
             <span data-siri-pill></span>
 
@@ -521,6 +528,19 @@
 </div>
 
 <!-- Schedule health details popover -->
+<!-- Lock / Update plan confirm (js/project-timeline.js → openLockPlanConfirm) -->
+<div class="popup-overlay hidden" id="schedLockPlanOverlay">
+    <div class="popup">
+        <h2 id="schedLockPlanTitle">Lock the plan?</h2>
+        <p class="auth-inline-copy" id="schedLockPlanText">Every task's current dates become the plan. The Overview will show how far ahead or behind the project is compared to this plan.</p>
+        <p class="auth-message" id="schedLockPlanMessage"></p>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="schedLockPlanCancelBtn">Cancel</button>
+            <button type="button" class="auth-button" id="schedLockPlanConfirmBtn">Lock plan</button>
+        </div>
+    </div>
+</div>
+
 <div class="popup-overlay hidden" id="schedHealthDetailOverlay">
     <div class="popup">
         <h2>Schedule health</h2>

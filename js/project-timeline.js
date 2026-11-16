@@ -186,7 +186,7 @@
         if (!el) return;
         if (!text) { el.style.display = "none"; el.textContent = ""; return; }
         el.textContent = text;
-        el.className = "workbook-page-message" + (type ? " workbook-page-message--" + type : "");
+        el.className = "workbook-page-message" + (type ? " " + type : ""); // matches .workbook-page-message.success / .error in styles.css
         el.style.display = "block";
         if (type !== "error") setTimeout(() => { if (el.textContent === text) el.style.display = "none"; }, 4000);
     }
@@ -426,7 +426,11 @@
     }
 
     function computeCompletionProjection(taskList) {
-        const currentDue = currentProject && currentProject.due_date ? currentProject.due_date : null;
+        // Locked plan → compare against the plan's finish (latest plan_end_date).
+        // No plan yet → fall back to the project's old due_date field.
+        const planEnds = taskList.map(t => t.plan_end_date).filter(Boolean).sort();
+        const planFinish = currentProject && currentProject.plan_locked_at && planEnds.length ? planEnds[planEnds.length - 1] : null;
+        const currentDue = planFinish || (currentProject && currentProject.due_date ? currentProject.due_date : null);
         const projectedISO = cpmResult.projectFinishDay != null ? dayNumToISO(cpmResult.projectFinishDay) : null;
         let lateDays = null;
         if (currentDue && projectedISO && projectedISO > currentDue) lateDays = dayNum(projectedISO) - dayNum(currentDue);
@@ -985,6 +989,12 @@
         renderAll();
 
         const insertPayload = { ...payload, created_by: getStaffId(), created_by_name: getStaffName() };
+        // Plan already locked → a task added now is new scope, not a slip, so
+        // its plan dates start out equal to its own dates.
+        if (currentProject && currentProject.plan_locked_at) {
+            insertPayload.plan_start_date = payload.start_date ?? null;
+            insertPayload.plan_end_date = payload.end_date ?? null;
+        }
         const { data, error } = await window.supabaseClient.from(TASKS_TABLE).insert(insertPayload).select().single();
         if (error) {
             console.error("Task create failed, reverting:", error);
@@ -1566,6 +1576,87 @@
     }
 
     /* ============================================================
+       LOCK / UPDATE PLAN (2026-11-16)
+       First click "Lock plan" saves every task's current dates as the
+       plan; after that the button reads "Update plan" — that's how an
+       accepted delay becomes the new plan. Uses the lock_project_plan()
+       function from sql/supabase-project-overview-plan.sql.
+       ============================================================ */
+
+    function formatPlanDate(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+
+    function renderPlanLock() {
+        const btn = document.getElementById("schedLockPlanBtn");
+        const note = document.getElementById("schedPlanNote");
+        if (!btn || !currentProject) return;
+        const locked = Boolean(currentProject.plan_locked_at);
+        btn.style.display = "inline-flex";
+        btn.textContent = locked ? "Update plan" : "Lock plan";
+        if (note) {
+            note.textContent = locked
+                ? `Plan locked ${formatPlanDate(currentProject.plan_locked_at)}${currentProject.plan_locked_by_name ? " by " + currentProject.plan_locked_by_name : ""}`
+                : "Plan not locked yet";
+        }
+    }
+
+    function openLockPlanConfirm() {
+        const locked = Boolean(currentProject && currentProject.plan_locked_at);
+        document.getElementById("schedLockPlanTitle").textContent = locked ? "Make the current dates the new plan?" : "Lock the plan?";
+        document.getElementById("schedLockPlanText").textContent = locked
+            ? "Use this when a delay has been accepted. Every task's current dates replace the old plan, and \"days behind\" on the Overview starts counting from here."
+            : "Every task's current dates become the plan. From now on the Overview shows how far ahead or behind the project is compared to this plan, even when tasks get pushed.";
+        const confirmBtn = document.getElementById("schedLockPlanConfirmBtn");
+        confirmBtn.textContent = locked ? "Update plan" : "Lock plan";
+        confirmBtn.disabled = false;
+        document.getElementById("schedLockPlanMessage").textContent = "";
+        document.getElementById("schedLockPlanOverlay").classList.remove("hidden");
+    }
+
+    function closeLockPlanConfirm() {
+        document.getElementById("schedLockPlanOverlay").classList.add("hidden");
+    }
+
+    async function confirmLockPlan() {
+        if (!currentProject || !currentProject.id) return;
+        const confirmBtn = document.getElementById("schedLockPlanConfirmBtn");
+        const msg = document.getElementById("schedLockPlanMessage");
+        confirmBtn.disabled = true;
+        msg.textContent = "Saving…";
+        const byName = getStaffName();
+        const { error } = await window.supabaseClient.rpc("lock_project_plan", {
+            p_project_id: currentProject.id,
+            p_by_name: byName
+        });
+        if (error) {
+            console.error("lock_project_plan failed:", error);
+            msg.textContent = "Couldn't save the plan. Has sql/supabase-project-overview-plan.sql been run?";
+            confirmBtn.disabled = false;
+            return;
+        }
+        // Mirror what the database just did so the page doesn't need a reload.
+        tasks = tasks.map(t => ({ ...t, plan_start_date: t.start_date ?? null, plan_end_date: t.end_date ?? null }));
+        tasksById = new Map(tasks.map(t => [t.id, t]));
+        currentProject.plan_locked_at = new Date().toISOString();
+        currentProject.plan_locked_by_name = byName;
+        closeLockPlanConfirm();
+        renderAll();
+        renderPlanLock();
+        setPageMessage("Plan saved. The Overview now tracks days behind against it.", "success");
+    }
+
+    function wirePlanLock() {
+        const btn = document.getElementById("schedLockPlanBtn");
+        if (!btn) return;
+        btn.addEventListener("click", openLockPlanConfirm);
+        document.getElementById("schedLockPlanCancelBtn").addEventListener("click", closeLockPlanConfirm);
+        document.getElementById("schedLockPlanConfirmBtn").addEventListener("click", confirmLockPlan);
+    }
+
+    /* ============================================================
        BOOTSTRAP
        ============================================================ */
 
@@ -1585,10 +1676,12 @@
         if (!ok) return;
 
         renderAll();
+        renderPlanLock();
     }
 
     document.addEventListener("DOMContentLoaded", () => {
         wireStaticEvents();
+        wirePlanLock();
         window.addEventListener("project-shell:ready", handleProjectReady);
     });
 

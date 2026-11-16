@@ -165,56 +165,71 @@
 </aside>
 
 <main class="main-content">
-
-    <section class="hero-section">
-        <div>
-            <p class="eyebrow">Project Dashboard</p>
-            <h1>Overview</h1>
-            <p>A live snapshot of this project — status, schedule, money, and what needs attention. Property/GC/POC contact info and account details now live under Accounts / Contacts in the sidebar.</p>
-        </div>
-        <div class="hero-actions">
-            <button type="button" class="auth-button auth-button--secondary" id="editProjectBtn" style="display:none;">
-                Edit Project
-            </button>
-        </div>
-    </section>
+<!-- Project Overview — rebuilt 2026-11-16 to the "Project Overview" design
+     board. Rendered by js/project-overview.js from js/project-metrics.js;
+     every number comes from live data (timeline, invoices, VPOs, bids,
+     vendor records). -->
+<div class="pov">
 
     <div id="projectOverviewMessage" class="workbook-page-message" style="display:none;"></div>
 
-    <div id="dashboardStatusPill"></div>
+    <div class="pov-title" id="povTitle"><p class="pov-empty">Loading…</p></div>
 
-    <div class="project-stats-bar" id="dashboardStatsBar"></div>
+    <div id="povBody" class="pov-body">
 
-    <div class="dashboard-panel" id="timelineSnapshotPanel">
-        <h3>Project Timeline Snapshot</h3>
-        <div id="timelineSnapshotBody"></div>
-    </div>
+        <div class="pov-tiles" id="povTiles">
+            <div class="pov-tile pov-tile--loading"></div>
+            <div class="pov-tile pov-tile--loading"></div>
+            <div class="pov-tile pov-tile--loading"></div>
+            <div class="pov-tile pov-tile--loading"></div>
+        </div>
 
-    <div class="dashboard-widgets-grid">
-        <div>
-            <div class="dashboard-panel">
-                <h3>Financial Snapshot</h3>
-                <div id="financialSnapshotBody"></div>
+        <section class="pov-section">
+            <div class="pov-section-head">
+                <h2>Timeline</h2>
+                <a href="/pages/project-timeline.html">Open timeline ›</a>
             </div>
-            <div class="dashboard-panel">
-                <h3>Recent Activity</h3>
-                <div id="recentActivityBody"></div>
+            <div id="povTimeline"></div>
+        </section>
+
+        <div class="pov-columns">
+            <div class="pov-col-main">
+                <section class="pov-section">
+                    <div class="pov-section-head"><h2>Needs attention</h2></div>
+                    <div id="povAttention"></div>
+                </section>
+                <section class="pov-section">
+                    <div class="pov-section-head"><h2>Coming up</h2></div>
+                    <div id="povUpcoming"></div>
+                </section>
+            </div>
+
+            <div class="pov-col-side">
+                <section class="pov-section">
+                    <div class="pov-section-head">
+                        <h2>Money</h2>
+                        <a href="/pages/project-accounting.html">Accounting ›</a>
+                    </div>
+                    <div id="povMoney"></div>
+                </section>
+                <section class="pov-section">
+                    <div class="pov-section-head">
+                        <h2>Latest photos</h2>
+                        <a href="/pages/project-files.html">All ›</a>
+                    </div>
+                    <div class="pov-photos" id="povPhotos"></div>
+                </section>
+                <details class="pov-activity">
+                    <summary>Recent activity ›</summary>
+                    <div id="povActivityList"></div>
+                </details>
+                <!-- COI template (js/coi-template.js) — shown to anyone who can see bid invites -->
+                <div class="dashboard-panel" id="coiTemplatePanel" style="display:none"></div>
             </div>
         </div>
-        <div>
-            <div class="dashboard-panel">
-                <h3>Attention Needed</h3>
-                <div id="attentionNeededBody"></div>
-            </div>
-            <!-- COI template (js/coi-template.js) — shown to anyone who can see bid invites -->
-            <div class="dashboard-panel" id="coiTemplatePanel" style="display:none"></div>
-            <div class="dashboard-panel">
-                <h3>Upcoming Events</h3>
-                <div id="upcomingEventsBody"></div>
-            </div>
-        </div>
-    </div>
 
+    </div>
+</div>
 </main>
 
 <!-- Change Password modal — opened from the "Change Password" action in
@@ -285,6 +300,8 @@
 <script src="/js/coi-template.js"></script>
 <script src="/js/project-invoices.js"></script>
 <script src="/js/project-photos.js"></script>
+<script src="/js/project-metrics.js"></script>
+<script src="/js/project-overview.js"></script>
 
 <script>
 
@@ -342,395 +359,15 @@ window.addEventListener("DOMContentLoaded", function () {
 });
 
 /* ===========================
-   OVERVIEW CONTENT
-   Renders once project-shell.js has loaded the project (or failed to).
+   OVERVIEW CONTENT — js/project-overview.js renders the page once
+   project-shell.js has loaded the project (2026-11-16 rebuild; the old
+   widgets read project_timeline_items / project_events / project_activity
+   and hand-typed progress/spent fields, all retired).
 =========================== */
-
-function escapeHtmlOverview(str) {
-    const d = document.createElement("div");
-    d.textContent = str ?? "";
-    return d.innerHTML;
-}
-
-function setOverviewMessage(text, type) {
-    const el = document.getElementById("projectOverviewMessage");
-    if (!el) return;
-    if (!text) { el.style.display = "none"; return; }
-    el.textContent = text;
-    el.className = `workbook-page-message ${type || ""}`.trim();
-    el.style.display = "block";
-}
-
-// Note: this used to also render a "Project Details" wizard-field grid
-// (window.ProjectFields.WIZARD_STEPS, page === "/pages/projects.html") into
-// #projectSummaryGrid below the dashboard widgets. That moved to its own
-// page — project-accounts.html ("Accounts / Contacts") — along with a new
-// Project Contacts CRM layer; see supabase-project-accounts-contacts-schema.sql.
-// This function still owns the hero banner (name, cover photo background,
-// Edit Project button) and the dashboard widgets below it.
-function renderProjectOverview(project) {
-    const editBtn = document.getElementById("editProjectBtn");
-    const heroSection = document.querySelector(".hero-section");
-    const heroName = document.querySelector(".hero-section h1");
-
-    if (!project) {
-        setOverviewMessage("No project selected. Pick one from Project Overview.", "error");
-        if (editBtn) editBtn.style.display = "none";
-        if (heroSection) heroSection.style.backgroundImage = "";
-        return;
-    }
-
-    if (heroName) heroName.textContent = `Overview — ${project.name || "Untitled project"}`;
-
-    // Cover photo (set on the wizard's Status & Tracking step, same one
-    // that shows on the Project Overview cards) becomes this banner's
-    // background when there is one — a tinted version of the default
-    // navy gradient sits on top so the white title/description text
-    // stays readable over any photo. No cover photo just clears the
-    // inline style, which falls back to .hero-section's own CSS gradient.
-    if (heroSection) {
-        heroSection.style.backgroundImage = project.cover_photo_url
-            ? `linear-gradient(135deg, rgba(23, 54, 74, 0.82) 0%, rgba(36, 88, 109, 0.7) 100%), url('${project.cover_photo_url}')`
-            : "";
-        heroSection.style.backgroundSize = project.cover_photo_url ? "cover" : "";
-        heroSection.style.backgroundPosition = project.cover_photo_url ? "center" : "";
-    }
-
-    if (editBtn) {
-        editBtn.style.display = "inline-block";
-        editBtn.onclick = () => {
-            window.location.href = `/pages/project-home.html?openWizard=${encodeURIComponent(project.id)}`;
-        };
-    }
-}
-
-/* ===========================
-   DASHBOARD WIDGETS
-   Status pill, stat tiles, timeline snapshot, attention needed, upcoming
-   events, financial snapshot, recent activity. Each fetches its own data
-   keyed off project.id once project-shell.js has resolved the project —
-   same "each page fetches what it needs off window.supabaseClient" pattern
-   project-shell.js's own sidebar-search feature already uses.
-=========================== */
-
-function formatMoneyOverview(value) {
-    if (value === null || value === undefined || value === "") return "—";
-    const num = Number(value);
-    if (Number.isNaN(num)) return "—";
-    return num.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
-}
-
-function formatShortDateOverview(isoDate) {
-    if (!isoDate) return "—";
-    const d = new Date(`${isoDate}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return "—";
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function todayISODateOverview() {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-// Same pace logic as projects-page.js's computeSchedulePace() — duplicated
-// here (rather than pulled in via a <script> include) because
-// projects-page.js is the project-LIST page's controller script and expects
-// its own DOM (#projectsGrid, tab state, etc.) to exist; including it
-// wholesale on this per-project dashboard page would run that unrelated
-// init code against elements that don't exist here. Keep both in sync if
-// the pacing rule changes.
-function computeSchedulePaceOverview(project) {
-    const statusKey = project.status || "onboarding";
-    if (statusKey !== "active" && statusKey !== "onboarding") return null;
-    if (!project.due_date) return null;
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const due = new Date(`${project.due_date}T00:00:00`);
-    if (Number.isNaN(due.getTime())) return null;
-
-    const progress = Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
-
-    if (due < today && progress < 100) return { label: "Behind", cls: "behind" };
-
-    const created = project.created_at ? new Date(project.created_at) : null;
-    if (!created || Number.isNaN(created.getTime())) {
-        return due < today ? { label: "Behind", cls: "behind" } : { label: "On Track", cls: "on-time" };
-    }
-    created.setHours(0, 0, 0, 0);
-
-    const totalDays = (due - created) / 86400000;
-    const elapsedDays = (today - created) / 86400000;
-
-    if (totalDays <= 0) {
-        return due < today ? { label: "Behind", cls: "behind" } : { label: "On Track", cls: "on-time" };
-    }
-
-    const expectedProgress = Math.max(0, Math.min(100, (elapsedDays / totalDays) * 100));
-    const delta = progress - expectedProgress;
-
-    if (delta >= 10) return { label: "Ahead of Schedule", cls: "ahead" };
-    if (delta <= -10) return { label: "Behind", cls: "behind" };
-    return { label: "On Track", cls: "on-time" };
-}
-
-function renderStatusPill(project) {
-    const el = document.getElementById("dashboardStatusPill");
-    if (!el) return;
-    const pace = computeSchedulePaceOverview(project);
-    if (pace) {
-        const clsSuffix = pace.cls === "behind" ? "behind" : (pace.cls === "ahead" ? "ahead" : "");
-        el.innerHTML = `<span class="dashboard-status-pill${clsSuffix ? ` dashboard-status-pill--${clsSuffix}` : ""}">${escapeHtmlOverview(pace.label)}</span>`;
-    } else {
-        const statusMeta = (window.ProjectFields.PROJECT_STATUSES || []).find(s => s.value === (project.status || "onboarding"));
-        el.innerHTML = `<span class="dashboard-status-pill dashboard-status-pill--unknown">${escapeHtmlOverview(statusMeta ? statusMeta.label : "Status unknown")}</span>`;
-    }
-}
-
-async function loadTaskStats(projectId) {
-    const { data, error } = await window.supabaseClient
-        .from("project_timeline_items")
-        .select("id, status, end_date")
-        .eq("project_id", projectId)
-        .eq("type", "task");
-    if (error) { console.error("Failed to load task stats:", error); return { open: 0, overdue: 0 }; }
-    const today = todayISODateOverview();
-    const open = (data || []).filter(t => t.status !== "completed");
-    const overdue = open.filter(t => t.end_date && t.end_date < today);
-    return { open: open.length, overdue: overdue.length };
-}
-
-function renderStatTiles(project, taskStats) {
-    const bar = document.getElementById("dashboardStatsBar");
-    if (!bar) return;
-    const statusMeta = (window.ProjectFields.PROJECT_STATUSES || []).find(s => s.value === (project.status || "onboarding"));
-    const progress = Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
-
-    const tiles = [
-        { label: "Project Status", value: statusMeta ? statusMeta.label : "—", icon: "flag", color: "accent" },
-        { label: "Progress", value: `${progress}%`, icon: "check", color: "success" },
-        { label: "Contract Value", value: window.ProjectFields.isBlank(project.contract_value) ? "Nothing on file" : formatMoneyOverview(project.contract_value), icon: "dollar", color: "info" },
-        { label: "Amount Spent", value: window.ProjectFields.isBlank(project.spent_to_date) ? "Nothing on file" : formatMoneyOverview(project.spent_to_date), icon: "dollar", color: "completed" },
-        { label: "Open Tasks", value: `${taskStats.open}${taskStats.overdue ? ` (${taskStats.overdue} overdue)` : ""}`, icon: "people", color: taskStats.overdue ? "info" : "accent" },
-        { label: "Target Completion", value: formatShortDateOverview(project.due_date), icon: "briefcase", color: "success" }
-    ];
-
-    bar.innerHTML = tiles.map(tile => `
-        <div class="project-stat-tile project-stat-tile--${tile.color}">
-            <span class="project-stat-icon project-stat-icon--${tile.color} project-stat-icon--${tile.icon}"></span>
-            <div>
-                <p class="project-stat-value">${escapeHtmlOverview(tile.value)}</p>
-                <p class="project-stat-label">${escapeHtmlOverview(tile.label)}</p>
-            </div>
-        </div>
-    `).join("");
-}
-
-async function loadAndRenderTimelineSnapshot(projectId) {
-    const body = document.getElementById("timelineSnapshotBody");
-    if (!body) return;
-
-    const { data, error } = await window.supabaseClient
-        .from("project_timeline_items")
-        .select("id, title, status, start_date, end_date, position")
-        .eq("project_id", projectId)
-        .eq("type", "phase")
-        .order("position", { ascending: true });
-
-    if (error) { console.error("Failed to load timeline phases:", error); body.innerHTML = `<p class="dashboard-panel-empty">Couldn't load the timeline.</p>`; return; }
-
-    if (!data || data.length === 0) {
-        body.innerHTML = `<p class="dashboard-panel-empty">No phases on the Project Timeline yet — add some from the Project Timeline tab.</p>`;
-        return;
-    }
-
-    const today = todayISODateOverview();
-    // TODAY marker: position it over the first phase that hasn't finished
-    // yet (by end_date), or push it to the very end if every phase is done.
-    let todayIndex = data.findIndex(p => !p.end_date || p.end_date >= today);
-    if (todayIndex === -1) todayIndex = data.length - 1;
-    const todayPercent = ((todayIndex + 0.5) / data.length) * 100;
-
-    body.innerHTML = `
-        <div class="timeline-snapshot-track">
-            <div class="timeline-snapshot-today" style="left:${todayPercent}%"></div>
-            ${data.map(phase => `
-                <div class="timeline-snapshot-phase">
-                    <div class="timeline-snapshot-bar timeline-snapshot-bar--${escapeHtmlOverview(phase.status || "not_started")}"></div>
-                    <span class="timeline-snapshot-label" title="${escapeHtmlOverview(phase.title)}">${escapeHtmlOverview(phase.title)}</span>
-                </div>
-            `).join("")}
-        </div>
-    `;
-}
-
-function renderAttentionNeeded(overdueTaskCount) {
-    const body = document.getElementById("attentionNeededBody");
-    if (!body) return;
-
-    // RFIs/Change Orders/Submittals no longer have a dedicated in-app
-    // create/status workflow (they're now filed as documents via form
-    // templates into All Files instead — see project-files.html), so
-    // there's no live "open"/"pending" count to show here anymore. Overdue
-    // Tasks still comes from project_timeline_items, which is unrelated and
-    // still fully live.
-    const rows = [
-        { label: "Overdue Tasks", count: overdueTaskCount, href: "/pages/project-timeline.html" }
-    ];
-
-    body.innerHTML = `<div class="attention-needed-list">${rows.map(row => `
-        <a class="attention-needed-row" href="${row.href}">
-            <span class="attention-needed-row-label">${escapeHtmlOverview(row.label)}</span>
-            <span class="attention-needed-count${row.count ? "" : " attention-needed-count--zero"}">${row.count}</span>
-        </a>
-    `).join("")}</div>`;
-}
-
-async function loadAndRenderUpcomingEvents(projectId) {
-    const body = document.getElementById("upcomingEventsBody");
-    if (!body) return;
-
-    const { data, error } = await window.supabaseClient
-        .from("project_events")
-        .select("id, title, event_date, event_type")
-        .eq("project_id", projectId)
-        .gte("event_date", todayISODateOverview())
-        .order("event_date", { ascending: true })
-        .limit(5);
-
-    if (error) { console.error("Failed to load upcoming events:", error); body.innerHTML = `<p class="dashboard-panel-empty">Couldn't load events.</p>`; return; }
-
-    if (!data || data.length === 0) {
-        body.innerHTML = `<p class="dashboard-panel-empty">Nothing scheduled.</p>`;
-        return;
-    }
-
-    body.innerHTML = `<div class="upcoming-events-list">${data.map(ev => `
-        <div class="upcoming-event-row">
-            <div class="upcoming-event-date">${formatShortDateOverview(ev.event_date)}</div>
-            <div>
-                <div class="upcoming-event-title">${escapeHtmlOverview(ev.title)}</div>
-                <div class="upcoming-event-type">${escapeHtmlOverview((ev.event_type || "other").replace(/_/g, " "))}</div>
-            </div>
-        </div>
-    `).join("")}</div>`;
-}
-
-async function loadAndRenderFinancialSnapshot(project) {
-    const body = document.getElementById("financialSnapshotBody");
-    if (!body) return;
-
-    if (window.ProjectFields.isBlank(project.contract_value) && window.ProjectFields.isBlank(project.committed_amount) && window.ProjectFields.isBlank(project.spent_to_date)) {
-        body.innerHTML = `<p class="dashboard-panel-empty">Nothing on file yet — financial fields are hidden unless you have financial access on this project.</p>`;
-        return;
-    }
-
-    const contractValue = Number(project.contract_value) || 0;
-    const committed = Number(project.committed_amount) || contractValue;
-    const spent = Number(project.spent_to_date) || 0;
-    // Remaining = how much of the contract is left to spend. The donut
-    // breaks the contract value down into 3 mutually-exclusive slices that
-    // sum back to it: already spent, committed-but-not-yet-spent (approved
-    // change orders/baseline not yet paid out), and still uncommitted.
-    const remaining = Math.max(0, contractValue - spent);
-    const committedUnspent = Math.max(0, committed - spent);
-    const uncommitted = Math.max(0, contractValue - committed);
-
-    const segments = [
-        { name: "Spent to Date", value: spent, color: "var(--danger)" },
-        { name: "Committed (unspent)", value: committedUnspent, color: "var(--warning)" },
-        { name: "Uncommitted", value: uncommitted, color: "var(--success)" }
-    ].filter(s => s.value > 0);
-
-    const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
-    let cumulative = 0;
-    const gradientStops = segments.map(s => {
-        const start = (cumulative / total) * 360;
-        cumulative += s.value;
-        const end = (cumulative / total) * 360;
-        return `${s.color} ${start}deg ${end}deg`;
-    }).join(", ");
-
-    body.innerHTML = `
-        <div class="financial-snapshot-body">
-            <div class="financial-donut" style="background: ${segments.length ? `conic-gradient(${gradientStops})` : "var(--surface-alt)"}">
-                <div class="financial-donut-hole">
-                    <span class="financial-donut-hole-value">${formatMoneyOverview(contractValue)}</span>
-                    <span class="financial-donut-hole-label">Contract</span>
-                </div>
-            </div>
-            <div class="financial-snapshot-legend">
-                <div class="financial-snapshot-legend-row">
-                    <span class="financial-snapshot-legend-name"><span class="financial-snapshot-legend-dot" style="background:var(--accent)"></span>Contract Value</span>
-                    <span class="financial-snapshot-legend-value">${formatMoneyOverview(contractValue)}</span>
-                </div>
-                <div class="financial-snapshot-legend-row">
-                    <span class="financial-snapshot-legend-name"><span class="financial-snapshot-legend-dot" style="background:var(--warning)"></span>Committed</span>
-                    <span class="financial-snapshot-legend-value">${formatMoneyOverview(committed)}</span>
-                </div>
-                <div class="financial-snapshot-legend-row">
-                    <span class="financial-snapshot-legend-name"><span class="financial-snapshot-legend-dot" style="background:var(--danger)"></span>Spent to Date</span>
-                    <span class="financial-snapshot-legend-value">${formatMoneyOverview(spent)}</span>
-                </div>
-                <div class="financial-snapshot-legend-row">
-                    <span class="financial-snapshot-legend-name"><span class="financial-snapshot-legend-dot" style="background:var(--success)"></span>Remaining</span>
-                    <span class="financial-snapshot-legend-value">${formatMoneyOverview(remaining)}</span>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-async function loadAndRenderRecentActivity(projectId) {
-    const body = document.getElementById("recentActivityBody");
-    if (!body) return;
-
-    const { data, error } = await window.supabaseClient
-        .from("project_activity")
-        .select("id, actor_name, summary, created_at")
-        .eq("project_id", projectId)
-        .order("created_at", { ascending: false })
-        .limit(8);
-
-    if (error) { console.error("Failed to load recent activity:", error); body.innerHTML = `<p class="dashboard-panel-empty">Couldn't load recent activity.</p>`; return; }
-
-    if (!data || data.length === 0) {
-        body.innerHTML = `<p class="dashboard-panel-empty">Nothing yet — activity shows up here as RFIs, change orders, submittals, and tasks move.</p>`;
-        return;
-    }
-
-    body.innerHTML = `<div class="recent-activity-list">${data.map(item => `
-        <div class="recent-activity-row">
-            <span class="recent-activity-dot"></span>
-            <div>
-                <div class="recent-activity-summary">${escapeHtmlOverview(item.summary)}</div>
-                <div class="recent-activity-meta">${escapeHtmlOverview(item.actor_name || "Someone")} · ${new Date(item.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</div>
-            </div>
-        </div>
-    `).join("")}</div>`;
-}
-
-async function loadDashboardWidgets(project) {
-    if (!project || !window.supabaseClient) return;
-
-    renderStatusPill(project);
-    loadAndRenderFinancialSnapshot(project);
-
-    const taskStats = await loadTaskStats(project.id);
-    renderStatTiles(project, taskStats);
-
-    loadAndRenderTimelineSnapshot(project.id);
-    renderAttentionNeeded(taskStats.overdue);
-    loadAndRenderUpcomingEvents(project.id);
-    loadAndRenderRecentActivity(project.id);
-}
-
 window.addEventListener("project-shell:ready", (event) => {
     const { project, error } = event.detail;
     if (error) console.error("project-shell: failed to load project", error);
-    setOverviewMessage("", "");
-    renderProjectOverview(project);
-    loadDashboardWidgets(project);
+    window.ProjectOverview.render(project);
     mountCoiTemplate(project);
 });
 
