@@ -57,6 +57,7 @@
         if (!state) return;
         renderDraws();
         renderBudget();
+        if (window.AccountingInvoices) window.AccountingInvoices.refresh(); // show "Add to draw" on invoices
     }
 
     /* ===================== DRAWS TAB ===================== */
@@ -522,6 +523,97 @@
         }
     }
 
+    /* ---------- "Add to draw" from the invoice menu (Invoices tab) ---------- */
+
+    let tagInv = null, tagDone = null;
+
+    // The draft draw this invoice would land in (by date), if there is one.
+    function draftFor(inv) {
+        if (!state) return null;
+        return state.draws.find(d => d.status === "draft" && !d.is_opening_balance &&
+            D().invoiceWindow({ ...state, invoices: [{ ...inv, budget_line_id: inv.budget_line_id || "x" }] }, d).tagged.length) || null;
+    }
+
+    function describe(inv) {
+        if (!state || !state.lines.length) return "";
+        if (inv.draw_id) {
+            const d = state.draws.find(x => x.id === inv.draw_id);
+            if (d) return `In Draw #${d.draw_number}`;
+        }
+        if (!inv.budget_line_id) return "";
+        const d = draftFor(inv);
+        return d ? `In Draw #${d.draw_number} (draft)` : "On a budget line";
+    }
+
+    function openAddToDraw(inv, done) {
+        if (!state) return;
+        const locked = inv.draw_id && state.draws.some(d => d.id === inv.draw_id && d.status !== "draft");
+        tagInv = inv; tagDone = done;
+        const sug = inv.budget_line_id || D().suggestLine(state, inv);
+        const d = draftFor(inv);
+        $("drTagTitle").textContent = `Add ${inv.vendor_name}${inv.invoice_number ? " #" + inv.invoice_number : ""} to a draw`;
+        $("drTagInfo").textContent = locked
+            ? "This invoice is in a submitted draw, so its budget line can't change."
+            : `${money(inv.total_due)} · ${d ? `goes into Draw #${d.draw_number} (draft)` : "goes into the next draw you start"}`;
+        $("drTagLine").innerHTML = `<option value="">Choose a budget line…</option>` + state.groups.map(g =>
+            `<optgroup label="${esc(g.name)}">${g.lines.map(l => `<option value="${l.id}"${l.id === sug ? " selected" : ""}>${esc((l.subName ? l.subName + " · " : "") + l.description)}</option>`).join("")}</optgroup>`).join("");
+        $("drTagLine").disabled = locked;
+        $("drTagStored").checked = !!inv.is_stored_material;
+        $("drTagStored").disabled = locked;
+        $("drTagSave").disabled = locked;
+        $("drTagRemove").hidden = !inv.budget_line_id || locked;
+        $("drTagMsg").textContent = "";
+        $("drTagOverlay").classList.remove("hidden");
+    }
+
+    async function saveTag(remove) {
+        const inv = tagInv;
+        const lineId = remove ? null : $("drTagLine").value;
+        const stored = !remove && $("drTagStored").checked;
+        if (!remove && !lineId) { $("drTagMsg").textContent = "Choose a budget line."; return; }
+        $("drTagSave").disabled = true;
+        $("drTagMsg").textContent = "Saving…";
+        try {
+            const draft = draftFor(inv);
+            const amt = Number(inv.total_due) || 0;
+            // Take it off its old line in the draft first…
+            if (draft && inv.budget_line_id) {
+                const old = state.lines.find(l => l.id === inv.budget_line_id);
+                if (old) {
+                    const r = D().lineRow(state, old, draft.id);
+                    if (inv.is_stored_material) await D().saveLine(state, draft, old, { stored: Math.max(0, r.stored - amt), equity: r.equityNow, loan: r.loanNow });
+                    else await D().saveLine(state, draft, old, { amount: Math.max(0, r.thisPeriod - amt), stored: r.stored });
+                    state = await D().load(project.id);
+                }
+            }
+            const { data, error } = await window.supabaseClient.from("project_invoices")
+                .update({ budget_line_id: lineId, is_stored_material: stored }).eq("id", inv.id).select("id");
+            if (error) throw error;
+            if (!data || !data.length) throw new Error("You don't have permission to edit this invoice.");
+            // …then onto the new line.
+            if (draft && lineId) {
+                const line = state.lines.find(l => l.id === lineId);
+                const r = D().lineRow(state, line, draft.id);
+                if (stored) await D().saveLine(state, draft, line, { stored: r.stored + amt, equity: r.equityNow, loan: r.loanNow });
+                else await D().saveLine(state, draft, line, { amount: r.thisPeriod + amt, stored: r.stored });
+            }
+            $("drTagOverlay").classList.add("hidden");
+            await reload();
+            if (tagDone) tagDone();
+            toast(remove ? "Taken off the budget line." : draft ? `Added to Draw #${draft.draw_number}.` : "Saved — it'll go into the next draw.");
+        } catch (e) {
+            console.error("[draws] add to draw:", e);
+            $("drTagMsg").textContent = (e && e.message) || "Couldn't save.";
+            $("drTagSave").disabled = false;
+        }
+    }
+
+    window.ProjectDraws = {
+        canTag: () => Boolean(can.edit && state && state.lines.length),
+        describe,
+        openAddToDraw
+    };
+
     /* ---------- wiring ---------- */
 
     function wire() {
@@ -544,6 +636,9 @@
         $("drLineDelete").addEventListener("click", deleteLineForm);
         $("drLineSection").addEventListener("change", () => { $("drLineNewGroupWrap").hidden = $("drLineSection").value !== "__new"; });
         $("drConfirmOk").addEventListener("click", runConfirm);
+        $("drTagSave").addEventListener("click", () => saveTag(false));
+        $("drTagRemove").addEventListener("click", () => saveTag(true));
+        $("drTagCancel").addEventListener("click", () => $("drTagOverlay").classList.add("hidden"));
         $("drConfirmCancel").addEventListener("click", () => $("drConfirmOverlay").classList.add("hidden"));
     }
 

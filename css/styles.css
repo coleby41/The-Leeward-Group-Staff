@@ -18915,3 +18915,6 @@ a.pov-row:hover strong { color: var(--accent-strong); }
 .inv-chip { border: 1px solid #c9d9e6; background: var(--surface); color: var(--accent-strong); border-radius: 999px; padding: 5px 10px; font-family: inherit; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
 .inv-check--small { margin-top: 8px; }
 .inv-line-group { margin: 12px 0 4px; font-size: 0.78rem; font-weight: 700; color: var(--text-soft); }
+
+/* Invoices tab — where an invoice went (js/project-accounting.js drawLabel) */
+.acct-draw-tag { display: block; margin-top: 4px; font-size: 0.75rem; font-weight: 600; color: var(--accent); }

@@ -366,6 +366,24 @@
     </div>
 </div>
 
+<!-- Draws: "Add to draw" from an invoice's menu (js/project-draws.js → openAddToDraw) -->
+<div class="popup-overlay hidden" id="drTagOverlay">
+    <div class="popup">
+        <h2 id="drTagTitle">Add to a draw</h2>
+        <p class="auth-inline-copy" id="drTagInfo"></p>
+        <form class="auth-form" onsubmit="return false">
+            <label class="auth-field">Budget line<select id="drTagLine"></select></label>
+            <label class="delete-confirm-checkbox-row"><input type="checkbox" id="drTagStored"><span>Stored materials — on site, not installed yet</span></label>
+            <p class="auth-message" id="drTagMsg"></p>
+        </form>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="drTagRemove" hidden>Take off line</button>
+            <button type="button" class="auth-button auth-button--secondary" id="drTagCancel">Cancel</button>
+            <button type="button" class="auth-button" id="drTagSave">Save</button>
+        </div>
+    </div>
+</div>
+
 <!-- Draws: confirm (submit / delete draft) -->
 <div class="popup-overlay hidden" id="drConfirmOverlay">
     <div class="popup">
