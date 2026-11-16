@@ -18799,6 +18799,7 @@ a.pov-row:hover strong { color: var(--accent-strong); }
    ========================================================================== */
 .dash-tab[hidden] { display: none; }
 .dr-panel { display: flex; flex-direction: column; gap: 24px; padding-bottom: 32px; }
+.dr-panel[hidden] { display: none; } /* the tab switcher uses [hidden]; display:flex above would override it */
 .dr-panel > div { display: flex; flex-direction: column; gap: 24px; }
 .dr-muted { color: var(--text-soft); font-size: 0.88rem; margin: 0; }
 .dr-mt { margin-top: 8px; }
