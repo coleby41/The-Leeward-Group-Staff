@@ -608,10 +608,38 @@
         }
     }
 
+    // After Edit invoice saves a new budget line / stored flag: move the
+    // amount on the open draft draw (if the invoice falls in one).
+    async function syncInvoice(before, after) {
+        if (!state || !before || !after) return;
+        if (before.budget_line_id === after.budget_line_id && !!before.is_stored_material === !!after.is_stored_material && Number(before.total_due) === Number(after.total_due)) return;
+        const draftBefore = before.budget_line_id ? draftFor(before) : null;
+        const draftAfter = after.budget_line_id ? draftFor(after) : null;
+        if (draftBefore && before.budget_line_id) {
+            const old = state.lines.find(l => l.id === before.budget_line_id);
+            if (old) {
+                const r = D().lineRow(state, old, draftBefore.id), amt = Number(before.total_due) || 0;
+                if (before.is_stored_material) await D().saveLine(state, draftBefore, old, { stored: Math.max(0, r.stored - amt), equity: r.equityNow, loan: r.loanNow });
+                else await D().saveLine(state, draftBefore, old, { amount: Math.max(0, r.thisPeriod - amt), stored: r.stored });
+                state = await D().load(project.id);
+            }
+        }
+        if (draftAfter && after.budget_line_id) {
+            const line = state.lines.find(l => l.id === after.budget_line_id);
+            if (line) {
+                const r = D().lineRow(state, line, draftAfter.id), amt = Number(after.total_due) || 0;
+                if (after.is_stored_material) await D().saveLine(state, draftAfter, line, { stored: r.stored + amt, equity: r.equityNow, loan: r.loanNow });
+                else await D().saveLine(state, draftAfter, line, { amount: r.thisPeriod + amt, stored: r.stored });
+            }
+        }
+        await reload();
+    }
+
     window.ProjectDraws = {
         canTag: () => Boolean(can.edit && state && state.lines.length),
         describe,
-        openAddToDraw
+        openAddToDraw,
+        syncInvoice
     };
 
     /* ---------- wiring ---------- */

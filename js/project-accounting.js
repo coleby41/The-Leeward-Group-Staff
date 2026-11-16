@@ -110,14 +110,12 @@
     const ICONS = {
         pdf: '<span class="acct-pdf-icon" aria-hidden="true"></span>',
         edit: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
-        draw: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 9v11"/></svg>',
         del: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>'
     };
 
-    // Draws (2026-11-16): an invoice can be put on a budget line from its own
-    // menu ("Add to draw") — js/project-draws.js shows the picker. The small
-    // label under the status says where it went.
-    function drawsReady() { return Boolean(window.ProjectDraws && window.ProjectDraws.canTag()); }
+    // Draws (2026-11-16): an invoice is put on a budget line from Edit invoice
+    // (js/project-invoices.js). The small label under the status says where
+    // it went.
     function drawLabel(inv) {
         const t = window.ProjectDraws ? window.ProjectDraws.describe(inv) : "";
         return t ? `<span class="acct-draw-tag">${esc(t)}</span>` : "";
@@ -155,8 +153,7 @@
                 <td>${esc(PI().formatDate(inv.invoice_date))}</td>
                 <td class="acct-num acct-strong">${esc(PI().formatMoney(inv.total_due))}</td>
                 <td>${statusPill(inv)}${drawLabel(inv)}</td>
-                <td class="acct-actions-col">${drawsReady() ? `
-                    <button type="button" class="acct-icon-btn" data-acct-action="draw" data-id="${inv.id}" aria-label="Add invoice ${esc(inv.invoice_number)} to a draw" title="Add to draw">${ICONS.draw}</button>` : ""}${canManage ? `
+                <td class="acct-actions-col">${canManage ? `
                     <button type="button" class="acct-icon-btn" data-acct-action="edit" data-id="${inv.id}" aria-label="Edit invoice ${esc(inv.invoice_number)}" title="Edit">${ICONS.edit}</button>
                     <button type="button" class="acct-icon-btn acct-icon-btn--danger" data-acct-action="delete" data-id="${inv.id}" aria-label="Delete invoice ${esc(inv.invoice_number)}" title="Delete">${ICONS.del}</button>` : ""}
                 </td>
@@ -175,8 +172,7 @@
                     </div>
                 </div>
                 ${fileLink(inv)}
-                ${canManage || drawsReady() ? `<div class="acct-card-actions">${drawsReady() ? `
-                    <button type="button" class="acct-card-btn" data-acct-action="draw" data-id="${inv.id}">${ICONS.draw}Add to draw</button>` : ""}${canManage ? `
+                ${canManage ? `<div class="acct-card-actions">${canManage ? `
                     <button type="button" class="acct-card-btn" data-acct-action="edit" data-id="${inv.id}">${ICONS.edit}Edit</button>
                     <button type="button" class="acct-card-btn acct-card-btn--danger" data-acct-action="delete" data-id="${inv.id}">${ICONS.del}Delete</button>` : ""}
                 </div>` : ""}
@@ -239,7 +235,12 @@
         PI().openForm({
             project,
             invoice: inv,
-            onSaved: (updated) => {
+            showBudgetLine: Boolean(window.ProjectDraws && window.ProjectDraws.canTag()),
+            onSaved: async (updated) => {
+                if (window.ProjectDraws) {
+                    try { await window.ProjectDraws.syncInvoice(inv, updated); }
+                    catch (e) { console.warn("Invoice saved, but the draft draw didn't update:", e); }
+                }
                 const i = invoices.findIndex(x => x.id === updated.id);
                 if (i >= 0) invoices[i] = updated;
                 render();
@@ -370,7 +371,6 @@
         const inv = btn.dataset.id ? findInvoice(btn.dataset.id) : null;
         if (action === "open") { if (searchSheet && searchSheet.contains(btn)) closeSearch(); openInvoiceFile(inv); }
         else if (action === "edit" && inv) openEdit(inv);
-        else if (action === "draw" && inv && window.ProjectDraws) window.ProjectDraws.openAddToDraw(inv, () => load());
         else if (action === "delete" && inv) openDelete(inv);
         else if (action === "close-search") closeSearch();
     }

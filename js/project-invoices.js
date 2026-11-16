@@ -498,11 +498,14 @@
         renderForm();
         overlay.classList.add("is-open");
         document.body.classList.add("inv-form-open");
-        // (2026-11-16) No budget-line picker on the invoice form — Coleby wants
-        // the Invoices tab to be just invoices. Invoices get matched to budget
-        // lines inside a draw instead (Accounting › Draws, "needs a budget
-        // line"). form.budget stays null, so save() never touches the tag and
-        // an invoice's existing budget line is kept when it's edited.
+        // (2026-11-16) Budget line is on EDIT invoice only (Accounting page
+        // passes showBudgetLine when this person can prepare draws and the
+        // project has a budget). Add invoice stays plain; when form.budget is
+        // null, save() never touches the tag.
+        if (inv && opts.showBudgetLine) {
+            loadBudgetLines(opts.project.id, true).then(b => { if (form && form.opts === opts) { form.budget = b; if (form.view === "form") renderForm(); } })
+                .catch(err => console.warn("Couldn't load budget lines:", err));
+        }
         if (!form.vendors) {
             loadApprovedVendors().then(list => { if (form) { form.vendors = list; if (form.view === "vendor") renderForm(); } })
                 .catch(err => { console.error("Couldn't load vendors:", err); if (form) { form.vendorError = "Couldn't load vendors."; renderForm(); } });
@@ -585,6 +588,7 @@
                         <span>${form.vendor ? esc(form.vendor.name) : "Choose an approved vendor"}</span>${ICON.chevron}
                     </button>
                 </div>`}
+                ${budgetFieldHtml()}
                 <div class="inv-grid">
                     <label class="inv-field"><span class="inv-label">${form.isHardware ? "Receipt / invoice #" : "Invoice number"}</span>
                         <input type="text" class="inv-input" data-inv-field="invoiceNumber" value="${esc(form.invoiceNumber)}" autocomplete="off" maxlength="60"></label>
@@ -627,7 +631,7 @@
         const suggestions = vendorLineIds().filter(id => id !== form.budgetLineId).map(id => b.lines.find(l => l.id === id)).filter(Boolean).slice(0, 3);
         return `
             <div class="inv-field inv-budget">
-                <span class="inv-label">Budget line <small>· goes into the next draw</small></span>
+                <span class="inv-label">Budget line <small>· for draws</small></span>
                 <button type="button" class="inv-select${line ? "" : " is-empty"}" data-inv-action="pick-line"${form.lineLocked ? " disabled" : ""}>
                     <span>${line ? esc(line.label) : "Choose a budget line"}</span>${ICON.chevron}
                 </button>
