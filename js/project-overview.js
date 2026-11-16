@@ -123,10 +123,10 @@
         if (d) {
             const label = { draft: "Draft", submitted: "Submitted", funded: "Funded" }[d.status] || d.status;
             return `
-                <a class="pov-tile pov-tile--link" href="/pages/project-accounting.html">
+                <a class="pov-tile pov-tile--link" href="/pages/project-accounting.html#draws">
                     <p class="pov-tile-label">Draw #${esc(d.draw_number)}</p>
-                    <p class="pov-tile-value">${esc(label)}</p>
-                    <p class="pov-tile-sub">Period to ${shortDate(d.period_to)}</p>
+                    <p class="pov-tile-value" id="povDrawAmount">${esc(label)}</p>
+                    <p class="pov-tile-sub">${esc(label)} · period to ${shortDate(d.period_to)}</p>
                 </a>`;
         }
         const b = data.bids;
@@ -286,6 +286,17 @@
         renderMoney(data.money);
         renderActivity(data.activity);
         renderPhotos(data.photos);
+        if (data.latestDraw) fillDrawAmount(project, data.latestDraw);
+    }
+
+    // The draw tile's amount needs the full draw math (js/draws-core.js).
+    async function fillDrawAmount(project, draw) {
+        if (!window.Draws) return;
+        try {
+            const st = await window.Draws.load(project.id);
+            const el = $("povDrawAmount");
+            if (el && st.draws.some(d => d.id === draw.id)) el.textContent = money(window.Draws.sheet(st, draw.id).summary.currentPaymentDue, { short: true });
+        } catch (e) { /* no draws access — tile keeps the status */ }
     }
 
     window.ProjectOverview = { render };

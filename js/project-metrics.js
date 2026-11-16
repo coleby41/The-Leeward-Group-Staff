@@ -207,7 +207,7 @@
         const [phaseRows, tasks, invoices, vpos, packages, assignments, contracts, photos, voice, files] = await Promise.all([
             safe(sb.from("schedule_phases").select("id, name, sort_order").eq("project_id", id).order("sort_order"), "phases"),
             safe(sb.from("schedule_tasks").select("id, phase_id, parent_task_id, item_type, name, start_date, end_date, plan_start_date, plan_end_date, status, progress_percent, updated_at, updated_by_name").eq("project_id", id), "tasks"),
-            safe(sb.from("project_invoices").select("id, vendor_name, invoice_number, total_due, invoice_date, paid, created_at, created_by_name").eq("project_id", id), "invoices"),
+            safe(sb.from("project_invoices").select("id, vendor_name, invoice_number, total_due, invoice_date, paid, created_at, created_by_name, budget_line_id").eq("project_id", id), "invoices"),
             safe(sb.from("vpos").select("id, vpo_number, price, vendor_name, created_at, created_by_name").eq("project_id", id), "vpos"),
             safe(sb.from("bid_packages").select("id, name, status, due_at, awarded_invite_id").eq("project_id", id), "bid packages"),
             safe(sb.from("vendor_project_assignments").select("company_id, hidden").eq("project_id", id), "vendor assignments"),
@@ -233,11 +233,20 @@
             : [];
 
         // Latest draw, once the Draws feature exists (table missing → [])
-        const draws = await safe(sb.from("draws").select("draw_number, status, period_to").eq("project_id", id).eq("is_opening_balance", false).order("draw_number", { ascending: false }).limit(1), "draws");
+        const draws = await safe(sb.from("draws").select("id, draw_number, status, period_to, is_opening_balance").eq("project_id", id).order("draw_number", { ascending: false }).limit(5), "draws");
+        const latestDraw = draws.find(d => !d.is_opening_balance) || null;
+        // Invoices since the last submitted/funded draw that aren't on a budget line yet
+        const closed = draws.find(d => d.status !== "draft");
+        const untagged = draws.length
+            ? invoices.filter(i => !i.budget_line_id && (!closed || !closed.period_to || (i.invoice_date || (i.created_at || "").slice(0, 10)) > closed.period_to))
+            : [];
 
         const sched = schedule(project, tasks, today);
         const cash = money(project, invoices, vpos, today);
         const attention = buildAttention({ sched, cash, packages, invites, assignments, contracts, companies, today });
+        if (untagged.length) {
+            attention.push({ level: "blue", title: `${untagged.length} invoice${untagged.length === 1 ? " needs" : "s need"} a budget line`, meta: latestDraw && latestDraw.status === "draft" ? `Before Draw #${latestDraw.draw_number} is submitted` : "So they count in the next draw", href: "/pages/project-accounting.html#draws" });
+        }
 
         return {
             schedule: sched,
@@ -251,7 +260,7 @@
                 replied: invites.filter(i => i.responded_at && packages.some(p => p.id === i.package_id && p.status === "open")).length,
                 nextDue: minISO(packages.filter(p => p.status === "open" && p.due_at).map(p => p.due_at.slice(0, 10)))
             },
-            latestDraw: draws[0] || null,
+            latestDraw,
             photos,
             activity: buildActivity({ tasks, invoices, vpos, voice, files, invites })
         };

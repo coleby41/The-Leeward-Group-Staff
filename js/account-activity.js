@@ -1058,6 +1058,40 @@
         };
     }
 
+    // Draws (2026-11-16): a filed VPO adds a line to the project's budget
+    // (Accounting › Budget) so the contract and the next draw include it —
+    // same idea as the CO1, CO2… lines in the AIA workbook. Only when the
+    // project already has a budget; lines go in a "VPOs" group.
+    async function addVpoToBudget(vpo) {
+        const sb = window.supabaseClient;
+        if (!vpo || vpo.price == null || !Number(vpo.price)) return;
+        const { data: any, error: anyErr } = await sb.from("budget_lines").select("id, sort_order").eq("project_id", vpo.project_id).order("sort_order", { ascending: false }).limit(1);
+        if (anyErr || !any || !any.length) return; // no budget on this project (or Draws not set up)
+        let sectionId = null;
+        const { data: sec } = await sb.from("budget_sections").select("id").eq("project_id", vpo.project_id).is("parent_id", null).eq("name", "VPOs").maybeSingle();
+        if (sec) sectionId = sec.id;
+        else {
+            const { data: made } = await sb.from("budget_sections").insert({ project_id: vpo.project_id, name: "VPOs", cost_type: "hard", sort_order: 9999 }).select("id").single();
+            if (made) sectionId = made.id; // no budget permission → the line lands under "Other"
+        }
+        const what = String(vpo.change_in_scope || vpo.reason_for_report || "").trim().replace(/\s+/g, " ").slice(0, 80);
+        const { data: line, error } = await sb.from("budget_lines").insert({
+            project_id: vpo.project_id,
+            section_id: sectionId,
+            description: `${vpo.vpo_number || "VPO"}${what ? " – " + what : ""}`,
+            total_budget: Number(vpo.price),
+            equity_budget: 0,
+            retainage_pct: 5,
+            sort_order: (any[0].sort_order || 0) + 1,
+            source: "vpo",
+            vpo_id: vpo.id,
+            created_by: state.myStaffId || null,
+            created_by_name: state.myName || null
+        }).select("id").single();
+        if (error) throw error;
+        await sb.from("vpos").update({ budget_line_id: line.id }).eq("id", vpo.id);
+    }
+
     async function confirmVpo() {
         const report = state.pendingBcVpoReport;
         if (!report) return;
@@ -1097,6 +1131,8 @@
                 created_by_name: state.myName,
             }).select().single();
             if (error) throw error;
+
+            await addVpoToBudget(vpoRow).catch(err => console.warn("VPO saved, but adding it to the project budget failed:", err));
 
             await recordBcVpoDecision(report.id, "vpo");
 

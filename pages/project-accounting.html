@@ -170,13 +170,16 @@
         <div>
             <p class="eyebrow">Project Dashboard</p>
             <h1>Accounting</h1>
-            <p>Invoices for this project — what's owed, what's paid, and the files behind them.</p>
+            <p>Invoices, monthly draws and the project budget — what's owed, what's paid, and what goes to the bank.</p>
         </div>
     </section>
 
     <div class="dash-tabs acct-tabs" role="tablist" id="acctTabs">
         <button type="button" class="dash-tab active" role="tab" data-acct-tab="home" aria-selected="true">Home</button>
         <button type="button" class="dash-tab" role="tab" data-acct-tab="invoices" aria-selected="false">Invoices <span class="project-tab-count" id="acctInvoiceCount">0</span></button>
+    <!-- Draws + Budget (2026-11-16): unhidden by js/project-draws.js for people with draws access -->
+    <button type="button" class="dash-tab" role="tab" data-acct-tab="draws" aria-selected="false" hidden>Draws</button>
+    <button type="button" class="dash-tab" role="tab" data-acct-tab="budget" aria-selected="false" hidden>Budget</button>
     </div>
 
     <section id="acctHomePanel" class="acct-panel">
@@ -189,7 +192,17 @@
         </div>
     </section>
 
-    <section id="acctInvoicesPanel" class="acct-panel" hidden>
+    <!-- Draws (AIA pay applications) — js/project-draws.js -->
+<section id="acctDrawsPanel" class="acct-panel dr-panel" hidden>
+    <div id="drawsRoot"><p class="pov-empty">Loading draws…</p></div>
+</section>
+
+<!-- Budget (budget lines + AIA workbook import) — js/project-draws.js -->
+<section id="acctBudgetPanel" class="acct-panel dr-panel" hidden>
+    <div id="budgetRoot"><p class="pov-empty">Loading budget…</p></div>
+</section>
+
+<section id="acctInvoicesPanel" class="acct-panel" hidden>
         <div class="acct-toolbar">
             <label class="acct-search">
                 <span class="acct-search-icon" aria-hidden="true"></span>
@@ -318,6 +331,54 @@
 
 
 <!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
+
+<!-- Draws: import the AIA workbook -->
+<div class="popup-overlay hidden" id="drImportOverlay">
+    <div class="popup dr-popup">
+        <h2>Import budget from AIA workbook</h2>
+        <div id="drImportBody"></div>
+        <p class="auth-message" id="drImportMsg"></p>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="drImportCancel">Cancel</button>
+            <button type="button" class="auth-button" id="drImportConfirm" disabled>Import</button>
+        </div>
+    </div>
+</div>
+
+<!-- Draws: add / edit a budget line -->
+<div class="popup-overlay hidden" id="drLineOverlay">
+    <div class="popup">
+        <h2 id="drLineTitle">Add a budget line</h2>
+        <form class="auth-form" onsubmit="return false" autocomplete="off">
+            <label class="auth-field">Group<select id="drLineSection"></select></label>
+            <label class="auth-field" id="drLineNewGroupWrap" hidden>New group name<input type="text" id="drLineNewGroup"></label>
+            <label class="auth-field">Description<input type="text" id="drLineDesc" maxlength="200"></label>
+            <label class="auth-field">Total budget ($)<input type="text" inputmode="decimal" id="drLineTotal"></label>
+            <label class="auth-field">Equity budget ($) <small>— loan budget is the rest</small><input type="text" inputmode="decimal" id="drLineEquity"></label>
+            <label class="auth-field">Retainage (%)<input type="number" id="drLineRet" min="0" max="100" step="0.5"></label>
+            <p class="auth-message" id="drLineMsg"></p>
+        </form>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="drLineDelete" hidden>Delete</button>
+            <button type="button" class="auth-button auth-button--secondary" id="drLineCancel">Cancel</button>
+            <button type="button" class="auth-button" id="drLineSave">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Draws: confirm (submit / delete draft) -->
+<div class="popup-overlay hidden" id="drConfirmOverlay">
+    <div class="popup">
+        <h2 id="drConfirmTitle">Are you sure?</h2>
+        <p class="auth-inline-copy" id="drConfirmText"></p>
+        <p class="auth-message" id="drConfirmMsg"></p>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="drConfirmCancel">Cancel</button>
+            <button type="button" class="auth-button" id="drConfirmOk">OK</button>
+        </div>
+    </div>
+</div>
+
 <script src="/js/mobile-app.js"></script>
 <script src="/js/sheet-swipe.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -340,6 +401,10 @@
 <script src="/js/project-shell.js"></script>
 <script src="/js/project-invoices.js"></script>
 <script src="/js/project-accounting.js"></script>
+<script src="/js/draws-core.js"></script>
+<script src="/js/draws-import.js"></script>
+<script src="/js/draws-export.js"></script>
+<script src="/js/project-draws.js"></script>
 
 <script>
 

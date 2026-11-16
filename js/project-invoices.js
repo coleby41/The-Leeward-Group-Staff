@@ -173,6 +173,50 @@
     /* ---------- PDF building ---------- */
 
     let pdfLibPromise = null;
+    /* ---------- budget lines (Draws, 2026-11-16) ----------
+       Each invoice can be tagged to a line of the project's budget
+       (Accounting › Budget). The next draw fills "This period" from the
+       invoices tagged since the last draw. Projects with no budget yet
+       simply don't show the picker. */
+    const lineCache = new Map(); // projectId → { lines: [...], byVendor: Map(vendorName → [lineId…]) }
+
+    async function loadBudgetLines(projectId, force) {
+        if (!force && lineCache.has(projectId)) return lineCache.get(projectId);
+        const [secRes, lineRes, usedRes] = await Promise.all([
+            client().from("budget_sections").select("id, name, parent_id").eq("project_id", projectId),
+            client().from("budget_lines").select("id, section_id, description, total_budget, sort_order").eq("project_id", projectId).order("sort_order"),
+            client().from(INVOICES_TABLE).select("vendor_name, budget_line_id, created_at").eq("project_id", projectId).not("budget_line_id", "is", null).order("created_at", { ascending: false }).limit(500)
+        ]);
+        if (lineRes.error) {
+            // Draws SQL not run yet, or no access → no picker.
+            const empty = { lines: [], byVendor: new Map() };
+            lineCache.set(projectId, empty);
+            return empty;
+        }
+        const sections = new Map((secRes.data || []).map(x => [x.id, x]));
+        const sectionPath = id => {
+            const parts = [];
+            let cur = sections.get(id);
+            while (cur) { parts.unshift(cur.name); cur = cur.parent_id ? sections.get(cur.parent_id) : null; }
+            return parts.join(" › ");
+        };
+        const lines = (lineRes.data || []).map(l => {
+            const group = sectionPath(l.section_id);
+            return { id: l.id, description: l.description, group, label: group ? `${group} › ${l.description}` : l.description, total: Number(l.total_budget) || 0 };
+        });
+        const byVendor = new Map();
+        (usedRes.data || []).forEach(r => {
+            const k = String(r.vendor_name || "").trim().toLowerCase();
+            if (!k) return;
+            if (!byVendor.has(k)) byVendor.set(k, []);
+            const list = byVendor.get(k);
+            if (!list.includes(r.budget_line_id)) list.push(r.budget_line_id);
+        });
+        const result = { lines, byVendor };
+        lineCache.set(projectId, result);
+        return result;
+    }
+
     function loadPdfLib() {
         if (window.PDFLib) return Promise.resolve(window.PDFLib);
         if (!pdfLibPromise) {
@@ -265,7 +309,7 @@
 
     // vendor is { id, name } for an approved vendor, or { id: null, name: <store name> }
     // for a hardware-store purchase (isHardware true, with an optional description).
-    async function createInvoice({ project, vendor, invoiceNumber, totalDue, invoiceDate, paid, files, isHardware, description }) {
+    async function createInvoice({ project, vendor, invoiceNumber, totalDue, invoiceDate, paid, files, isHardware, description, budgetLineId, isStored }) {
         const pdf = await buildPdf(files);
         const name = fileNameFor(project.name, vendor.name, invoiceNumber);
         const pdfFile = new File([pdf], name, { type: "application/pdf" });
@@ -297,6 +341,7 @@
             total_due: totalDue,
             invoice_date: invoiceDate || null,
             paid: !!paid,
+            ...(budgetLineId !== undefined ? { budget_line_id: budgetLineId || null, is_stored_material: !!isStored } : {}),
             project_file_id: fileRow.id,
             created_by: staffId(),
             created_by_name: staffName()
@@ -319,7 +364,8 @@
             invoice_number: changes.invoiceNumber,
             total_due: changes.totalDue,
             invoice_date: changes.invoiceDate || null,
-            paid: !!changes.paid
+            paid: !!changes.paid,
+            ...(changes.budgetLineId !== undefined ? { budget_line_id: changes.budgetLineId || null, is_stored_material: !!changes.isStored } : {})
         }).eq("id", invoice.id).select("*, project_files(id, file_name, storage_path, bucket)");
         if (error) throw error;
         if (!data || !data.length) throw new Error("You don't have permission to edit invoices on this project.");
@@ -437,6 +483,11 @@
             totalDue: inv ? String(inv.total_due.toFixed ? inv.total_due.toFixed(2) : inv.total_due) : "",
             invoiceDate: inv ? (inv.invoice_date || "") : todayIso(),
             paid: inv ? !!inv.paid : false,
+            budgetLineId: inv ? (inv.budget_line_id || null) : null,
+            isStored: !!(inv && inv.is_stored_material),
+            lineLocked: !!(inv && inv.draw_id),   // already in a draw → line can't change here
+            lineQuery: "",
+            budget: null,                         // { lines, byVendor } once loaded
             vendorQuery: "",
             vendors: vendorCache,
             vendorError: "",
@@ -447,6 +498,8 @@
         renderForm();
         overlay.classList.add("is-open");
         document.body.classList.add("inv-form-open");
+        loadBudgetLines(opts.project.id).then(b => { if (form && form.opts === opts) { form.budget = b; if (form.view === "form") renderForm(); } })
+            .catch(err => console.warn("Couldn't load budget lines:", err));
         if (!form.vendors) {
             loadApprovedVendors().then(list => { if (form) { form.vendors = list; if (form.view === "vendor") renderForm(); } })
                 .catch(err => { console.error("Couldn't load vendors:", err); if (form) { form.vendorError = "Couldn't load vendors."; renderForm(); } });
@@ -487,6 +540,7 @@
     function renderForm() {
         const sheet = document.querySelector("#invoiceFormOverlay .inv-sheet");
         if (!sheet || !form) return;
+        if (form.view === "line") { sheet.innerHTML = lineViewHtml(); const s = sheet.querySelector(".inv-vendor-search input"); if (s && !isPhone()) s.focus(); return; }
         if (form.view === "vendor") { sheet.innerHTML = vendorViewHtml(); const s = sheet.querySelector(".inv-vendor-search input"); if (s && !isPhone()) s.focus(); return; }
 
         const isAdd = form.mode === "add";
@@ -528,6 +582,7 @@
                         <span>${form.vendor ? esc(form.vendor.name) : "Choose an approved vendor"}</span>${ICON.chevron}
                     </button>
                 </div>`}
+                ${budgetFieldHtml()}
                 <div class="inv-grid">
                     <label class="inv-field"><span class="inv-label">${form.isHardware ? "Receipt / invoice #" : "Invoice number"}</span>
                         <input type="text" class="inv-input" data-inv-field="invoiceNumber" value="${esc(form.invoiceNumber)}" autocomplete="off" maxlength="60"></label>
@@ -554,6 +609,55 @@
                 <button type="button" class="inv-btn inv-btn--soft" data-inv-action="cancel"${form.saving ? " disabled" : ""}>Cancel</button>
                 <button type="button" class="inv-btn inv-btn--primary" data-inv-action="save"${form.saving ? " disabled" : ""}>${form.saving ? "Saving…" : (isAdd ? "Save invoice" : "Save changes")}</button>
             </div>`;
+    }
+
+    function vendorLineIds() {
+        if (!form.budget) return [];
+        const name = form.isHardware ? form.storeName : (form.vendor && form.vendor.name);
+        const k = String(name || "").trim().toLowerCase();
+        return (k && form.budget.byVendor.get(k)) || [];
+    }
+
+    function budgetFieldHtml() {
+        const b = form.budget;
+        if (!b || !b.lines.length) return ""; // no budget on this project yet
+        const line = b.lines.find(l => l.id === form.budgetLineId);
+        const suggestions = vendorLineIds().filter(id => id !== form.budgetLineId).map(id => b.lines.find(l => l.id === id)).filter(Boolean).slice(0, 3);
+        return `
+            <div class="inv-field inv-budget">
+                <span class="inv-label">Budget line <small>· goes into the next draw</small></span>
+                <button type="button" class="inv-select${line ? "" : " is-empty"}" data-inv-action="pick-line"${form.lineLocked ? " disabled" : ""}>
+                    <span>${line ? esc(line.label) : "Choose a budget line"}</span>${ICON.chevron}
+                </button>
+                ${form.lineLocked ? `<small class="inv-hint">Already in a draw — change it on the draw instead.</small>` : ""}
+                ${!form.lineLocked && suggestions.length ? `<div class="inv-chips"><small>Used before for this vendor:</small>${suggestions.map(l => `<button type="button" class="inv-chip" data-inv-action="choose-line" data-line-id="${esc(l.id)}">${esc(l.description)}</button>`).join("")}</div>` : ""}
+                <label class="inv-check inv-check--small">
+                    <input type="checkbox" data-inv-field="isStored"${form.isStored ? " checked" : ""}${form.lineLocked ? " disabled" : ""}>
+                    <span><strong>Stored materials</strong><small>On site but not installed yet</small></span>
+                </label>
+            </div>`;
+    }
+
+    function lineViewHtml() {
+        const q = form.lineQuery.trim().toLowerCase();
+        const lines = (form.budget ? form.budget.lines : []).filter(l => !q || l.label.toLowerCase().includes(q));
+        const suggested = new Set(vendorLineIds());
+        let lastGroup = null;
+        const listHtml = lines.length ? lines.map(l => {
+            const head = l.group !== lastGroup ? `<p class="inv-line-group">${esc(l.group || "Other")}</p>` : "";
+            lastGroup = l.group;
+            return head + `<button type="button" class="inv-vendor-row${form.budgetLineId === l.id ? " is-selected" : ""}" data-inv-action="choose-line" data-line-id="${esc(l.id)}">
+                <span class="inv-vendor-name">${esc(l.description)}</span>${suggested.has(l.id) ? `<span class="inv-vendor-ok">Used before</span>` : ""}</button>`;
+        }).join("") : `<p class="inv-hint">No budget lines match.</p>`;
+        return `
+            <div class="inv-handle"><span></span></div>
+            <div class="inv-head">
+                <button type="button" class="inv-back" data-inv-action="line-back" aria-label="Back">${ICON.back}</button>
+                <div><h2>Budget line</h2><p>From Accounting › Budget</p></div>
+                ${form.budgetLineId ? `<button type="button" class="inv-head-cancel" data-inv-action="clear-line">Clear</button>` : ""}
+            </div>
+            <label class="inv-vendor-search">${ICON.search}<input type="search" data-inv-field="lineQuery" value="${esc(form.lineQuery)}" placeholder="Search budget lines" aria-label="Search budget lines" autocomplete="off"></label>
+            <div class="inv-body inv-vendor-list">${listHtml}</div>`;
     }
 
     function vendorViewHtml() {
@@ -590,7 +694,15 @@
             if (form.isHardware && !isPhone()) document.querySelector('#invoiceFormOverlay [data-inv-field="storeName"]')?.focus();
             return;
         }
+        if (key === "isStored") { form.isStored = el.checked; return; }
         form[key] = el.value;
+        if (key === "lineQuery") {
+            const pos = el.selectionStart;
+            renderForm();
+            const input = document.querySelector('#invoiceFormOverlay [data-inv-field="lineQuery"]');
+            if (input) { input.focus(); try { input.setSelectionRange(pos, pos); } catch (err) { /* ignore */ } }
+            return;
+        }
         if (key === "vendorQuery") {
             const list = document.querySelector("#invoiceFormOverlay .inv-vendor-list");
             const pos = el.selectionStart;
@@ -621,6 +733,10 @@
             renderForm();
         }
         else if (a === "pick-vendor") { form.view = "vendor"; renderForm(); }
+        else if (a === "pick-line") { form.view = "line"; renderForm(); }
+        else if (a === "line-back") { form.view = "form"; form.lineQuery = ""; renderForm(); }
+        else if (a === "clear-line") { form.budgetLineId = null; form.view = "form"; form.lineQuery = ""; renderForm(); }
+        else if (a === "choose-line") { form.budgetLineId = btn.dataset.lineId; form.view = "form"; form.lineQuery = ""; renderForm(); }
         else if (a === "vendor-back") { form.view = "form"; renderForm(); }
         else if (a === "choose-vendor") {
             const v = (form.vendors || []).find(x => x.id === btn.dataset.vendorId);
@@ -658,11 +774,13 @@
                 saved = await createInvoice({
                     project: f.opts.project, vendor, invoiceNumber: number, isHardware: f.isHardware, description,
                     totalDue: total, invoiceDate: f.invoiceDate, paid: f.paid,
-                    files: f.pages.map(p => p.file)
+                    files: f.pages.map(p => p.file),
+                    ...(f.budget && f.budget.lines.length ? { budgetLineId: f.budgetLineId, isStored: f.isStored } : {})
                 });
             } else {
                 saved = await updateInvoice(f.opts.invoice, f.opts.project, {
-                    vendor, isHardware: f.isHardware, description, invoiceNumber: number, totalDue: total, invoiceDate: f.invoiceDate, paid: f.paid
+                    vendor, isHardware: f.isHardware, description, invoiceNumber: number, totalDue: total, invoiceDate: f.invoiceDate, paid: f.paid,
+                    ...(f.budget && f.budget.lines.length && !f.lineLocked ? { budgetLineId: f.budgetLineId, isStored: f.isStored } : {})
                 });
             }
             const onSaved = f.opts.onSaved;
@@ -689,6 +807,7 @@
         loadApprovedVendors,
         buildPdf,
         loadInvoices,
+        loadBudgetLines,
         createInvoice,
         updateInvoice,
         deleteInvoice,

@@ -53,8 +53,16 @@
 
     /* ---------- tabs ---------- */
 
+    // Draws + Budget tabs (2026-11-16, js/project-draws.js) start hidden and
+    // are only shown once draws_access() says this person may see them.
+    const TABS = ["home", "invoices", "draws", "budget"];
+    function tabAllowed(name) {
+        const btn = document.querySelector(`[data-acct-tab="${name}"]`);
+        return btn && !btn.hidden;
+    }
+
     function showTab(name) {
-        tab = name === "invoices" ? "invoices" : "home";
+        tab = TABS.includes(name) && tabAllowed(name) ? name : "home";
         document.querySelectorAll("[data-acct-tab]").forEach(btn => {
             const on = btn.dataset.acctTab === tab;
             btn.classList.toggle("active", on);
@@ -62,8 +70,10 @@
         });
         $("acctHomePanel").hidden = tab !== "home";
         $("acctInvoicesPanel").hidden = tab !== "invoices";
+        if ($("acctDrawsPanel")) $("acctDrawsPanel").hidden = tab !== "draws";
+        if ($("acctBudgetPanel")) $("acctBudgetPanel").hidden = tab !== "budget";
         document.body.classList.toggle("acct-on-invoices", tab === "invoices");
-        const hash = tab === "invoices" ? "#invoices" : "";
+        const hash = tab === "home" ? "" : "#" + tab;
         if (window.location.hash !== hash) history.replaceState(null, "", window.location.pathname + window.location.search + hash);
     }
 
@@ -376,8 +386,13 @@
         });
 
         buildSearch();
-        showTab(window.location.hash === "#invoices" ? "invoices" : "home");
+        showTab(window.location.hash.replace("#", "") || "home");
     }
+
+    window.AccountingTabs = {
+        show: showTab,
+        refreshFromHash: () => showTab(window.location.hash.replace("#", "") || tab)
+    };
 
     async function load() {
         try {
