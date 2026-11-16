@@ -10,7 +10,7 @@
    ========================================================================== */
 (function () {
     // Paste the iCloud link from Shortcuts › Share › Copy iCloud Link here.
-    const SIRI_SHORTCUT_URL = "https://www.icloud.com/shortcuts/6cee6b7e74e2427c8382956c2223bffb";
+    const SIRI_SHORTCUT_URL = "https://www.icloud.com/shortcuts/7ff1c8feccac4f9bab1739161a4bceb1";
 
     const SPARKLE = `<svg class="siri-pill__icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2c.4 3.9 2.1 6.6 5 8 .6.3 1.3.5 2 .7-3.9.9-6.3 3.3-7 7.3-.7-4-3.1-6.4-7-7.3 3.9-.9 6.3-3.3 7-8.7zM19 15c.2 1.6.9 2.6 2.5 3-1.6.4-2.3 1.4-2.5 3-.2-1.6-.9-2.6-2.5-3 1.6-.4 2.3-1.4 2.5-3z"/></svg>`;
 
@@ -50,7 +50,7 @@
             <div class="popup siri-setup">
                 <div class="siri-setup__orb" aria-hidden="true"></div>
                 <h3>Update the timeline with Siri</h3>
-                <p class="siri-setup__lead">Say <strong>“Hey Siri, Update Timeline”</strong>, then the project and the change.</p>
+                <p class="siri-setup__lead">Say <strong>“Hey Siri, Modify Timeline”</strong>. Siri asks which project, then what to change.</p>
                 <ol class="siri-setup__steps">
                     <li>Tap <strong>Set up</strong> — your personal code is copied.</li>
                     <li>In Shortcuts, tap <strong>Add Shortcut</strong> and paste the code when asked.</li>

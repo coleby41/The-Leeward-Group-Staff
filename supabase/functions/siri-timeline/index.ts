@@ -1,9 +1,10 @@
 // supabase/functions/siri-timeline/index.ts
-// "Hey Siri, Update Timeline" -> Shortcut POSTs { project, change } here
+// "Hey Siri, Modify Timeline" -> Shortcut asks "What project would you like to modify?"
+// and "What would you like to modify about it?", then POSTs { project, change } here
 // with the employee's personal code in the x-siri-token header.
 // Works on the same tables as pages/project-timeline.html:
 //   schedule_phases, schedule_tasks, schedule_dependencies
-// Returns plain text that the Shortcut speaks back.
+// Returns plain text that the Shortcut speaks back ("Got it! I have ... on <project>.").
 //
 // Deploy:  supabase functions deploy siri-timeline --no-verify-jwt
 //
@@ -56,7 +57,8 @@ Deno.serve(async (req) => {
     const change = String(body.change ?? "").trim().toLowerCase().replace(/[.!?]+$/, "");
 
     if (/^undo( last( change)?)?$/.test(change)) return await undo(who);
-    if (!project || !change) return say("I need a project and a change.");
+    if (!project) return say("I didn't catch the project name. Try again.");
+    if (!change) return say("I didn't catch what to change. Try again.");
 
     // ---- project ----
     // Same rule as is_project_member(): Super Admin, or listed in project_members.
@@ -120,18 +122,18 @@ Deno.serve(async (req) => {
       const label = task ? task.name : phase.name;
       const extra = moving.length > roots.length ? ` ${moving.length - roots.length} linked task${moving.length - roots.length > 1 ? "s" : ""} moved too.` : "";
       const when = task ? ` Now ${fmt(addDays(task.start_date ?? task.end_date, days))} to ${fmt(addDays(task.end_date, days))}.` : "";
-      return say(`${label} on ${proj.name} moved ${plural(Math.abs(days), "day")} ${days > 0 ? "later" : "earlier"}.${when}${extra}`);
+      return say(`Got it! I have ${label} moved ${plural(Math.abs(days), "day")} ${days > 0 ? "later" : "earlier"} on ${proj.name}.${when}${extra}`);
     }
 
     // ---- status / progress (tasks only) ----
     if (!task) return say(`${phase.name} is a phase. Say a task name for status or progress.`);
     if (cmd.kind === "done") {
       await updateTask(task, { status: "complete", progress_percent: 100 }, ctx);
-      return say(`Marked ${task.name} done.`);
+      return say(`Got it! I have ${task.name} marked done on ${proj.name}.`);
     }
     if (cmd.kind === "started") {
       await updateTask(task, { status: "in_progress" }, ctx);
-      return say(`Marked ${task.name} in progress.`);
+      return say(`Got it! I have ${task.name} marked in progress on ${proj.name}.`);
     }
     if (cmd.kind === "progress") {
       const p = Math.max(0, Math.min(100, cmd.progress));
@@ -139,7 +141,7 @@ Deno.serve(async (req) => {
       if (p === 100) patch.status = "complete";
       else if (p > 0 && task.status === "not_started") patch.status = "in_progress";
       await updateTask(task, patch, ctx);
-      return say(`${task.name} is now ${p} percent.`);
+      return say(`Got it! I have ${task.name} at ${p} percent on ${proj.name}.`);
     }
     return say("Nothing changed.");
   } catch (e) {
@@ -261,8 +263,8 @@ async function addTask(cmd: AddCmd, projName: string, phases: Row[], tasks: Row[
   const phaseName = phases.find((p) => p.id === phaseId)?.name;
   const where = after ? ` after ${after.name}` : parent ? ` under ${parent.name}` : ` in ${phaseName}`;
   return cmd.milestone
-    ? `Added milestone ${created.name}${where}, ${fmt(start)}.`
-    : `Added ${created.name}${where}, ${fmt(start)} to ${fmt(end)}.`;
+    ? `Got it! I have milestone ${created.name} added${where} on ${projName}, ${fmt(start)}.`
+    : `Got it! I have ${created.name} added${where} on ${projName}, ${fmt(start)} to ${fmt(end)}.`;
 }
 
 // Revert this person's most recent voice change (every row in that batch).
@@ -286,7 +288,7 @@ async function undo(who: Who) {
     if (uErr) throw uErr;
   }
   await sb.from(LOG).update({ undone: true }).eq("batch_id", batch);
-  return say(`Undid "${rows?.[0]?.command}".`);
+  return say(`Got it! I undid "${rows?.[0]?.command}".`);
 }
 
 // ================= parsing =================
