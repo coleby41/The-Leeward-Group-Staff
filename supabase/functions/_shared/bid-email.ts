@@ -529,3 +529,137 @@ export function renderPaperworkEmail(
   const linkNote = strings(lng).approvedNote(hours);
   return { subject, html: simpleEmail(lng, banner, name, paras, link, button, linkNote), text: textOf(name, lng, paras, link, linkNote) };
 }
+
+// ---------------------------------------------------------------------------
+// Vendor invoicing + schedule emails (designed 2026-11-13; templates 17-19 in
+// "Leeward Email Templates.pdf"). Not wired to a sender yet -- the invoicing
+// and vendor Schedule features call these once they're built.
+// ---------------------------------------------------------------------------
+
+function money2(value: unknown): string {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// A calendar date (YYYY-MM-DD or ISO) in the reader's language, no time.
+export function formatDay(value: string | null | undefined, lng: Lang = "en"): string {
+  if (!value) return "";
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(lng === "es" ? "es-US" : "en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric", timeZone: TZ });
+}
+
+// 17 · Payment sent -- Accounting records a payment (Vendor Payments › Mark paid).
+// Payments are mailed checks only until late 2027.
+export function renderPaymentSentEmail(
+  lng: Lang,
+  name: string,
+  companyName: string,
+  projectName: string,
+  pay: {
+    invoiceNumber: string;
+    amount: number | string;
+    checkNumber: string;
+    mailedOn: string;
+    mailingAddress: string;
+    amountOwed?: number | string | null; // left out when paid in full
+    expectedBy?: string | null;
+  },
+  link: string,
+  hours: number,
+): Rendered {
+  const es = lng === "es";
+  const c = escapeHtml(companyName);
+  const p = escapeHtml(projectName);
+  const inv = escapeHtml(pay.invoiceNumber);
+  const owed = pay.amountOwed != null && Number(pay.amountOwed) > 0;
+  const paras = [
+    es
+      ? `The Leeward Group envió por correo un pago a <b>${c}</b> por la factura <b>${inv}</b> de <b>${p}</b>.`
+      : `The Leeward Group has mailed a payment to <b>${c}</b> for invoice <b>${inv}</b> on <b>${p}</b>.`,
+    `<b>${es ? "Monto:" : "Amount:"}</b> ${escapeHtml(money2(pay.amount))}`,
+    `<b>${es ? "Método:" : "Method:"}</b> ${es ? "Cheque por correo" : "Mailed check"}`,
+    `<b>${es ? "Número de cheque:" : "Check number:"}</b> ${escapeHtml(pay.checkNumber)}`,
+    `<b>${es ? "Enviado el:" : "Mailed on:"}</b> ${escapeHtml(formatDay(pay.mailedOn, lng))}`,
+    `<b>${es ? "Enviado a:" : "Mailed to:"}</b> ${escapeHtml(pay.mailingAddress)}`,
+  ];
+  if (owed) {
+    const by = pay.expectedBy ? ` · ${es ? "esperado para el" : "expected by"} ${escapeHtml(formatDay(pay.expectedBy, lng))}` : "";
+    paras.push(`<b>${es ? "Saldo pendiente:" : "Still owed:"}</b> ${escapeHtml(money2(pay.amountOwed))}${by}`);
+  }
+  paras.push(es
+    ? "Por favor, espere el tiempo de entrega del correo. Si el cheque no llega, responda a este correo."
+    : "Please allow time for mail delivery. If the check does not arrive, reply to this email.");
+  const subject = es ? `Pago enviado – ${projectName} – ${pay.invoiceNumber}` : `Payment sent – ${projectName} – ${pay.invoiceNumber}`;
+  const banner = es ? "Pago Enviado" : "Payment Sent";
+  const button = es ? "Ver la factura" : "View Invoice";
+  const note = strings(lng).approvedNote(hours);
+  return { subject, html: simpleEmail(lng, banner, name, paras, link, button, note), text: textOf(name, lng, paras, link, note) };
+}
+
+// 18 · Invoice returned -- the project manager or Accounting returns an invoice.
+export function renderInvoiceReturnedEmail(
+  lng: Lang,
+  name: string,
+  companyName: string,
+  projectName: string,
+  inv: { invoiceNumber: string; amount: number | string; returnedOn: string; note: string },
+  link: string,
+  hours: number,
+): Rendered {
+  const es = lng === "es";
+  const c = escapeHtml(companyName);
+  const p = escapeHtml(projectName);
+  const n = escapeHtml(inv.invoiceNumber);
+  const paras = [
+    es
+      ? `The Leeward Group revisó la factura <b>${n}</b> de <b>${c}</b> para <b>${p}</b> y la devolvió. No se pagará como fue enviada.`
+      : `The Leeward Group reviewed invoice <b>${n}</b> from <b>${c}</b> for <b>${p}</b> and returned it. It will not be paid as submitted.`,
+    `<b>${es ? "Monto:" : "Amount:"}</b> ${escapeHtml(money2(inv.amount))}`,
+    `<b>${es ? "Devuelta el:" : "Returned on:"}</b> ${escapeHtml(formatDay(inv.returnedOn, lng))}`,
+    `<b>${es ? "Nota de The Leeward Group:" : "Note from The Leeward Group:"}</b> ${escapeHtml(inv.note)}`,
+    es
+      ? "Corrija la factura según la nota y envíela de nuevo en el Portal de Proveedores con un número de factura nuevo."
+      : "Please correct the invoice using the note above and submit it again in the Vendor Portal with a new invoice number.",
+  ];
+  const subject = es ? `Factura devuelta – ${projectName} – ${inv.invoiceNumber}` : `Invoice returned – ${projectName} – ${inv.invoiceNumber}`;
+  const banner = es ? "Factura Devuelta" : "Invoice Returned";
+  const button = es ? "Enviar factura corregida" : "Submit Corrected Invoice";
+  const note = strings(lng).approvedNote(hours);
+  return { subject, html: simpleEmail(lng, banner, name, paras, link, button, note), text: textOf(name, lng, paras, link, note) };
+}
+
+// 19 · Schedule changed -- staff change dates on a Project Timeline item assigned
+// to this vendor (with "Email the vendor if the dates change" checked).
+export function renderScheduleChangedEmail(
+  lng: Lang,
+  name: string,
+  projectName: string,
+  changes: { item: string; oldDates: string; newDates: string }[],
+  contactName: string,
+  link: string,
+  hours: number,
+): Rendered {
+  const es = lng === "es";
+  const p = escapeHtml(projectName);
+  const paras = [
+    es
+      ? `Sus fechas en <b>${p}</b> cambiaron. Sus demás fechas no cambiaron.`
+      : `Your dates on <b>${p}</b> have changed. Your other dates are unchanged.`,
+    ...changes.map((ch) => `<b>${escapeHtml(ch.item)}:</b> ${escapeHtml(ch.newDates)} <span style="color:#8a8a8a;text-decoration:line-through;">${escapeHtml(ch.oldDates)}</span>`),
+    es
+      ? `¿Preguntas sobre estas fechas? Responda a este correo y ${escapeHtml(contactName)} se comunicará con usted.`
+      : `Questions about these dates? Reply to this email and ${escapeHtml(contactName)} will get back to you.`,
+  ];
+  const textParas = [
+    paras[0],
+    ...changes.map((ch) => `${ch.item}: ${es ? "ahora" : "now"} ${ch.newDates} (${es ? "antes" : "was"} ${ch.oldDates})`),
+    paras[paras.length - 1],
+  ];
+  const subject = es ? `Cambio de calendario – ${projectName}` : `Schedule change – ${projectName}`;
+  const banner = es ? "Cambio de Calendario" : "Schedule Change";
+  const button = es ? "Ver su calendario" : "View Your Schedule";
+  const note = strings(lng).approvedNote(hours);
+  return { subject, html: simpleEmail(lng, banner, name, paras, link, button, note), text: textOf(name, lng, textParas, link, note) };
+}

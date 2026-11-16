@@ -104,8 +104,12 @@
         if (!w) window.location.href = SIRI_SHORTCUT_URL;
     }
 
+    // Siri Shortcuts setup only makes sense on iPhone — hide the pill everywhere else.
+    const IS_IPHONE = /iPhone|iPod/.test(navigator.userAgent);
+
     function mountPills() {
         document.querySelectorAll("[data-siri-pill]:not([data-siri-ready])").forEach((el) => {
+            if (!IS_IPHONE) { el.remove(); return; }
             el.dataset.siriReady = "1";
             el.innerHTML = `<button type="button" class="siri-pill">${SPARKLE}<span>Add to Siri</span></button>`;
             el.querySelector("button").addEventListener("click", open);
