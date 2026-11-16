@@ -70,8 +70,14 @@
         });
         $("acctHomePanel").hidden = tab !== "home";
         $("acctInvoicesPanel").hidden = tab !== "invoices";
-        if ($("acctDrawsPanel")) $("acctDrawsPanel").hidden = tab !== "draws";
-        if ($("acctBudgetPanel")) $("acctBudgetPanel").hidden = tab !== "budget";
+        // style.display too, not just [hidden] — the Draws/Budget panels must
+        // never show under Home or Invoices.
+        [["acctDrawsPanel", "draws"], ["acctBudgetPanel", "budget"]].forEach(([id, name]) => {
+            const el = $(id);
+            if (!el) return;
+            el.hidden = tab !== name;
+            el.style.display = tab === name ? "" : "none";
+        });
         document.body.classList.toggle("acct-on-invoices", tab === "invoices");
         const hash = tab === "home" ? "" : "#" + tab;
         if (window.location.hash !== hash) history.replaceState(null, "", window.location.pathname + window.location.search + hash);
