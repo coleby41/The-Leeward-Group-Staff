@@ -18918,3 +18918,36 @@ a.pov-row:hover strong { color: var(--accent-strong); }
 
 /* Invoices tab — where an invoice went (js/project-accounting.js drawLabel) */
 .acct-draw-tag { display: block; margin-top: 4px; font-size: 0.75rem; font-weight: 600; color: var(--accent); }
+
+/* Project Overview — archived 1+ year → offload banner (js/project-archive.js), 2026-11-17 */
+.pov-archive {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 16px 20px; border-radius: var(--radius-md);
+  background: var(--warning-soft); border: 1px solid #f1d9b8; color: #6b3f0e;
+}
+.pov-archive[hidden] { display: none; }
+.pov-archive strong { display: block; font-size: 1rem; }
+.pov-archive p { margin: 4px 0 0; font-size: 0.9rem; }
+.pov-archive .auth-button { margin-top: 0; }
+.pov-archive-btn { background: none; border: 0; cursor: pointer; font-family: inherit; color: #6b3f0e; }
+#povArchiveProgress { min-height: 1.4em; }
+.pov-archive-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.pov-archive-btn { text-decoration: none; font-weight: 600; }
+
+/* Offload guide popup (pages/projects.html #povDriveOverlay) — 2026-11-17 */
+.pov-guide { max-width: 520px; }
+.pov-guide-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.pov-guide-head h2 { margin: 0; font-size: 1.15rem; }
+.pov-guide-dots { display: flex; gap: 6px; }
+.pov-guide-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.pov-guide-dots span.is-on { background: var(--accent); }
+.pov-guide section[hidden] { display: none; }
+.pov-guide-pic { display: block; width: 100%; height: auto; max-height: 180px; margin: 6px 0 12px; background: var(--surface-alt); border-radius: var(--radius-md); }
+.pov-guide h3 { margin: 0 0 6px; font-size: 1rem; }
+.pov-guide p { margin: 0 0 8px; font-size: 0.92rem; color: var(--text-soft); line-height: 1.55; }
+.pov-guide p strong { color: var(--text); }
+.pov-guide-small { font-size: 0.85rem !important; }
+.pov-guide-note { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--warning-soft); color: #6b3f0e !important; }
+.pov-guide-buttons { display: flex; align-items: center; gap: 10px; }
+.pov-guide-spacer { flex: 1; }
+.pov-guide-buttons .auth-button { margin-top: 0; }

@@ -173,6 +173,9 @@
 
     <div id="projectOverviewMessage" class="workbook-page-message" style="display:none;"></div>
 
+    <!-- Archived 1+ year → offload (IT / Super Admin only) — js/project-archive.js -->
+    <div class="pov-archive" id="povArchiveBanner" hidden></div>
+
     <div class="pov-title" id="povTitle"><p class="pov-empty">Loading…</p></div>
 
     <div id="povBody" class="pov-body">
@@ -274,6 +277,105 @@
 </div>
 
 
+<!-- Offload guide: save straight to the hard drive (js/project-archive.js).
+     Chrome / Edge write the folders onto the drive directly; other
+     browsers fall back to a zip download. -->
+<div class="popup-overlay hidden" id="povDriveOverlay">
+    <div class="popup pov-guide">
+        <div class="pov-guide-head">
+            <h2>Save this project to its hard drive</h2>
+            <div class="pov-guide-dots" aria-hidden="true"><span data-guide-dot></span><span data-guide-dot></span><span data-guide-dot></span><span data-guide-dot></span></div>
+        </div>
+
+        <section data-guide-step>
+            <svg class="pov-guide-pic" viewBox="0 0 320 150" role="img" aria-label="A laptop with a hard drive plugged into its USB-C port">
+                <rect x="40" y="22" width="150" height="96" rx="8" fill="#e7eef3" stroke="#085c98" stroke-width="3"/>
+                <rect x="52" y="34" width="126" height="72" rx="4" fill="#ffffff"/>
+                <rect x="22" y="118" width="186" height="12" rx="6" fill="#085c98"/>
+                <path d="M208 124 C 232 124, 236 96, 254 96" fill="none" stroke="#5f6e7d" stroke-width="4" stroke-linecap="round"/>
+                <rect x="252" y="62" width="50" height="70" rx="8" fill="#14263a"/>
+                <circle cx="277" cy="120" r="4" fill="#5dcaa5"/>
+                <text x="277" y="92" text-anchor="middle" font-size="10" fill="#ffffff" font-family="Inter, sans-serif">2TB</text>
+            </svg>
+            <h3>1. Plug in this project's hard drive</h3>
+            <p>Use a new, empty drive for each project, and label it with the project name. It shows up on your computer as <strong>My Passport</strong> (or whatever it's named).</p>
+            <p class="pov-guide-small">Need a drive? <a href="https://a.co/d/09HtRtIx" target="_blank" rel="noopener">Buy a WD My Passport Ultra 2TB (USB-C) ↗</a></p>
+        </section>
+
+        <section data-guide-step hidden>
+            <svg class="pov-guide-pic" viewBox="0 0 320 150" role="img" aria-label="A file picker window with the My Passport drive selected in the sidebar and a Select button">
+                <rect x="20" y="10" width="280" height="130" rx="10" fill="#ffffff" stroke="#dce2e8" stroke-width="2"/>
+                <rect x="20" y="10" width="280" height="22" rx="10" fill="#f2f4f7"/>
+                <circle cx="34" cy="21" r="4" fill="#e24b4a"/><circle cx="46" cy="21" r="4" fill="#ef9f27"/><circle cx="58" cy="21" r="4" fill="#5dcaa5"/>
+                <rect x="20" y="32" width="86" height="108" fill="#f7f8fb"/>
+                <text x="30" y="52" font-size="10" fill="#5f6e7d" font-family="Inter, sans-serif">Desktop</text>
+                <text x="30" y="70" font-size="10" fill="#5f6e7d" font-family="Inter, sans-serif">Documents</text>
+                <rect x="24" y="80" width="78" height="18" rx="4" fill="#085c98"/>
+                <text x="30" y="93" font-size="10" fill="#ffffff" font-family="Inter, sans-serif">My Passport</text>
+                <rect x="122" y="48" width="18" height="14" rx="2" fill="#c9d9e6"/><text x="146" y="59" font-size="10" fill="#14263a" font-family="Inter, sans-serif">(empty drive)</text>
+                <rect x="232" y="112" width="58" height="20" rx="6" fill="#085c98"/>
+                <text x="261" y="126" text-anchor="middle" font-size="10" fill="#ffffff" font-family="Inter, sans-serif">Select</text>
+                <path d="M210 92 l14 14 -6 1 4 8 -4 2 -4 -8 -5 4z" fill="#14263a"/>
+            </svg>
+            <h3>2. Pick the drive</h3>
+            <p>Click <strong>Choose hard drive</strong> (last step). A window opens — click <strong>My Passport</strong> in the left sidebar, then <strong>Select</strong> (on Windows, <strong>Select Folder</strong>).</p>
+        </section>
+
+        <section data-guide-step hidden>
+            <svg class="pov-guide-pic" viewBox="0 0 320 150" role="img" aria-label="The browser asking to let the site edit files, with an Edit files button">
+                <rect x="40" y="18" width="240" height="114" rx="12" fill="#ffffff" stroke="#dce2e8" stroke-width="2"/>
+                <text x="60" y="48" font-size="12" font-weight="700" fill="#14263a" font-family="Inter, sans-serif">Let site edit files?</text>
+                <text x="60" y="68" font-size="10" fill="#5f6e7d" font-family="Inter, sans-serif">stafftheleewardgroup.vercel.app will be able</text>
+                <text x="60" y="82" font-size="10" fill="#5f6e7d" font-family="Inter, sans-serif">to edit files in "My Passport"</text>
+                <rect x="144" y="100" width="56" height="22" rx="6" fill="#ffffff" stroke="#dce2e8"/>
+                <text x="172" y="115" text-anchor="middle" font-size="10" fill="#14263a" font-family="Inter, sans-serif">Cancel</text>
+                <rect x="206" y="100" width="62" height="22" rx="6" fill="#085c98"/>
+                <text x="237" y="115" text-anchor="middle" font-size="10" fill="#ffffff" font-family="Inter, sans-serif">Edit files</text>
+            </svg>
+            <h3>3. Allow the portal to save to it</h3>
+            <p>Your browser asks <strong>"Let site edit files?"</strong> — click <strong>Edit files</strong> (or <strong>Allow</strong>). The portal can only write inside the drive you picked.</p>
+        </section>
+
+        <section data-guide-step hidden>
+            <svg class="pov-guide-pic" viewBox="0 0 320 150" role="img" aria-label="The drive now holding a project archive folder with Files, Data and a README">
+                <rect x="30" y="20" width="44" height="64" rx="8" fill="#14263a"/><circle cx="52" cy="72" r="4" fill="#5dcaa5"/>
+                <path d="M82 52 h26" stroke="#085c98" stroke-width="3" stroke-linecap="round"/><path d="M102 46 l8 6 -8 6" fill="none" stroke="#085c98" stroke-width="3" stroke-linecap="round"/>
+                <path d="M120 24 h34 l8 8 h120 v22 h-162z" fill="#e7eef3" stroke="#085c98" stroke-width="2"/>
+                <text x="130" y="47" font-size="10" font-weight="700" fill="#14263a" font-family="Inter, sans-serif">Oleander Townhomes - project archive</text>
+                <path d="M150 62 v62 M150 80 h16 M150 102 h16 M150 124 h16" stroke="#c9d9e6" stroke-width="2"/>
+                <path d="M168 72 h16 l4 4 h30 v12 h-50z" fill="#fff3e5" stroke="#a5661e"/><text x="226" y="85" font-size="10" fill="#14263a" font-family="Inter, sans-serif">Files</text>
+                <path d="M168 94 h16 l4 4 h30 v12 h-50z" fill="#fff3e5" stroke="#a5661e"/><text x="226" y="107" font-size="10" fill="#14263a" font-family="Inter, sans-serif">Data</text>
+                <rect x="170" y="116" width="14" height="16" rx="2" fill="#ffffff" stroke="#5f6e7d"/><text x="190" y="128" font-size="10" fill="#14263a" font-family="Inter, sans-serif">README.txt</text>
+            </svg>
+            <h3>4. The portal saves everything onto the drive</h3>
+            <p>It makes a folder named after the project with <strong>Files</strong> (every Project Files folder and file), <strong>Data</strong> (spreadsheets of the records) and a <strong>README</strong>. Keep this page open until it says it's done, check the folder on the drive, then click <strong>I saved it to the hard drive</strong>.</p>
+            <p class="pov-guide-note" id="povGuideNoSupport" hidden>This browser can't save straight to a drive. Use <strong>Chrome</strong> or <strong>Edge</strong> to skip this step — or download a zip now and drag it onto the drive yourself.</p>
+        </section>
+
+        <p class="auth-message" id="povGuideMsg"></p>
+        <div class="popup-buttons pov-guide-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="povDriveCancel">Cancel</button>
+            <span class="pov-guide-spacer"></span>
+            <button type="button" class="auth-button auth-button--secondary" id="povGuideBack">Back</button>
+            <button type="button" class="auth-button" id="povGuideNext">Next</button>
+            <button type="button" class="auth-button" id="povGuidePick" hidden>Choose hard drive</button>
+        </div>
+    </div>
+</div>
+
+<!-- Project archive download progress (js/project-archive.js) -->
+<div class="popup-overlay hidden" id="povArchiveOverlay">
+    <div class="popup">
+        <h2>Project archive</h2>
+        <p class="auth-inline-copy" id="povArchiveProgress">Starting…</p>
+        <p class="auth-inline-copy">Keep this page open until it finishes.</p>
+        <div class="popup-buttons">
+            <button type="button" class="auth-button auth-button--secondary" id="povArchiveClose">Close</button>
+            <button type="button" class="auth-button" id="povArchiveConfirm" hidden>I saved it to the hard drive</button>
+        </div>
+    </div>
+</div>
+
 <!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
 <script src="/js/mobile-app.js"></script>
 <script src="/js/sheet-swipe.js"></script>
@@ -300,6 +402,7 @@
 <script src="/js/draws-core.js"></script>
 <script src="/js/project-metrics.js"></script>
 <script src="/js/project-overview.js"></script>
+<script src="/js/project-archive.js"></script>
 
 <script>
 
