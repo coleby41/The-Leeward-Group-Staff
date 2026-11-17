@@ -425,86 +425,19 @@
 
 </aside>
 
-<main class="main-content">
+<main class="main-content pg-main">
 
-<section class="hero-section">
+    <!-- Projects page — glass cards (2026-11-17, "Projects page — card
+         redesign" board). Old hero banner + stat tiles + list view removed. -->
+    <div class="pg-head">
         <div>
-            <p class="eyebrow">Company Wide</p>
-            <h1>Project Overview</h1>
-            <p>See the latest project updates and information.</p>
+            <h1 class="pg-title">Projects</h1>
+            <p class="pg-summary" id="projectSummaryLine" data-paint-cache="summary">&nbsp;</p>
         </div>
-    </section>
-
-    <div class="project-stats-bar" id="projectStatsBar" data-paint-cache="stats">
-
-        <div class="project-stat-tile project-stat-tile--accent">
-            <span class="project-stat-icon project-stat-icon--accent project-stat-icon--briefcase"></span>
-            <div>
-                <p class="project-stat-value" id="projectStatTotal">0</p>
-                <p class="project-stat-label">Total Projects</p>
-            </div>
-        </div>
-
-        <div class="project-stat-tile project-stat-tile--success">
-            <span class="project-stat-icon project-stat-icon--success project-stat-icon--check"></span>
-            <div>
-                <p class="project-stat-value" id="projectStatActive">0</p>
-                <p class="project-stat-label">Active</p>
-            </div>
-        </div>
-
-        <div class="project-stat-tile project-stat-tile--info">
-            <span class="project-stat-icon project-stat-icon--info project-stat-icon--people"></span>
-            <div>
-                <p class="project-stat-value" id="projectStatOnboarding">0</p>
-                <p class="project-stat-label">Onboarding</p>
-            </div>
-        </div>
-
-
-        <div class="project-stat-tile project-stat-tile--completed">
-            <span class="project-stat-icon project-stat-icon--completed project-stat-icon--flag"></span>
-            <div>
-                <p class="project-stat-value" id="projectStatCompleted">0</p>
-                <p class="project-stat-label">Completed</p>
-            </div>
-        </div>
-
-        <div class="project-stat-tile project-stat-tile--success">
-            <span class="project-stat-icon project-stat-icon--success project-stat-icon--dollar"></span>
-            <div>
-                <p class="project-stat-value" id="projectStatValue">$0</p>
-                <p class="project-stat-label">Total Project Value</p>
-            </div>
-        </div>
-
+        <button class="pg-new-btn" id="addProjectBtn" type="button">+ New project</button>
     </div>
 
-    <div class="workbook-toolbar">
-
-        <input
-            type="text"
-            id="projectSearchInput"
-            class="workbook-search-input"
-            placeholder="Search Projects…"
-            autocomplete="off">
-
-        <button class="auth-button auth-button--secondary" id="addProjectBtn" type="button">
-            + New Project Onboard
-        </button>
-
-        <div class="view-toggle" id="projectViewToggle" role="group" aria-label="Toggle view">
-            <span class="view-toggle-indicator" id="projectViewToggleIndicator"></span>
-            <button type="button" class="view-toggle-btn active" id="projectCardViewBtn" data-view="card" aria-label="Card view" aria-pressed="true">
-                <span class="view-toggle-icon view-toggle-icon--grid"></span>
-            </button>
-            <button type="button" class="view-toggle-btn" id="projectListViewBtn" data-view="list" aria-label="List view" aria-pressed="false">
-                <span class="view-toggle-icon view-toggle-icon--list"></span>
-            </button>
-        </div>
-
-    </div>
-
+    <div class="pg-bar">
     <div class="dash-tabs project-tabs" id="projectTabs">
         <button type="button" class="dash-tab active" data-status="all">All Projects <span class="project-tab-count" id="projectTabCountAll" data-paint-cache="tab-count-all">0</span></button>
         <button type="button" class="dash-tab" data-status="active">Active <span class="project-tab-count" id="projectTabCountActive" data-paint-cache="tab-count-active">0</span></button>
@@ -512,6 +445,11 @@
         <button type="button" class="dash-tab" data-status="on_hold">On Hold <span class="project-tab-count" id="projectTabCountOnHold" data-paint-cache="tab-count-onhold">0</span></button>
         <button type="button" class="dash-tab" data-status="completed">Completed <span class="project-tab-count" id="projectTabCountCompleted" data-paint-cache="tab-count-completed">0</span></button>
         <button type="button" class="dash-tab" data-status="archived">Archived <span class="project-tab-count" id="projectTabCountArchived" data-paint-cache="tab-count-archived">0</span></button>
+    </div>
+        <label class="pg-search">
+            <span class="pg-search-icon" aria-hidden="true"></span>
+            <input type="text" id="projectSearchInput" placeholder="Search projects…" autocomplete="off" aria-label="Search projects">
+        </label>
     </div>
 
     <div id="projectMessage" class="workbook-page-message" style="display:none;"></div>
@@ -521,14 +459,14 @@
     </div>
 
     <div class="workbook-empty" id="projectEmptyState" style="display:none;">
-        <p>No projects yet. Click "+ New Project Onboard" to start the first one.</p>
+        <p>No projects yet. Click "+ New project" to start the first one.</p>
     </div>
 
     <div class="workbook-empty" id="projectNoResultsState" style="display:none;">
         <p>No projects match your search.</p>
     </div>
 
-    <div class="workbook-grid" id="projectsGrid" data-paint-cache="grid"></div>
+    <div class="pg-grid" id="projectsGrid" data-paint-cache="grid"></div>
 
     <div class="project-pagination" id="projectPagination" style="display:none;">
         <p class="project-pagination-summary" id="projectPaginationSummary"></p>

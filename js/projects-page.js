@@ -329,6 +329,33 @@ function anyProjectOverlayOpen() {
 =========================== */
 
 let projectSchedules = new Map(); // projectId → ProjectMetrics.schedule()
+let projectMoney = new Map();     // projectId → { contract, spent } — contract = original + VPOs
+
+async function loadProjectMoney(projects) {
+    const out = new Map();
+    const ids = projects.map(p => p.id);
+    if (!ids.length) return out;
+    const sb = window.supabaseClient;
+    const [inv, vpo] = await Promise.all([
+        sb.from("project_invoices").select("project_id, total_due").in("project_id", ids),
+        sb.from("vpos").select("project_id, price").in("project_id", ids)
+    ]);
+    const sum = (rows, key) => {
+        const m = new Map();
+        (rows || []).forEach(r => m.set(r.project_id, (m.get(r.project_id) || 0) + (Number(r[key]) || 0)));
+        return m;
+    };
+    const spent = sum(inv.data, "total_due");
+    const vpos = sum(vpo.data, "price");
+    projects.forEach(p => {
+        const original = p.contract_value == null ? null : Number(p.contract_value) || 0;
+        out.set(p.id, {
+            contract: original == null ? null : original + (vpos.get(p.id) || 0),
+            spent: spent.get(p.id) || 0
+        });
+    });
+    return out;
+}
 
 async function loadProjects() {
     const loadingState = document.getElementById("projectLoadingState");
@@ -365,6 +392,8 @@ async function loadProjects() {
     if (window.ProjectMetrics && allProjects.length) {
         try { projectSchedules = await window.ProjectMetrics.loadScheduleForProjects(allProjects); }
         catch (e) { console.warn("Couldn't load timeline numbers for the cards:", e); }
+        try { projectMoney = await loadProjectMoney(allProjects); }
+        catch (e) { console.warn("Couldn't load invoice / VPO totals for the cards:", e); }
     }
 
     if (allProjects.length === 0) {
@@ -403,6 +432,18 @@ function renderProjectStatsBar(projects) {
     setText("projectStatOnboarding", String(byStatus("onboarding")));
     setText("projectStatCompleted", String(byStatus("completed")));
     setText("projectStatValue", formatProjectValue(totalValue));
+
+    // Projects page summary line (replaces the stat tiles, 2026-11-17).
+    const active = projects.filter(p => (p.status || "onboarding") === "active");
+    const contract = active.reduce((sum, p) => {
+        const m = projectMoney.get(p.id);
+        return sum + (m && m.contract != null ? m.contract : (Number(p.contract_value) || 0));
+    }, 0);
+    const behind = active.filter(p => { const s = projectSchedules.get(p.id); return s && s.hasPlan && s.daysBehind > 0; }).length;
+    const bits = [`${active.length} active`];
+    if (contract) bits.push(`${formatProjectValue(contract)} under contract`);
+    bits.push(behind ? `${behind} behind plan` : "none behind plan");
+    setText("projectSummaryLine", projects.length ? bits.join(" · ") : "No projects yet");
 }
 
 function renderProjectTabCounts(projects) {
@@ -481,123 +522,117 @@ function refreshProjectsView() {
     }
 }
 
+function pgShortMoney(n) {
+    if (n == null) return "—";
+    const v = Number(n) || 0;
+    if (Math.abs(v) >= 1e6) return `$${(v / 1e6).toFixed(2).replace(/\.?0+$/, "")}M`;
+    if (Math.abs(v) >= 1e3) return `$${(v / 1e3).toFixed(v >= 1e5 ? 0 : 1).replace(/\.0$/, "")}k`;
+    return `$${Math.round(v).toLocaleString()}`;
+}
+
+function pgMonthYear(iso) {
+    if (!iso) return "—";
+    const d = new Date(`${String(iso).slice(0, 10)}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+}
+
+// Badge on the cover photo: days behind / ahead of the locked plan.
+function pgPace(project, sched) {
+    const status = project.status || "onboarding";
+    if (status === "completed" || status === "archived") return null;
+    if (status === "on_hold") return { text: "Paused", cls: "muted" };
+    if (sched && sched.hasPlan) {
+        const d = sched.daysBehind;
+        if (d > 0) return { text: `${d} day${d === 1 ? "" : "s"} behind`, cls: "behind" };
+        if (d < 0) return { text: `${-d} day${d === -1 ? "" : "s"} ahead`, cls: "good" };
+        return { text: "On plan", cls: "good" };
+    }
+    if (sched && sched.hasTasks) return { text: "No plan locked", cls: "muted" };
+    const old = computeSchedulePace(project);
+    return old ? { text: old.label, cls: old.cls === "behind" ? "behind" : "good" } : null;
+}
+
 function renderProjectCards(projects) {
     const grid = document.getElementById("projectsGrid");
     if (!grid) return;
 
+    const canEdit = projectsCan("projects.edit");
     grid.innerHTML = "";
 
     projects.forEach(project => {
-        const address = formatSiteAddress(project);
         const statusKey = project.status || "onboarding";
         const statusMeta = PROJECT_STATUS_META[statusKey] || PROJECT_STATUS_META.onboarding;
         const sched = projectSchedules.get(project.id);
+        const money = projectMoney.get(project.id) || { contract: project.contract_value, spent: 0 };
         const progress = sched && sched.hasTasks
             ? sched.percentDone
             : Math.max(0, Math.min(100, Number(project.progress_percent) || 0));
-        const dueInfo = computeDueDateInfo(project);
-        const updatedDate = formatProjectDate(project.updated_at) || "—";
-        const updatedBy = project.updated_by_name || project.created_by_name || "Staff Portal";
+        const pace = pgPace(project, sched);
+        const finish = (sched && sched.finishDate) || project.due_date || null;
+        const overdue = sched && Array.isArray(sched.overdue) ? sched.overdue.length : 0;
         const pmName = project.project_manager_name || "Unassigned";
-        const pace = computeSchedulePace(project);
-
-        const card = document.createElement("div");
-        card.className = `workbook-card project-card project-card--${statusKey}`;
-        card.dataset.projectId = project.id;
-
-        const coverStyle = project.cover_photo_url
+        const address = formatSiteAddress(project);
+        const cover = project.cover_photo_url
             ? ` style="background-image:url('${project.cover_photo_url.replace(/'/g, "%27")}')"`
             : "";
+        const showItems = statusKey === "active" || statusKey === "onboarding";
+
+        const card = document.createElement("div");
+        card.className = `pg-card pg-card--${statusKey}`;
+        card.dataset.projectId = project.id;
+        card.setAttribute("role", "link");
+        card.tabIndex = 0;
+        card.setAttribute("aria-label", `Open ${project.name || "project"}`);
 
         card.innerHTML = `
-            <div class="workbook-cover project-cover ${project.cover_photo_url ? "" : "project-cover--placeholder"}"${coverStyle}>
-                ${project.cover_photo_url ? "" : `<span class="project-cover-placeholder-icon"></span>`}
-                ${pace ? `<span class="project-schedule-badge project-schedule-badge--${pace.cls}">${escapeHtmlProject(pace.label)}</span>` : ""}
+            <span class="pg-card-sheen" aria-hidden="true"></span>
+            <div class="pg-cover ${project.cover_photo_url ? "" : "pg-cover--empty"}"${cover}>
+                <button type="button" class="pg-glass-tag pg-glass-tag--${statusKey} project-status-badge" data-id="${project.id}" title="Update status">${escapeHtmlProject(statusMeta.label)}</button>
+                ${pace ? `<span class="pg-glass-tag pg-pace--${pace.cls}">${escapeHtmlProject(pace.text)}</span>` : ""}
+                ${canEdit ? `<button type="button" class="pg-glass-icon project-edit-btn" data-id="${project.id}" aria-label="Edit project"><span class="project-edit-icon"></span></button>` : ""}
             </div>
-
-            <div class="company-card-body">
-
-                <button
-                    type="button"
-                    class="company-edit-btn project-edit-btn ${projectsCan("projects.edit") ? "" : "hidden"}"
-                    data-id="${project.id}"
-                    aria-label="Edit project">
-                    <span class="project-edit-icon"></span>
-                </button>
-
-                <div class="project-card-header">
-                    <h3 class="company-card-name">
-                        ${escapeHtmlProject(project.name || "Untitled project")}
-                        ${project.project_code ? `<span class="chip chip--muted project-code-chip">${escapeHtmlProject(project.project_code)}</span>` : ""}
-                    </h3>
-                    <button type="button" class="chip chip--dot ${statusMeta.chip} project-status-badge" data-id="${project.id}" title="Update status">
-                        ${escapeHtmlProject(statusMeta.label)}
-                    </button>
+            <div class="pg-body">
+                <div>
+                    <p class="pg-name">${escapeHtmlProject(project.name || "Untitled project")}</p>
+                    <p class="pg-meta">${escapeHtmlProject([project.project_code, address].filter(Boolean).join(" · ") || "No site address on file")}</p>
                 </div>
-
-                <div class="company-card-address">
-                    ${address ? `<p>${escapeHtmlProject(address)}</p>` : `<p class="company-card-muted">No site address on file</p>`}
+                <div>
+                    <div class="pg-progress-head"><span>Progress</span><strong>${progress}%</strong></div>
+                    <div class="pg-progress"><span style="width:${progress}%"></span></div>
                 </div>
-
-                <div class="project-card-stats-row">
-
-                    <div class="project-card-stat">
-                        <p class="project-card-stat-label">Value</p>
-                        <p class="project-card-stat-value">${formatProjectValue(project.contract_value)}</p>
-                    </div>
-
-                    <div class="project-card-stat">
-                        <p class="project-card-stat-label">Progress</p>
-                        <p class="project-card-stat-value">${progress}%</p>
-                        <div class="project-progress-track"><span class="project-progress-fill project-progress-fill--${statusKey}" style="width:${progress}%"></span></div>
-                    </div>
-
-                    <div class="project-card-stat">
-                        <p class="project-card-stat-label">Due date</p>
-                        <p class="project-card-stat-value">${escapeHtmlProject(dueInfo.text)}</p>
-                        ${dueInfo.subtext ? `<p class="project-card-stat-sub ${dueInfo.subClass}">${escapeHtmlProject(dueInfo.subtext)}</p>` : ""}
-                    </div>
-
+                <div class="pg-stats">
+                    <div><p>Contract</p><strong>${pgShortMoney(money.contract)}</strong></div>
+                    <div><p>Spent</p><strong>${pgShortMoney(money.spent)}</strong></div>
+                    <div><p>Finish</p><strong>${escapeHtmlProject(pgMonthYear(finish))}</strong></div>
                 </div>
-
-                <div class="project-card-divider"></div>
-
-                <div class="project-card-footer">
-
-                    <div class="project-card-pm">
-                        <span class="project-pm-avatar">${projectManagerInitials(project.project_manager_name)}</span>
-                        <div>
-                            <p class="project-pm-name">${escapeHtmlProject(pmName)}</p>
-                            <p class="project-pm-role">Project Manager</p>
-                        </div>
-                    </div>
-
-                    <div class="project-card-updated">
-                        <p class="project-updated-label">Updated</p>
-                        <p class="project-updated-value">${updatedDate}</p>
-                        <p class="project-updated-by">by ${escapeHtmlProject(updatedBy)}</p>
-                    </div>
-
+                <div class="pg-foot">
+                    <span class="pg-pm"><span class="pg-avatar">${projectManagerInitials(project.project_manager_name)}</span>${escapeHtmlProject(pmName)}</span>
+                    ${showItems ? `<span class="pg-items ${overdue >= 3 ? "pg-items--bad" : overdue ? "pg-items--warn" : ""}">${overdue ? `${overdue} overdue` : "On track"}</span>` : ""}
                 </div>
-
             </div>
         `;
 
         grid.appendChild(card);
     });
 
-    grid.querySelectorAll(".project-card").forEach(card => {
+    const open = (card) => {
+        const id = card.dataset.projectId;
+        if (id) window.location.href = `/pages/projects.html?id=${encodeURIComponent(id)}`;
+    };
+    grid.querySelectorAll(".pg-card").forEach(card => {
         card.addEventListener("click", (event) => {
             if (event.target.closest(".project-edit-btn") || event.target.closest(".project-status-badge")) return;
-            const id = card.dataset.projectId;
-            if (id) window.location.href = `/pages/projects.html?id=${encodeURIComponent(id)}`;
+            open(card);
+        });
+        card.addEventListener("keydown", (event) => {
+            if (event.target === card && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); open(card); }
         });
     });
 
     grid.querySelectorAll(".project-edit-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const id = btn.dataset.id;
-            const project = allProjects.find(p => String(p.id) === String(id));
+        btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            const project = allProjects.find(p => String(p.id) === String(btn.dataset.id));
             if (project) openProjectWizard(project);
         });
     });
@@ -605,8 +640,7 @@ function renderProjectCards(projects) {
     grid.querySelectorAll(".project-status-badge").forEach(btn => {
         btn.addEventListener("click", (event) => {
             event.stopPropagation();
-            const id = btn.dataset.id;
-            const project = allProjects.find(p => String(p.id) === String(id));
+            const project = allProjects.find(p => String(p.id) === String(btn.dataset.id));
             if (project) openProjectQuickEdit(project);
         });
     });
