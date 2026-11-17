@@ -317,7 +317,8 @@
             const all = steps();
             step = Math.max(0, Math.min(all.length - 1, n));
             all.forEach((el, i) => { el.hidden = i !== step; });
-            guide.querySelectorAll("[data-guide-dot]").forEach((d, i) => d.classList.toggle("is-on", i === step));
+            guide.querySelectorAll("[data-guide-dot]").forEach((d, i) => d.classList.toggle("is-on", i <= step));
+            document.getElementById("povGuideStep").textContent = `Step ${step + 1} of ${all.length}`;
             document.getElementById("povGuideBack").style.visibility = step ? "visible" : "hidden";
             const last = step === all.length - 1;
             document.getElementById("povGuideNext").hidden = last;
@@ -332,6 +333,7 @@
         document.getElementById("povGuideNext").addEventListener("click", () => showStep(step + 1));
         document.getElementById("povGuideBack").addEventListener("click", () => showStep(step - 1));
         document.getElementById("povDriveCancel").addEventListener("click", () => guide.classList.add("hidden"));
+        document.getElementById("povGuideX").addEventListener("click", () => guide.classList.add("hidden"));
         document.getElementById("povGuidePick").addEventListener("click", async () => {
             if (canWriteToDrive()) {
                 try { await pickDrive(); }

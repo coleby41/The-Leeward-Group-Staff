@@ -18934,20 +18934,34 @@ a.pov-row:hover strong { color: var(--accent-strong); }
 .pov-archive-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .pov-archive-btn { text-decoration: none; font-weight: 600; }
 
-/* Offload guide popup (pages/projects.html #povDriveOverlay) — 2026-11-17 */
-.pov-guide { max-width: 520px; }
-.pov-guide-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
-.pov-guide-head h2 { margin: 0; font-size: 1.15rem; }
-.pov-guide-dots { display: flex; gap: 6px; }
-.pov-guide-dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
-.pov-guide-dots span.is-on { background: var(--accent); }
+/* Offload guide popup (pages/projects.html #povDriveOverlay) — 2026-11-17.
+   Corporate: small "Step N of 4" eyebrow + thin progress bar, compact
+   illustration panel, one primary button (right), outline Back, text Cancel. */
+.pov-guide { width: min(92vw, 520px); padding: 24px 28px 20px; border-radius: var(--radius-md); }
+.pov-guide-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.pov-guide-eyebrow { margin: 0 0 4px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.02em; color: var(--text-soft); }
+.pov-guide-head h2 { margin: 0; font-size: 1.15rem; font-weight: 700; color: var(--text); }
+.pov-guide-x { border: 0; background: none; font-size: 1.5rem; line-height: 1; color: var(--text-soft); cursor: pointer; padding: 0 2px; }
+.pov-guide-x:hover { color: var(--text); }
+.pov-guide-progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 14px 0 18px; }
+.pov-guide-progress span { height: 3px; border-radius: 2px; background: var(--border); }
+.pov-guide-progress span.is-on { background: var(--accent); }
 .pov-guide section[hidden] { display: none; }
-.pov-guide-pic { display: block; width: 100%; height: auto; max-height: 180px; margin: 6px 0 12px; background: var(--surface-alt); border-radius: var(--radius-md); }
-.pov-guide h3 { margin: 0 0 6px; font-size: 1rem; }
-.pov-guide p { margin: 0 0 8px; font-size: 0.92rem; color: var(--text-soft); line-height: 1.55; }
-.pov-guide p strong { color: var(--text); }
-.pov-guide-small { font-size: 0.85rem !important; }
+.pov-guide-pic { display: block; width: 100%; height: auto; max-height: 150px; margin: 0 0 16px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.pov-guide h3 { margin: 0 0 6px; font-size: 0.98rem; font-weight: 700; color: var(--text); }
+.pov-guide p { margin: 0 0 8px; font-size: 0.88rem; color: var(--text-soft); line-height: 1.55; }
+.pov-guide p strong { color: var(--text); font-weight: 600; }
+.pov-guide-small { font-size: 0.82rem !important; }
 .pov-guide-note { padding: 10px 12px; border-radius: var(--radius-sm); background: var(--warning-soft); color: #6b3f0e !important; }
-.pov-guide-buttons { display: flex; align-items: center; gap: 10px; }
+.pov-guide-buttons { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 .pov-guide-spacer { flex: 1; }
-.pov-guide-buttons .auth-button { margin-top: 0; }
+.pov-guide-link { border: 0; background: none; padding: 8px 0; font-family: inherit; font-size: 0.88rem; font-weight: 600; color: var(--text-soft); cursor: pointer; }
+.pov-guide-link:hover { color: var(--text); }
+.pov-guide-btn {
+  flex: 0 0 auto; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 9px 16px;
+  background: var(--accent); color: #fff; font-family: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.pov-guide-btn:hover { background: var(--accent-strong); }
+.pov-guide-btn--outline { background: var(--surface); color: var(--text); border-color: var(--border); }
+.pov-guide-btn--outline:hover { background: var(--surface-alt); }
+.pov-guide-btn[hidden] { display: none; }
