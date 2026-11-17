@@ -18965,3 +18965,20 @@ a.pov-row:hover strong { color: var(--accent-strong); }
 .pov-guide-btn--outline { background: var(--surface); color: var(--text); border-color: var(--border); }
 .pov-guide-btn--outline:hover { background: var(--surface-alt); }
 .pov-guide-btn[hidden] { display: none; }
+
+/* Archived project = read only (js/project-archived.js), 2026-11-17 */
+.par-banner {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
+  margin: 0 0 16px; padding: 14px 20px; border-radius: var(--radius-md);
+  background: #eef2f6; border: 1px solid #cdd7e1; color: #14263a;
+}
+.par-banner strong { display: block; font-size: 1rem; }
+.par-banner p { margin: 4px 0 0; font-size: 0.9rem; color: #3d4b59; }
+.par-banner .auth-button { margin-top: 0; }
+.par-popup { max-width: 440px; text-align: center; }
+.par-icon {
+  width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #eef2f6; color: #3d4b59;
+}
+.par-popup h2 { margin: 0 0 6px; }

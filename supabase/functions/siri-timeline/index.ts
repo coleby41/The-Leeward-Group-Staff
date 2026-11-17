@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     // ---- project ----
     // Same rule as is_project_member(): Super Admin, or listed in project_members.
-    let q = sb.from("projects").select("id, name, plan_locked_at").ilike("name", `%${project}%`).limit(5);
+    let q = sb.from("projects").select("id, name, plan_locked_at, status").ilike("name", `%${project}%`).limit(5);
     if (!who.superAdmin) {
       const { data: mine } = await sb.from("project_members").select("project_id").eq("user_id", who.authUserId ?? "");
       const ids = (mine ?? []).map((m: Row) => m.project_id);
@@ -73,6 +73,7 @@ Deno.serve(async (req) => {
     if (pErr) throw pErr;
     if (!projs?.length) return say(`I couldn't find a project called ${project} that you're on.`);
     const proj = projs[0];
+    if (proj.status === "archived") return say(`${proj.name} is archived, so it can't be changed. The project manager needs to reopen it first.`);
 
     const cmd = parse(change);
     if (!cmd) return say(`I didn't get "${change}". Try: push framing back 5 days.`);

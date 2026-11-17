@@ -69,6 +69,7 @@ let projectActiveTab = "all";
 let projectCurrentPage = 1;
 let projectPageSize = 6;
 let projectQuickEditId = null;
+let projectQuickEditFromStatus = null;
 
 /* ===========================
    ADDRESS AUTOCOMPLETE (Mailing address, Step 1)
@@ -709,6 +710,7 @@ function openProjectQuickEdit(project) {
     if (!projectsCan("projects.edit")) return;
 
     projectQuickEditId = project.id;
+    projectQuickEditFromStatus = project.status || "onboarding";
 
     document.getElementById("projectQuickEditName").textContent = project.name || "Untitled project";
     document.getElementById("projectQuickEditStatus").value = project.status || "onboarding";
@@ -735,6 +737,17 @@ async function saveProjectQuickEdit() {
     if (!projectsCan("projects.edit")) {
         if (messageEl) { messageEl.textContent = "You don't have permission to do this."; messageEl.className = "auth-message error"; }
         return;
+    }
+
+    // Archived projects are read only — only the project manager (or a
+    // Super Admin) can reopen one (sql/supabase-project-archive-readonly.sql).
+    const nextStatus = document.getElementById("projectQuickEditStatus").value;
+    if (projectQuickEditFromStatus === "archived" && nextStatus !== "archived") {
+        const { data: canReopen } = await window.supabaseClient.rpc("project_can_reopen", { p_project_id: projectQuickEditId });
+        if (canReopen !== true) {
+            if (messageEl) { messageEl.textContent = "This project is archived. Only the project manager can reopen it."; messageEl.className = "auth-message error"; }
+            return;
+        }
     }
 
     if (saveBtn) saveBtn.disabled = true;

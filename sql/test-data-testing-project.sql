@@ -187,6 +187,8 @@ begin
                            reason_for_report, change_in_scope, price, created_by_name, budget_line_id)
   values (ir1, p, 'VPO-TEST-1-1-1', '1', 1, 1, v_id[2], v_name[2], 'TESTING PROJECT', '2025-06-02', '101-104',
           'Riley Sample', 'Unsuitable soil at footing line', 'Over-excavate and replace with stone', 8400, tag, bl_vpo);
+  update public.incident_reports set bc_vpo_decision = 'vpo', bc_vpo_decision_at = '2025-06-03' where id = ir1;
+  update public.incident_reports set bc_vpo_decision = 'bc',  bc_vpo_decision_at = '2025-08-12' where id = ir2;
   update public.budget_lines set vpo_id = (select id from public.vpos where incident_report_id = ir1) where id = bl_vpo;
 
   insert into public.back_charges (incident_report_id, project_id, bc_number, vendor_to_charge_id, vendor_to_charge_name,
@@ -243,9 +245,9 @@ begin
 
   insert into public.bid_invites (package_id, company_id, company_name, contact_email, status, sent_at, viewed_at, responded_at, bid_amount, bid_received_on, bid_source, decline_reason) values
     (bp1, v_id[3], v_name[3], 'bids1@example.com', 'awarded',      '2025-04-02 09:00-04', '2025-04-02 13:00-04', '2025-04-22 15:00-04', 405000, '2025-04-22', 'portal', null),
-    (bp1, v_id[4], v_name[4], 'bids2@example.com', 'bid_received', '2025-04-02 09:00-04', '2025-04-03 08:00-04', '2025-04-24 10:00-04', 438500, '2025-04-24', 'staff',  null),
-    (bp1, v_id[6], v_name[6], 'bids3@example.com', 'declined',     '2025-04-02 09:00-04', '2025-04-04 16:00-04', '2025-04-07 09:00-04', null,   null,         null,     'Too busy'),
-    (bp2, v_id[1], v_name[1], 'bids4@example.com', 'pending',      '2026-01-05 09:00-05', null,                  null,                  null,   null,         null,     null);
+    (bp1, v_id[4], v_name[4], 'bids2@example.com', 'not_selected', '2025-04-02 09:00-04', '2025-04-03 08:00-04', '2025-04-24 10:00-04', 438500, '2025-04-24', 'staff',  null),
+    (bp1, v_id[6], v_name[6], 'bids3@example.com', 'not_bidding',  '2025-04-02 09:00-04', '2025-04-04 16:00-04', '2025-04-07 09:00-04', null,   null,         null,     'Too busy'),
+    (bp2, v_id[1], v_name[1], 'bids4@example.com', 'sent',         '2026-01-05 09:00-05', null,                  null,                  null,   null,         null,     null);
   update public.bid_packages set awarded_invite_id = (select id from public.bid_invites where package_id = bp1 and status = 'awarded') where id = bp1;
 
   -- ---- To-dos -------------------------------------------------------------

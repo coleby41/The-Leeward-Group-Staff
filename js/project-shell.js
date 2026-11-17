@@ -854,6 +854,10 @@
         populateSwitcher(projectId);
         loadSearchData(projectId); // background — not awaited, see loadSearchData's own comment
 
+        // Archived → read only (js/project-archived.js). Its guards go on
+        // synchronously here, before the page's own script gets the event.
+        if (window.ProjectArchived) window.ProjectArchived.apply(data);
+
         window.dispatchEvent(new CustomEvent("project-shell:ready", { detail: { project: data, error: null } }));
 
         highlightHashTarget();
