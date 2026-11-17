@@ -1460,8 +1460,24 @@ function initCompanyViewToggle() {
         listBtn.setAttribute("aria-pressed", String(isList));
     }
 
-    cardBtn.addEventListener("click", () => setView("card"));
-    listBtn.addEventListener("click", () => setView("list"));
+    // Remember each person's last choice (2026-11-17) — saved in this
+    // browser, per signed-in user, so they don't have to pick it every visit.
+    function prefKey() {
+        let p = window.currentSupabaseProfile;
+        if (!p) { try { p = JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch (_) { p = null; } }
+        return `vendorsView:${(p && (p.id || p.auth_user_id || p.email)) || "anon"}`;
+    }
+    function choose(view) {
+        setView(view);
+        try { localStorage.setItem(prefKey(), view); } catch (_) { /* private mode — just don't remember */ }
+    }
+
+    cardBtn.addEventListener("click", () => choose("card"));
+    listBtn.addEventListener("click", () => choose("list"));
+
+    let saved = null;
+    try { saved = localStorage.getItem(prefKey()); } catch (_) { saved = null; }
+    if (saved === "list" || saved === "card") setView(saved);
 }
 /* ===========================
    SIGN OUT
