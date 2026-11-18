@@ -24,7 +24,7 @@
   "use strict";
 
   const DS = window.DashboardShared;
-  const MAX_SHORTCUTS = 6;
+  const MAX_SHORTCUTS = 12;
 
   // Inline SVG glyphs, styled dark green on a light green block via
   // .quick-link-icon / .quick-link-icon svg in styles.css. Looked up by
