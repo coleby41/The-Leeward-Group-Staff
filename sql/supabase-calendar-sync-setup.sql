@@ -1,14 +1,14 @@
 -- ============================================================================
 -- Calendar connections for Home › Today (2026-11-18)
 --
--- Each staff member can link ONE calendar — Outlook / Microsoft 365, Google or
--- Apple iCloud — by pasting that calendar's private subscribe (ICS) link. The Edge
+-- Each staff member can link up to 8 calendars — Outlook / Microsoft 365, Google
+-- or Apple iCloud — by pasting each calendar's private subscribe (ICS) link. The Edge
 -- Function supabase/functions/calendar does the sign-in, keeps the tokens
 -- (encrypted) and copies the next few months of events into
 -- calendar_events_cache, which Home reads.
 --
 --   calendar_providers          the three choices on "Link calendar"
---   calendar_accounts           one row per person — tokens live here; no one
+--   calendar_accounts           one row per linked calendar — tokens live here; no one
 --                               but the Edge Function can read this table
 --   calendar_connections_status what the browser sees (no tokens): your own
 --                               connection's status, account email, last sync
@@ -65,7 +65,8 @@ grant select on public.calendar_providers to authenticated;
 
 -- 2. Accounts (tokens) — Edge Function only ------------------------------------
 create table if not exists public.calendar_accounts (
-  user_id uuid primary key references public.staff_users(id) on delete cascade,
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.staff_users(id) on delete cascade,
   provider_id text not null references public.calendar_providers(id),
   status text not null default 'connected' check (status in ('connected', 'error')),
   external_account_email text,
@@ -77,6 +78,31 @@ create table if not exists public.calendar_accounts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Several calendars per person: each linked calendar is its own row with an id.
+-- (Earlier versions of this table allowed one row per person, keyed by user_id.)
+alter table public.calendar_accounts add column if not exists id uuid default gen_random_uuid();
+update public.calendar_accounts set id = gen_random_uuid() where id is null;
+alter table public.calendar_accounts alter column id set not null;
+alter table public.calendar_accounts alter column id set default gen_random_uuid();
+do $$
+declare pk record;
+begin
+  select c.conname, array_agg(a.attname::text) as cols into pk
+    from pg_constraint c
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+   where c.conrelid = 'public.calendar_accounts'::regclass and c.contype = 'p'
+   group by c.conname;
+  if pk.conname is not null and pk.cols <> array['id'] then
+    execute format('alter table public.calendar_accounts drop constraint %I cascade', pk.conname);
+    pk.conname := null;
+  end if;
+  if pk.conname is null then
+    alter table public.calendar_accounts add primary key (id);
+  end if;
+end $$;
+create index if not exists calendar_accounts_user_idx on public.calendar_accounts (user_id);
+
 alter table public.calendar_accounts enable row level security;
 revoke all on public.calendar_accounts from anon, authenticated;
 -- (no policies: only the service role — the Edge Function — can touch it)
@@ -84,7 +110,7 @@ revoke all on public.calendar_accounts from anon, authenticated;
 -- 3. What the browser sees -------------------------------------------------------
 drop view if exists public.calendar_connections_status cascade;
 create view public.calendar_connections_status as
-  select a.user_id, a.provider_id, p.label as provider_label, a.status,
+  select a.id, a.user_id, a.provider_id, p.label as provider_label, a.status,
          a.external_account_email, a.last_synced_at, a.last_error, a.created_at
     from public.calendar_accounts a
     join public.calendar_providers p on p.id = a.provider_id
@@ -108,6 +134,8 @@ create table if not exists public.calendar_events_cache (
 alter table public.calendar_events_cache add column if not exists provider_id text;
 alter table public.calendar_events_cache add column if not exists external_id text;
 alter table public.calendar_events_cache add column if not exists all_day boolean not null default false;
+alter table public.calendar_events_cache add column if not exists account_id uuid references public.calendar_accounts(id) on delete cascade;
+create index if not exists calendar_events_cache_account_idx on public.calendar_events_cache (account_id);
 create index if not exists calendar_events_cache_user_start_idx on public.calendar_events_cache (user_id, start_time);
 
 alter table public.calendar_events_cache enable row level security;

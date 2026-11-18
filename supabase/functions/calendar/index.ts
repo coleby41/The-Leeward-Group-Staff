@@ -7,8 +7,11 @@
 //   GET  ?action=callback&code=…&state=…                         (Microsoft/Google send people back here)
 //   POST {action:"caldav_connect", username, app_password}       (Apple iCloud)
 //   POST {action:"ics_connect", provider, url}                    (pasted calendar link — what Home uses now)
-//   POST {action:"sync"}                                          (refresh events now)
-//   POST {action:"disconnect"}
+//   POST {action:"sync", account_id?}                             (refresh one or all calendars)
+//   POST {action:"rename", account_id, name}
+//   POST {action:"disconnect", account_id?}                       (remove one, or all)
+//   Each connect action takes an optional account_id to replace that calendar
+//   (reconnect); without it a new calendar is added (up to 8 per person).
 // Every POST must carry the signed-in staff member's session
 // (Authorization: Bearer <access token>). The callback is checked with a
 // signed "state" instead.
@@ -197,7 +200,7 @@ async function accessToken(acct: Row): Promise<string> {
     secret_enc: await seal(next),
     token_expires_at: new Date(Date.now() + (t.expires_in || 3600) * 1000).toISOString(),
     updated_at: new Date().toISOString(),
-  }).eq("user_id", acct.user_id);
+  }).eq("id", acct.id);
   return t.access_token;
 }
 
@@ -572,9 +575,10 @@ async function icloudEvents(acct: Row): Promise<Ev[]> {
 
 /* ---------------- sync ---------------- */
 
-async function syncUser(userId: string) {
-  const { data: acct } = await db.from("calendar_accounts").select("*").eq("user_id", userId).maybeSingle();
-  if (!acct) return { status: "none" };
+const MAX_CALENDARS = 8;
+
+// Refresh one linked calendar: replace its copied events with fresh ones.
+async function syncAccount(acct: Row) {
   try {
     const secret = await unseal(acct.secret_enc);
     let calName = "";
@@ -589,8 +593,8 @@ async function syncUser(userId: string) {
     // Same event can come from more than one iCloud calendar — keep one.
     const seen = new Set<string>();
     const rows = events.filter(e => (seen.has(e.external_id + e.start_time) ? false : (seen.add(e.external_id + e.start_time), true)))
-      .map(e => ({ ...e, user_id: userId, provider_id: acct.provider_id }));
-    await db.from("calendar_events_cache").delete().eq("user_id", userId);
+      .map(e => ({ ...e, user_id: acct.user_id, provider_id: acct.provider_id, account_id: acct.id }));
+    await db.from("calendar_events_cache").delete().eq("account_id", acct.id);
     for (let i = 0; i < rows.length; i += 500) {
       const { error } = await db.from("calendar_events_cache").insert(rows.slice(i, i + 500));
       if (error) throw new Error(error.message);
@@ -598,13 +602,46 @@ async function syncUser(userId: string) {
     await db.from("calendar_accounts").update({
       status: "connected", last_error: null, last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
       ...(calName ? { external_account_email: calName } : {}),
-    }).eq("user_id", userId);
-    return { status: "connected", count: rows.length };
+    }).eq("id", acct.id);
+    return { id: acct.id, status: "connected", count: rows.length };
   } catch (e) {
     const message = (e as Error).message || "Sync failed.";
-    await db.from("calendar_accounts").update({ status: "error", last_error: message, updated_at: new Date().toISOString() }).eq("user_id", userId);
-    return { status: "error", message };
+    await db.from("calendar_accounts").update({ status: "error", last_error: message, updated_at: new Date().toISOString() }).eq("id", acct.id);
+    return { id: acct.id, status: "error", message };
   }
+}
+
+// All of a person's calendars (or just one).
+async function syncUser(userId: string, accountId?: string) {
+  let q = db.from("calendar_accounts").select("*").eq("user_id", userId).order("created_at");
+  if (accountId) q = q.eq("id", accountId);
+  const { data: accts } = await q;
+  // Events copied before calendars had their own ids.
+  await db.from("calendar_events_cache").delete().eq("user_id", userId).is("account_id", null);
+  const out = [];
+  for (const acct of accts || []) out.push(await syncAccount(acct));
+  return out;
+}
+
+async function ownAccount(userId: string, id: unknown) {
+  if (!id) return null;
+  const { data } = await db.from("calendar_accounts").select("*").eq("user_id", userId).eq("id", String(id)).maybeSingle();
+  return data;
+}
+
+// Save a calendar: replaces `replaceId` if given (reconnect), else adds a new one.
+async function saveAccount(userId: string, replaceId: unknown, fields: Row) {
+  const existing = await ownAccount(userId, replaceId);
+  if (existing) {
+    const { error } = await db.from("calendar_accounts").update({ ...fields, updated_at: new Date().toISOString() }).eq("id", existing.id);
+    if (error) throw new Error(error.message);
+    return existing.id as string;
+  }
+  const { count } = await db.from("calendar_accounts").select("id", { count: "exact", head: true }).eq("user_id", userId);
+  if ((count || 0) >= MAX_CALENDARS) throw new Error(`You can link up to ${MAX_CALENDARS} calendars. Remove one first.`);
+  const { data, error } = await db.from("calendar_accounts").insert({ ...fields, user_id: userId }).select("id").single();
+  if (error) throw new Error(error.message);
+  return data.id as string;
 }
 
 /* ---------------- handler ---------------- */
@@ -626,13 +663,13 @@ Deno.serve(async (req) => {
         const me = await fetch("https://graph.microsoft.com/v1.0/me", { headers: { Authorization: `Bearer ${t.access_token}` } }).then(r => r.json()).catch(() => ({}));
         email = me.mail || me.userPrincipalName || null;
       }
-      await db.from("calendar_accounts").upsert({
-        user_id: state.u, provider_id: state.p, status: "connected", external_account_email: email,
+      const id = await saveAccount(state.u, state.r, {
+        provider_id: state.p, status: "connected", external_account_email: email,
         secret_enc: await seal({ access_token: t.access_token, refresh_token: t.refresh_token }),
         token_expires_at: new Date(Date.now() + (t.expires_in || 3600) * 1000).toISOString(),
-        caldav_calendars: null, last_error: null, updated_at: new Date().toISOString(),
+        caldav_calendars: null, last_error: null,
       });
-      await syncUser(state.u);
+      await syncUser(state.u, id);
       return back(true);
     }
 
@@ -647,7 +684,7 @@ Deno.serve(async (req) => {
         const c = oauthConfig(provider);
         if (!c) return json({ error: "Unknown calendar." }, 400);
         if (!c.id || !c.secret) return json({ error: `${provider === "google" ? "Google" : "Microsoft"} sign-in isn't set up on the server yet.` }, 500);
-        const state = await signState({ u: staff.id, p: provider, exp: Date.now() + 15 * 60000, n: crypto.randomUUID() });
+        const state = await signState({ u: staff.id, p: provider, r: body.account_id || null, exp: Date.now() + 15 * 60000, n: crypto.randomUUID() });
         const q = new URLSearchParams({ client_id: c.id, response_type: "code", redirect_uri: CALLBACK_URL, scope: c.scope, state });
         if (provider === "google") { q.set("access_type", "offline"); q.set("prompt", "consent"); q.set("include_granted_scopes", "true"); }
         else q.set("prompt", "select_account");
@@ -658,12 +695,12 @@ Deno.serve(async (req) => {
         const password = String(body.app_password || "").trim();
         if (!username || !password) return json({ error: "Enter your Apple ID and app-specific password." }, 400);
         const calendars = await icloudDiscover(username, password);
-        await db.from("calendar_accounts").upsert({
-          user_id: staff.id, provider_id: "icloud", status: "connected", external_account_email: username,
+        const id = await saveAccount(staff.id, body.account_id, {
+          provider_id: "icloud", status: "connected", external_account_email: username,
           secret_enc: await seal({ app_password: password }), token_expires_at: null,
-          caldav_calendars: calendars, last_error: null, updated_at: new Date().toISOString(),
+          caldav_calendars: calendars, last_error: null,
         });
-        const result = await syncUser(staff.id);
+        const [result] = await syncUser(staff.id, id);
         return json({ ok: true, calendars: calendars.length, ...result });
       }
       case "ics_connect": {
@@ -674,25 +711,40 @@ Deno.serve(async (req) => {
         const typed = String(body.name || "").trim().slice(0, 80);
         const feed = await feedEvents(link);   // check it works before saving
         const events = feed.events;
-        await db.from("calendar_accounts").upsert({
-          user_id: staff.id, provider_id: prov.id, status: "connected",
+        const id = await saveAccount(staff.id, body.account_id, {
+          provider_id: prov.id, status: "connected",
           external_account_email: typed || feed.name || prov.label,
           secret_enc: await seal({ ics_url: link, name: typed || null }), token_expires_at: null,
-          caldav_calendars: null, last_error: null, updated_at: new Date().toISOString(),
+          caldav_calendars: null, last_error: null,
         });
-        const result = await syncUser(staff.id);
+        const [result] = await syncUser(staff.id, id);
         return json({ ok: true, found: events.length, ...result });
       }
       case "sync":
-        return json({ ok: true, synced: [await syncUser(staff.id)] });
+        return json({ ok: true, synced: await syncUser(staff.id, body.account_id ? String(body.account_id) : undefined) });
+      case "rename": {
+        const acct = await ownAccount(staff.id, body.account_id);
+        if (!acct) return json({ error: "That calendar isn't linked anymore." }, 404);
+        const name = String(body.name || "").trim().slice(0, 80);
+        const secret = await unseal(acct.secret_enc);
+        if (secret.ics_url) await db.from("calendar_accounts").update({ secret_enc: await seal({ ...secret, name: name || null }) }).eq("id", acct.id);
+        if (name) await db.from("calendar_accounts").update({ external_account_email: name, updated_at: new Date().toISOString() }).eq("id", acct.id);
+        return json({ ok: true });
+      }
       case "disconnect": {
-        const { data: acct } = await db.from("calendar_accounts").select("provider_id, secret_enc").eq("user_id", staff.id).maybeSingle();
-        if (acct?.provider_id === "google") {
-          const s = await unseal(acct.secret_enc).catch(() => ({}));
-          if (s.refresh_token) await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(s.refresh_token)}`, { method: "POST" }).catch(() => {});
+        // One calendar (account_id), or all of them.
+        let q = db.from("calendar_accounts").select("id, provider_id, secret_enc").eq("user_id", staff.id);
+        if (body.account_id) q = q.eq("id", String(body.account_id));
+        const { data: accts } = await q;
+        for (const acct of accts || []) {
+          if (acct.provider_id === "google") {
+            const s = await unseal(acct.secret_enc).catch(() => ({}));
+            if (s.refresh_token) await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(s.refresh_token)}`, { method: "POST" }).catch(() => {});
+          }
+          await db.from("calendar_events_cache").delete().eq("account_id", acct.id);
+          await db.from("calendar_accounts").delete().eq("id", acct.id);
         }
-        await db.from("calendar_events_cache").delete().eq("user_id", staff.id);
-        await db.from("calendar_accounts").delete().eq("user_id", staff.id);
+        if (!body.account_id) await db.from("calendar_events_cache").delete().eq("user_id", staff.id);
         return json({ ok: true });
       }
       default:

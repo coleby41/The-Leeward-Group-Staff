@@ -19764,3 +19764,19 @@ a.hm-mc-item:hover strong { color: #085c98; }
 /* Home › Today calendar: linked calendar gets its own key color (2026-11-18) */
 .hm-mc-dot--event { background: #12a08a; }
 .hm-cal-popup .hm-cal-optional { font-weight: 500; color: var(--text-secondary, #6b7280); }
+
+/* Home › calendars: several per person (2026-11-18) */
+.hm-cal-accounts { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 6px; max-height: 50vh; overflow-y: auto; }
+.hm-cal-accounts .hm-cal-account { display: flex; align-items: center; gap: 10px; }
+.hm-cal-accounts .hm-cal-account > span:nth-child(2) { flex: 1; min-width: 0; }
+.hm-cal-accounts .hm-cal-account strong, .hm-cal-accounts .hm-cal-account small { display: block; overflow: hidden; text-overflow: ellipsis; }
+.hm-cal-swatch { flex: 0 0 auto; width: 12px; height: 12px; border-radius: 50%; }
+.hm-cal-err { color: #b42318; white-space: normal !important; }
+.hm-cal-acts { display: flex; gap: 4px; flex-shrink: 0; }
+.hm-cal-act { border: 1px solid #d5dde6; background: #fff; border-radius: 8px; padding: 4px 8px; font: inherit; font-size: 0.75rem; font-weight: 600; color: #085c98; cursor: pointer; }
+.hm-cal-act:hover { border-color: #8fa3b6; }
+.hm-cal-act--danger { color: #b42318; }
+.hm-cal-tag { display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; font-size: 0.72rem; color: #5a6878; }
+.hm-cal-tag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.hm-mc-legend span { max-width: 100%; }
+@media (max-width: 640px) { .hm-cal-accounts .hm-cal-account { flex-wrap: wrap; } .hm-cal-acts { width: 100%; justify-content: flex-end; } }

@@ -18,7 +18,7 @@
   let shown = null;        // first day of the month on screen
   let selected = null;     // "YYYY-MM-DD"
   let items = new Map();   // "YYYY-MM-DD" → [{kind, title, sub, href, time}]
-  let calendarLabel = "";  // the linked calendar's name, for the key
+  let calendars = [];      // linked calendars [{id, name, color}], for colors and the key
   let started = false;
 
   const pad = (n) => String(n).padStart(2, "0");
@@ -106,22 +106,25 @@
     const monthKey = from;
 
     const [events, tasks, todos, projects, conn] = await Promise.all([
-      DS.safeQuery("month events", sb.from("calendar_events_cache").select("id, title, start_time, end_time, location")
+      DS.safeQuery("month events", sb.from("calendar_events_cache").select("id, title, start_time, end_time, location, account_id")
         .eq("user_id", staffId).gte("start_time", new Date(shown).toISOString()).lt("start_time", end.toISOString()).order("start_time")),
       DS.safeQuery("month tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
       DS.safeQuery("month to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
       DS.safeQuery("month projects", sb.from("projects").select("id, name").eq("status", "active")),
-      DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("provider_label, external_account_email"))
+      DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("id, provider_label, external_account_email").order("created_at"))
     ]);
-    const c = conn.data && conn.data[0];
-    calendarLabel = c ? (c.external_account_email || c.provider_label || "") : "";
+    const colorOf = window.HomeCalendarColor || (() => "#12a08a");
+    calendars = (conn.data || []).map((c, i) => ({ id: c.id, name: c.external_account_email || c.provider_label || "Calendar", color: colorOf(i) }));
+    const calById = new Map(calendars.map(c => [c.id, c]));
     if (iso(shown) !== monthKey) return; // moved on while loading
 
     (tasks.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
     (todos.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.label, sub: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` }));
     (events.data || []).forEach(e => {
       const s = new Date(e.start_time);
-      add(iso(s), { kind: "event", title: e.title || "Event", sub: e.location || "", time: s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), sort: s.getTime() });
+      const cal = calById.get(e.account_id);
+      add(iso(s), { kind: "event", title: e.title || "Event", sub: [calendars.length > 1 && cal ? cal.name : "", e.location || ""].filter(Boolean).join(" · "),
+        color: cal ? cal.color : "", cal: cal ? cal.id : "", time: s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), sort: s.getTime() });
     });
     const active = projects.data || [];
     if (active.length) {
@@ -147,13 +150,15 @@
     for (let d = 1; d <= daysIn; d++) {
       const key = iso(new Date(first.getFullYear(), first.getMonth(), d));
       const list = items.get(key) || [];
-      const kinds = ["task", "deadline", "event"].filter(k => list.some(x => x.kind === k));
+      const kinds = ["task", "deadline"].filter(k => list.some(x => x.kind === k));
+      // One dot per calendar that has something that day, in that calendar's color.
+      const calDots = [...new Map(list.filter(x => x.kind === "event").map(x => [x.cal || "_", x.color])).values()];
       const cls = ["hm-mc-cell", key === today ? "is-today" : "", key === selected ? "is-selected" : "", key < today ? "is-past" : ""].filter(Boolean).join(" ");
       const label = new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) +
         (list.length ? `, ${list.length} item${list.length === 1 ? "" : "s"}` : "");
       cells.push(`<button type="button" class="${cls}" data-day="${key}" aria-label="${label}" aria-pressed="${key === selected}" tabindex="${key === selected ? 0 : -1}">
           <span class="hm-mc-num">${d}</span>
-          <span class="hm-mc-dots">${kinds.map(k => `<i class="hm-mc-dot hm-mc-dot--${k}"></i>`).join("")}</span>
+          <span class="hm-mc-dots">${kinds.map(k => `<i class="hm-mc-dot hm-mc-dot--${k}"></i>`).join("")}${calDots.map(c => `<i class="hm-mc-dot hm-mc-dot--event"${c ? ` style="background:${c}"` : ""}></i>`).join("")}</span>
         </button>`);
     }
 
@@ -162,7 +167,7 @@
     const selTitle = selected === today ? "Today" : selDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
     const agenda = loading ? '<p class="hm-mc-none">Loading…</p>'
       : dayItems.length ? dayItems.map(x => {
-          const lead = x.kind === "event" ? `<span class="hm-mc-time">${esc(x.time)}</span>` : `<i class="hm-mc-dot hm-mc-dot--${x.kind}"></i>`;
+          const lead = x.kind === "event" ? `<span class="hm-mc-time"${x.color ? ` style="border-left:3px solid ${x.color};padding-left:6px"` : ""}>${esc(x.time)}</span>` : `<i class="hm-mc-dot hm-mc-dot--${x.kind}"></i>`;
           const inner = `${lead}<span class="hm-mc-item-text"><strong>${esc(x.title)}</strong>${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</span>`;
           return x.href ? `<a class="hm-mc-item" href="${x.href}">${inner}</a>` : `<div class="hm-mc-item">${inner}</div>`;
         }).join("")
@@ -178,7 +183,7 @@
       </div>
       <div class="hm-mc-week" aria-hidden="true">${WEEKDAYS.map(w => `<span>${w}</span>`).join("")}</div>
       <div class="hm-mc-grid" role="group" aria-label="Days">${cells.join("")}</div>
-      <div class="hm-mc-legend" aria-hidden="true"><span><i class="hm-mc-dot hm-mc-dot--task"></i>Tasks</span><span><i class="hm-mc-dot hm-mc-dot--deadline"></i>Project deadlines</span>${calendarLabel ? `<span><i class="hm-mc-dot hm-mc-dot--event"></i>${esc(calendarLabel)}</span>` : ""}</div>
+      <div class="hm-mc-legend" aria-hidden="true"><span><i class="hm-mc-dot hm-mc-dot--task"></i>Tasks</span><span><i class="hm-mc-dot hm-mc-dot--deadline"></i>Project deadlines</span>${calendars.map(c => `<span><i class="hm-mc-dot hm-mc-dot--event" style="background:${c.color}"></i>${esc(c.name)}</span>`).join("")}</div>
       <div class="hm-mc-agenda">
         <p class="hm-mc-agenda-title">${esc(selTitle)}</p>
         ${agenda}

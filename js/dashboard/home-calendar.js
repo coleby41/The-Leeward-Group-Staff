@@ -7,7 +7,8 @@
    - Link calendar  → Outlook / Microsoft 365, Google or Apple iCloud: pick one,
                       follow the short how-to, paste its private ICS link
                       (sign-in / app-password paths stay for later use)
-   - Manage ›       → status, account, last sync, Sync now, Reconnect, Disconnect
+   - Manage ›       → every linked calendar (up to 8): color, name, last sync,
+                      Rename / Reconnect / Remove, Sync now, Add another calendar
    - Rows view      → your next 4 events (the month view is home-today.js)
    - Syncs quietly in the background when the last sync is over 15 minutes old.
    Tables: calendar_providers, calendar_connections_status, calendar_events_cache
@@ -19,8 +20,12 @@
   const FN = "calendar";
   const MAX_ROWS = 4;
   const STALE_MS = 15 * 60000;
-  let conn = null;
+  let conns = [];          // the person's linked calendars, oldest first
   let staffId = null;
+
+  // One color per linked calendar (by the order they were linked). home-today.js uses this too.
+  const PALETTE = ["#12a08a", "#e0702b", "#c2418f", "#7a8c1e", "#0e8fb5", "#b8860b", "#8a5cc4", "#5a6878"];
+  window.HomeCalendarColor = (i) => PALETTE[((i % PALETTE.length) + PALETTE.length) % PALETTE.length];
 
   const esc = (s) => DS.escapeHtml(s);
 
@@ -51,7 +56,7 @@
     await refresh();
 
     // Background sync when it's been a while.
-    if (conn && conn.status === "connected" && (!conn.last_synced_at || Date.now() - new Date(conn.last_synced_at).getTime() > STALE_MS)) {
+    if (conns.some(c => c.status === "connected" && (!c.last_synced_at || Date.now() - new Date(c.last_synced_at).getTime() > STALE_MS))) {
       call({ action: "sync" }).then(() => refresh(true)).catch(err => console.warn("calendar: background sync failed", err));
     }
   });
@@ -77,24 +82,28 @@
     const listEl = document.getElementById("calendarEventsList");
     const linkEl = document.getElementById("linkCalendarLink");
     const manageEl = document.getElementById("manageCalendarLink");
-    const { data } = await DS.safeQuery("calendar status", window.supabaseClient.from("calendar_connections_status").select("*"));
-    conn = (data && data[0]) || null;
-    if (linkEl) linkEl.style.display = conn ? "none" : "";
-    if (manageEl) manageEl.style.display = conn ? "" : "none";
+    const { data } = await DS.safeQuery("calendar status", window.supabaseClient.from("calendar_connections_status").select("*").order("created_at"));
+    conns = data || [];
+    if (linkEl) linkEl.style.display = conns.length ? "none" : "";
+    if (manageEl) manageEl.style.display = conns.length ? "" : "none";
     if (synced) window.dispatchEvent(new CustomEvent("calendar:synced"));
 
-    if (!conn) { listEl.innerHTML = '<p class="card-subtitle">No calendar linked yet. Use "Link calendar" to connect Outlook, Google or iCloud.</p>'; return; }
-    if (conn.status === "error") { listEl.innerHTML = `<p class="card-subtitle">Your calendar needs attention${conn.last_error ? ": " + esc(conn.last_error) : "."} Open "Manage" to reconnect.</p>`; return; }
+    if (!conns.length) { listEl.innerHTML = '<p class="card-subtitle">No calendar linked yet. Use "Link calendar" to connect Outlook, Google or iCloud.</p>'; return; }
+    const broken = conns.filter(c => c.status === "error");
+    const warn = broken.length ? `<p class="card-subtitle">${esc(broken.map(c => c.external_account_email || c.provider_label).join(", "))} needs attention. Open "Manage" to fix it.</p>` : "";
 
     const { data: events, error } = await DS.safeQuery("calendar rows", window.supabaseClient.from("calendar_events_cache")
-      .select("id, title, start_time, end_time, location, all_day").gte("end_time", new Date().toISOString()).order("start_time").limit(MAX_ROWS));
-    if (error) { listEl.innerHTML = '<p class="card-subtitle">Couldn\'t load your events.</p>'; return; }
-    if (!events || !events.length) { listEl.innerHTML = '<p class="card-subtitle">Nothing on your calendar in the next few weeks.</p>'; return; }
-    listEl.innerHTML = events.map(ev => {
+      .select("id, title, start_time, end_time, location, all_day, account_id").gte("end_time", new Date().toISOString()).order("start_time").limit(MAX_ROWS));
+    if (error) { listEl.innerHTML = warn + '<p class="card-subtitle">Couldn\'t load your events.</p>'; return; }
+    if (!events || !events.length) { listEl.innerHTML = warn + '<p class="card-subtitle">Nothing on your calendars in the next few weeks.</p>'; return; }
+    const byId = new Map(conns.map((c, i) => [c.id, { name: c.external_account_email || c.provider_label, color: window.HomeCalendarColor(i) }]));
+    listEl.innerHTML = warn + events.map(ev => {
       const s = new Date(ev.start_time), en = new Date(ev.end_time || ev.start_time);
       const day = s.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
       const when = ev.all_day ? `${day} · All day` : `${day} · ${s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} – ${en.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
-      return `<div class="info-item"><div><h3>${esc(ev.title || "Busy")}</h3><p>${esc(when)}${ev.location ? " · " + esc(ev.location) : ""}</p></div></div>`;
+      const cal = byId.get(ev.account_id);
+      const tag = conns.length > 1 && cal ? `<span class="hm-cal-tag"><i style="background:${cal.color}"></i>${esc(cal.name)}</span>` : "";
+      return `<div class="info-item"><div><h3>${esc(ev.title || "Busy")}</h3><p>${esc(when)}${ev.location ? " · " + esc(ev.location) : ""}</p>${tag}</div></div>`;
     }).join("");
   }
 
@@ -120,10 +129,10 @@
       <p class="hm-cal-note">On a Mac: Calendar app › right-click the calendar › Share Calendar › tick Public Calendar.</p>`
   };
 
-  async function openLink() {
+  async function openLink(replaceId) {
     const { data: providers } = await DS.safeQuery("calendar providers", window.supabaseClient.from("calendar_providers").select("*").eq("is_active", true).order("sort_order"));
     const overlay = DS.buildPopup("homeLinkCalendar", `
-      <h2>Link a calendar</h2>
+      <h2>${replaceId ? "Reconnect calendar" : conns.length ? "Add another calendar" : "Link a calendar"}</h2>
       <p class="card-subtitle">Pick the calendar you use. The portal only reads it — it never changes anything.</p>
       <div class="hm-cal-providers" id="hmCalProviders"></div>
       <form id="hmCalIcs" class="auth-form auth-form--compact" hidden>
@@ -176,7 +185,7 @@
       if (b.dataset.type === "caldav") { list.hidden = true; form.hidden = false; overlay.querySelector("#hmCalLinkClose").hidden = true; overlay.querySelector("#hmCalAppleId").focus(); return; }
       b.disabled = true;
       DS.setFormMessage(msg, "Opening sign-in…", "");
-      try { const r = await call({ action: "oauth_start", provider: b.dataset.id }); window.location.href = r.url; }
+      try { const r = await call({ action: "oauth_start", provider: b.dataset.id, account_id: replaceId || null }); window.location.href = r.url; }
       catch (err) { b.disabled = false; DS.setFormMessage(msg, err.message, "error"); }
     }));
     overlay.querySelector("#hmCalIcloudBack").addEventListener("click", () => { form.hidden = true; list.hidden = false; overlay.querySelector("#hmCalLinkClose").hidden = false; });
@@ -189,7 +198,7 @@
       go.disabled = true;
       DS.setFormMessage(fmsg, "Checking your calendar link…", "");
       try {
-        const r = await call({ action: "ics_connect", provider: icsProvider, url: overlay.querySelector("#hmCalIcsUrl").value.trim(), name: overlay.querySelector("#hmCalIcsName").value.trim() });
+        const r = await call({ action: "ics_connect", account_id: replaceId || null, provider: icsProvider, url: overlay.querySelector("#hmCalIcsUrl").value.trim(), name: overlay.querySelector("#hmCalIcsName").value.trim() });
         if (r.status === "error") throw new Error(r.message || "Couldn't read that calendar.");
         DS.closePopup(overlay);
         if (typeof window.showToast === "function") window.showToast(`Calendar connected — ${r.count || 0} events synced.`, { type: "success" });
@@ -204,7 +213,7 @@
       go.disabled = true;
       DS.setFormMessage(fmsg, "Connecting to iCloud…", "");
       try {
-        const r = await call({ action: "caldav_connect", username: overlay.querySelector("#hmCalAppleId").value.trim(), app_password: overlay.querySelector("#hmCalApplePw").value.trim() });
+        const r = await call({ action: "caldav_connect", account_id: replaceId || null, username: overlay.querySelector("#hmCalAppleId").value.trim(), app_password: overlay.querySelector("#hmCalApplePw").value.trim() });
         DS.closePopup(overlay);
         if (typeof window.showToast === "function") window.showToast(`iCloud connected — ${r.count || 0} events synced.`, { type: "success" });
         refresh(true);
@@ -214,46 +223,71 @@
     DS.openPopup(overlay);
   }
 
-  /* ---------- Manage ---------- */
+  /* ---------- Manage (all linked calendars) ---------- */
 
   function openManage() {
-    if (!conn) return;
-    const when = conn.last_synced_at ? new Date(conn.last_synced_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Not yet";
+    if (!conns.length) return;
+    const fmt = (t) => t ? new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Not yet";
+    const rows = conns.map((c, i) => `
+      <div class="hm-cal-account" data-id="${esc(c.id)}">
+        <i class="hm-cal-swatch" style="background:${window.HomeCalendarColor(i)}" aria-hidden="true"></i>
+        <span><strong>${esc(c.external_account_email || c.provider_label)}</strong><small>${esc(c.provider_label)} · Last synced ${esc(fmt(c.last_synced_at))}</small>
+          ${c.status === "error" && c.last_error ? `<small class="hm-cal-err">${esc(c.last_error)}</small>` : ""}</span>
+        <span class="hm-cal-acts">
+          ${c.status === "error" ? '<button type="button" class="hm-cal-act" data-act="reconnect">Reconnect</button>' : ""}
+          <button type="button" class="hm-cal-act" data-act="rename">Rename</button>
+          <button type="button" class="hm-cal-act hm-cal-act--danger" data-act="remove">Remove</button>
+        </span>
+      </div>`).join("");
     const overlay = DS.buildPopup("homeManageCalendar", `
-      <h2>Your calendar</h2>
-      <div class="hm-cal-account">
-        <span class="hm-cal-logo hm-cal-logo--${esc(conn.provider_id)}" aria-hidden="true"></span>
-        <span><strong>${esc(conn.external_account_email || conn.provider_label)}</strong><small>${esc(conn.provider_label)} · Last synced ${esc(when)}</small></span>
-        <span class="hm-cal-status hm-cal-status--${conn.status === "error" ? "error" : "ok"}">${conn.status === "error" ? "Needs attention" : "Connected"}</span>
-      </div>
-      ${conn.status === "error" && conn.last_error ? `<p class="auth-message error">${esc(conn.last_error)}</p>` : ""}
+      <h2>Your calendars</h2>
+      <div class="hm-cal-accounts">${rows}</div>
       <p class="auth-message" id="hmCalManageMsg"></p>
       <div class="popup-buttons">
         <button type="button" class="auth-button auth-button--secondary" id="hmCalSync">Sync now</button>
-        <button type="button" class="auth-button" id="hmCalReconnect">${conn.status === "error" ? "Reconnect" : "Switch calendar"}</button>
+        <button type="button" class="auth-button" id="hmCalAdd">+ Add another calendar</button>
       </div>
-      <button type="button" class="hm-cal-disconnect" id="hmCalDisconnect">Disconnect this calendar</button>
       <button type="button" class="sheet-close" aria-label="Close" hidden></button>`,
       { extraClass: "hm-cal-popup" });
     const msg = overlay.querySelector("#hmCalManageMsg");
     overlay.querySelector(".sheet-close").addEventListener("click", () => DS.closePopup(overlay));
+    const reopen = async () => { DS.closePopup(overlay); await refresh(true); if (conns.length) openManage(); };
+
     overlay.querySelector("#hmCalSync").addEventListener("click", async (e) => {
       e.target.disabled = true; DS.setFormMessage(msg, "Syncing…", "");
       try {
         const r = await call({ action: "sync" });
-        const s = (r.synced || [])[0] || {};
-        if (s.status === "error") DS.setFormMessage(msg, s.message || "Sync failed.", "error");
-        else DS.setFormMessage(msg, `Synced — ${s.count || 0} events.`, "success");
+        const bad = (r.synced || []).filter(x => x.status === "error");
+        const total = (r.synced || []).reduce((n, x) => n + (x.count || 0), 0);
+        if (bad.length) DS.setFormMessage(msg, bad.map(x => x.message).join(" "), "error");
+        else DS.setFormMessage(msg, `Synced — ${total} events.`, "success");
         refresh(true);
       } catch (err) { DS.setFormMessage(msg, err.message, "error"); }
       finally { e.target.disabled = false; }
     });
-    overlay.querySelector("#hmCalReconnect").addEventListener("click", () => { DS.closePopup(overlay); openLink(); });
-    overlay.querySelector("#hmCalDisconnect").addEventListener("click", async () => {
-      if (!window.confirm("Disconnect this calendar? Its events will disappear from Home until you link it again.")) return;
-      DS.setFormMessage(msg, "Disconnecting…", "");
-      try { await call({ action: "disconnect" }); DS.closePopup(overlay); refresh(true); }
-      catch (err) { DS.setFormMessage(msg, err.message, "error"); }
+    overlay.querySelector("#hmCalAdd").addEventListener("click", () => { DS.closePopup(overlay); openLink(); });
+
+    overlay.querySelectorAll(".hm-cal-account").forEach(row => {
+      const id = row.dataset.id;
+      const c = conns.find(x => x.id === id);
+      row.querySelectorAll(".hm-cal-act").forEach(btn => btn.addEventListener("click", async () => {
+        const act = btn.dataset.act;
+        if (act === "reconnect") { DS.closePopup(overlay); openLink(id); return; }
+        if (act === "rename") {
+          const name = window.prompt("Name this calendar:", c.external_account_email || "");
+          if (name === null || !name.trim()) return;
+          DS.setFormMessage(msg, "Saving…", "");
+          try { await call({ action: "rename", account_id: id, name: name.trim() }); await reopen(); }
+          catch (err) { DS.setFormMessage(msg, err.message, "error"); }
+          return;
+        }
+        if (act === "remove") {
+          if (!window.confirm(`Remove "${c.external_account_email || c.provider_label}"? Its events will disappear from Home.`)) return;
+          DS.setFormMessage(msg, "Removing…", "");
+          try { await call({ action: "disconnect", account_id: id }); await reopen(); }
+          catch (err) { DS.setFormMessage(msg, err.message, "error"); }
+        }
+      }));
     });
     DS.openPopup(overlay);
   }
