@@ -120,7 +120,7 @@
     function openSheet(startMode) {
       if (!overlay) return;
       form.reset(); pickChip(null); setMode(startMode || "personal");
-      document.getElementById("homeTaskSheetDateWrap").hidden = true;
+      document.getElementById("homeTaskSheetDateLabel").textContent = "Custom date";
       newListWrap.hidden = true;
       overlay.classList.remove("hidden");
       document.body.classList.add("popup-active");
@@ -149,24 +149,30 @@
       newListWrap.hidden = listSel.value !== "__new";
       if (!newListWrap.hidden) newList.focus();
     });
-    // Today / Tomorrow / Next week / Custom date. Tap the lit one again to
-    // clear it (no due date). Custom date shows the date picker.
-    const dateWrap = document.getElementById("homeTaskSheetDateWrap");
-    chips.forEach(c => c.addEventListener("click", () => {
-      const v = c.dataset.due;
-      const wasOn = c.classList.contains("is-on");
-      if (wasOn) { pickChip(null); date.value = ""; dateWrap.hidden = true; return; }
-      pickChip(v);
-      if (v === "custom") {
-        dateWrap.hidden = false;
-        date.value = "";
-        date.focus();
-        try { if (date.showPicker) date.showPicker(); } catch (_) { /* some browsers need a direct tap */ }
-        return;
+    // Today / Tomorrow / Next week / Custom date. Tap a lit quick choice again
+    // to clear it (no due date). Custom date has the real date field laid
+    // invisibly over it, so tapping opens the phone's calendar; the picked
+    // date then shows on the button.
+    const dateLabel = document.getElementById("homeTaskSheetDateLabel");
+    function showCustom(value) {
+      if (value) {
+        const d = new Date(`${value}T00:00:00`);
+        dateLabel.textContent = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        pickChip("custom");
+      } else {
+        dateLabel.textContent = "Custom date";
+        pickChip(null);
       }
-      dateWrap.hidden = true;
+    }
+    chips.filter(c => c.dataset.due !== "custom").forEach(c => c.addEventListener("click", () => {
+      if (c.classList.contains("is-on")) { pickChip(null); date.value = ""; return; }
+      const v = c.dataset.due;
       date.value = v === "today" ? isoOffset(0) : v === "tomorrow" ? isoOffset(1) : isoOffset(7);
+      dateLabel.textContent = "Custom date";
+      pickChip(v);
     }));
+    date.addEventListener("change", () => showCustom(date.value));
+    date.addEventListener("input", () => showCustom(date.value));
     document.getElementById("homeTaskSheetCancel").addEventListener("click", closeSheet);
     document.getElementById("homeTaskSheetClose").addEventListener("click", closeSheet);
     overlay.addEventListener("click", (e) => { if (e.target === overlay) closeSheet(); });
