@@ -19250,4 +19250,46 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
 .hm-main .mytask-row.hm-done { opacity: 0.45; }
 .hm-main .mytask-row.hm-done .mytask-row-title { text-decoration: line-through; }
 .hm-more { display: block; padding: 11px 2px; font-size: 0.82rem; font-weight: 700; border-bottom: 1px solid #e8edf2; }
-@media (max-width: 520px) { .hm-main .mytask-row { flex-wrap: wrap; } .hm-main .mytask-row .mytask-row-title { flex-basis: calc(100% - 40px); } }
+
+/* Home — phone layout (2026-11-18) */
+.hm-strip { z-index: 5; }
+.hm-main .mytask-row-title { white-space: normal; overflow-wrap: anywhere; }
+.hm-main .mytask-row .todo-item-checkbox { width: 20px; height: 20px; flex-shrink: 0; margin: 0; }
+@media (max-width: 640px) {
+  .hm-head { flex-direction: column; align-items: stretch; gap: 14px; margin-bottom: 16px; padding-top: 0; }
+  .hm-greeting { font-size: 1.65rem; }
+  .hm-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .hm-btn { justify-content: center; min-height: 44px; padding: 10px 12px; }
+
+  .hm-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); border-radius: 16px; margin-bottom: 28px; }
+  .hm-stat { padding: 14px 16px; border-left: 0; border-top: 1px solid rgba(11,34,54,0.08); }
+  a.hm-stat:nth-of-type(even) { border-left: 1px solid rgba(11,34,54,0.08); }
+  .hm-weather { grid-column: 1 / -1; border-top: 0; }
+  .hm-stat-value { font-size: 1.4rem; }
+  .hm-loc-btn { min-height: 32px; }
+  .hm-loc-pop { position: absolute; left: 0; right: 0; width: auto; }
+  .hm-loc-option, .hm-loc-here { min-height: 44px; }
+
+  .hm-columns { gap: 32px; }
+  .hm-col { gap: 32px; }
+
+  /* My tasks: checkbox | title over tag | due */
+  .hm-main .hm-list .mytask-row {
+    display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 6px; align-items: start;
+    padding: 12px 2px;
+  }
+  .hm-main .hm-list .mytask-row .todo-item-checkbox { grid-row: 1 / span 2; margin-top: 1px; }
+  .hm-main .hm-list .mytask-row .mytask-row-title { grid-column: 2; grid-row: 1; }
+  .hm-main .hm-list .mytask-row .hm-tag { grid-column: 2; grid-row: 2; justify-self: start; max-width: 100%; }
+  .hm-main .hm-list .mytask-row .hm-due { grid-column: 3; grid-row: 1; min-width: 0; }
+
+  /* Deadlines: date | title over tag */
+  .hm-main .hm-list .hm-deadline { display: grid; grid-template-columns: 44px minmax(0, 1fr); column-gap: 12px; row-gap: 6px; align-items: start; }
+  .hm-main .hm-list .hm-deadline .hm-date-chip { grid-row: 1 / span 2; }
+  .hm-main .hm-list .hm-deadline .hm-tag { grid-column: 2; justify-self: start; }
+
+  .hm-main .hm-add-row { flex-wrap: nowrap; gap: 8px; }
+  .hm-main .hm-add-row .todo-item-add-input { flex: 1 1 auto; min-width: 0; min-height: 40px; }
+  .hm-main .hm-add-row .todo-item-add-date { flex: 0 0 132px; width: 132px; min-width: 0; min-height: 40px; font-size: 0.85rem; }
+  .hm-main .hm-links .quick-link-item, .hm-main .hm-list .info-item { min-height: 44px; }
+}
