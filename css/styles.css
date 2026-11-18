@@ -19509,3 +19509,70 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
 .hm-fc-footer { background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,255,255,0.96) 100%); }
 .hm-fc-head { background: linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.35) 100%); }
 .hm-nowrap { white-space: nowrap; }
+
+/* Forecast — hours strip on its own liquid-glass card, with fades + arrows (2026-11-18) */
+.hm-fc-hours-card {
+  position: relative; border-radius: 16px; overflow: hidden; padding: 6px 0;
+  background: linear-gradient(160deg, rgba(255,255,255,0.80) 0%, rgba(255,255,255,0.42) 50%, rgba(255,255,255,0.62) 100%);
+  border: 1px solid rgba(255,255,255,0.95);
+  box-shadow: inset 0 1.5px 0 #fff, inset 0 -1px 0 rgba(255,255,255,0.5), inset 0 0 24px rgba(255,255,255,0.45),
+              0 0 0 1px rgba(11,34,54,0.07), 0 10px 26px rgba(11,34,54,0.10);
+  -webkit-backdrop-filter: blur(20px) saturate(185%); backdrop-filter: blur(20px) saturate(185%);
+  --fade-l: 0px; --fade-r: 0px;
+}
+.hm-fc-hours-card.can-left { --fade-l: 56px; }
+.hm-fc-hours-card.can-right { --fade-r: 56px; }
+.hm-fc-hours-card > .hm-sheen { z-index: 0; }
+.hm-forecast .hm-fc-hours-card .hm-fc-hours {
+  position: relative; z-index: 1; padding: 4px 8px; scrollbar-width: none; scroll-snap-type: x mandatory; scroll-padding: 0 8px;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+          mask-image: linear-gradient(90deg, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+}
+.hm-forecast .hm-fc-hours-card .hm-fc-hours::-webkit-scrollbar { display: none; }
+.hm-forecast .hm-fc-hours-card .hm-fc-hour { scroll-snap-align: start; transition: transform 0.18s ease, background 0.18s ease; }
+.hm-forecast .hm-fc-hours-card .hm-fc-hour:not(:first-child):hover { transform: translateY(-3px); background: rgba(255,255,255,0.55); border-radius: 12px; }
+
+.hm-fc-scroll {
+  position: absolute; top: 50%; z-index: 2; width: 36px; height: 36px; margin-top: -18px; padding: 0 0 2px;
+  display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer;
+  font: inherit; font-size: 1.5rem; font-weight: 700; line-height: 1; color: #085c98;
+  background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.70) 100%);
+  border: 1px solid rgba(255,255,255,0.95);
+  box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(11,34,54,0.10), 0 6px 16px rgba(11,34,54,0.18);
+  -webkit-backdrop-filter: blur(12px) saturate(180%); backdrop-filter: blur(12px) saturate(180%);
+  opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.15s ease;
+}
+.hm-fc-scroll--prev { left: 8px; }
+.hm-fc-scroll--next { right: 8px; }
+.hm-fc-hours-card.can-left .hm-fc-scroll--prev,
+.hm-fc-hours-card.can-right .hm-fc-scroll--next { opacity: 1; pointer-events: auto; }
+.hm-fc-scroll:hover { transform: scale(1.08); }
+.hm-fc-scroll:active { transform: scale(0.95); }
+.hm-fc-scroll:focus-visible { outline: 2px solid #085c98; outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  /* A small nudge when the forecast opens, so it reads as "there's more this way". */
+  .hm-fc-hours-card.can-right:not(.can-left) .hm-fc-scroll--next { animation: hm-nudge 1.2s ease-in-out 0.4s 2; }
+  @keyframes hm-nudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(4px); } }
+}
+@media (max-width: 640px) {
+  .hm-fc-scroll { width: 32px; height: 32px; margin-top: -16px; font-size: 1.3rem; }
+  .hm-fc-hours-card.can-left { --fade-l: 40px; }
+  .hm-fc-hours-card.can-right { --fade-r: 40px; }
+}
+
+/* The whole pop-up: brighter, clearer liquid glass */
+#weatherForecastSheet > .hm-forecast {
+  background: linear-gradient(155deg, rgba(255,255,255,0.86) 0%, rgba(246,250,253,0.66) 45%, rgba(255,255,255,0.80) 100%);
+  border: 1px solid rgba(255,255,255,0.95);
+  box-shadow: inset 0 1.5px 0 #fff, inset 0 -1px 0 rgba(255,255,255,0.6), inset 0 0 40px rgba(255,255,255,0.5),
+              0 0 0 1px rgba(11,34,54,0.08), 0 30px 80px rgba(7,20,30,0.35);
+  -webkit-backdrop-filter: blur(34px) saturate(200%); backdrop-filter: blur(34px) saturate(200%);
+}
+#weatherForecastSheet.hm-blur-overlay { background: rgba(7, 20, 30, 0.22); }
+/* Glass inside the glass pop-up: no second backdrop blur (browsers sample the page under the pop-up, so text bled through). */
+.hm-fc-hours-card {
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  background: linear-gradient(160deg, rgba(255,255,255,0.97) 0%, rgba(248,251,253,0.90) 50%, rgba(255,255,255,0.95) 100%);
+}
+.hm-fc-scroll { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%); }
+.hm-forecast .hm-fc-facts { background: linear-gradient(160deg, rgba(255,255,255,0.97) 0%, rgba(248,251,253,0.88) 100%); }

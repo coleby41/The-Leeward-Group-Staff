@@ -193,6 +193,10 @@
       return `<div class="hm-fc-hour"><span class="hm-fc-hour-t">${label}</span><span class="hm-fc-hour-i" title="${esc(cc.label)}">${cc.icon}</span><strong>${r(temp)}°</strong><span class="hm-fc-hour-r">${rain ? rain + "%" : "&nbsp;"}</span></div>`;
     }).join("");
 
+    const hoursEl = document.getElementById("wfHours");
+    hoursEl.scrollLeft = 0;
+    requestAnimationFrame(updateHoursScroll);
+
     // 7 days, with a bar showing each day's range against the week's.
     const lows = d.temperature_2m_min || [], highs = d.temperature_2m_max || [];
     const wkLo = Math.min(...lows), wkHi = Math.max(...highs), span = Math.max(1, wkHi - wkLo);
@@ -206,7 +210,36 @@
     }).join("");
   }
 
+  /* Hours strip: fades + arrows show there's more; arrows step 3 hours;
+     a mouse wheel scrolls it sideways while the pointer is over it. */
+  function updateHoursScroll() {
+    const strip = document.getElementById("wfHours");
+    const card = document.getElementById("wfHoursCard");
+    if (!strip || !card) return;
+    const max = strip.scrollWidth - strip.clientWidth;
+    card.classList.toggle("can-left", strip.scrollLeft > 4);
+    card.classList.toggle("can-right", strip.scrollLeft < max - 4);
+  }
+
+  function wireHoursScroll() {
+    const strip = document.getElementById("wfHours");
+    if (!strip) return;
+    const step = () => (strip.querySelector(".hm-fc-hour")?.offsetWidth || 60) * 3;
+    document.getElementById("wfHoursPrev").addEventListener("click", () => strip.scrollBy({ left: -step(), behavior: "smooth" }));
+    document.getElementById("wfHoursNext").addEventListener("click", () => strip.scrollBy({ left: step(), behavior: "smooth" }));
+    strip.addEventListener("scroll", updateHoursScroll, { passive: true });
+    strip.addEventListener("wheel", (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = strip.scrollWidth - strip.clientWidth;
+      if ((e.deltaY < 0 && strip.scrollLeft <= 0) || (e.deltaY > 0 && strip.scrollLeft >= max)) return;
+      e.preventDefault();
+      strip.scrollLeft += e.deltaY;
+    }, { passive: false });
+    window.addEventListener("resize", updateHoursScroll);
+  }
+
   function wireForecast() {
+    wireHoursScroll();
     const sheet = document.getElementById("weatherForecastSheet");
     const open = document.getElementById("weatherOpenForecast");
     if (!sheet || !open) return;

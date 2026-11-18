@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118n">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118p">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -568,7 +568,12 @@
 
             <section aria-labelledby="wfHoursH">
                 <h3 class="hm-fc-h" id="wfHoursH">Next 12 hours</h3>
-                <div class="hm-fc-hours" id="wfHours"></div>
+                <div class="hm-fc-hours-card" id="wfHoursCard">
+                    <span class="hm-sheen" aria-hidden="true"></span>
+                    <button type="button" class="hm-fc-scroll hm-fc-scroll--prev" id="wfHoursPrev" aria-label="Earlier hours">&#8249;</button>
+                    <div class="hm-fc-hours" id="wfHours"></div>
+                    <button type="button" class="hm-fc-scroll hm-fc-scroll--next" id="wfHoursNext" aria-label="Later hours">&#8250;</button>
+                </div>
             </section>
 
             <section aria-labelledby="wfDaysH">
