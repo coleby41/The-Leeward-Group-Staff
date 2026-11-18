@@ -19868,3 +19868,9 @@ a.hm-mc-item:hover strong { color: #085c98; }
   .ql-foot .auth-button { flex: 1; }
 }
 .ql-custom[hidden], .ql-search[hidden], .ql-options[hidden] { display: none !important; }
+.ql-pages { flex-shrink: 0; padding: 6px 10px; border: 1px solid #d5dde6; border-radius: 7px; background: #fff; color: #33414f; font: inherit; font-size: 0.76rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.ql-pages:hover, .ql-pages[aria-expanded="true"] { border-color: #8fa3b6; color: #085c98; }
+.ql-row--sub { padding-left: 34px; background: #f8fafc; }
+.ql-row--sub .ql-icon { width: 28px; height: 28px; border-radius: 7px; }
+.ql-row--sub .ql-icon svg { width: 15px; height: 15px; }
+@media (max-width: 640px) { .ql-row--sub { padding-left: 22px; } .ql-pages { padding: 6px 8px; } }

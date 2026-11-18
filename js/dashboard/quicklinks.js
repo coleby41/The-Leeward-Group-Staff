@@ -41,6 +41,7 @@
     ithelp: `<svg ${ICON_SVG_ATTRS}><path d="M4 13v-1a8 8 0 0 1 16 0v1"></path><rect x="2" y="13" width="5" height="7" rx="2" fill="currentColor" stroke="none"></rect><rect x="17" y="13" width="5" height="7" rx="2" fill="currentColor" stroke="none"></rect><path d="M19 20a4 4 0 0 1-4 2h-2"></path></svg>`,
     site: `<svg ${ICON_SVG_ATTRS}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
     project: `<svg ${ICON_SVG_ATTRS}><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path><path d="M9 21v-6h6v6"></path></svg>`,
+    todo: `<svg ${ICON_SVG_ATTRS}><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M8 12l3 3 5-6"></path></svg>`,
     page: `<svg ${ICON_SVG_ATTRS}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path><path d="M8 13h8M8 17h5"></path></svg>`,
     home: `<svg ${ICON_SVG_ATTRS}><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>`,
     incident: `<svg ${ICON_SVG_ATTRS}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>`,
@@ -74,6 +75,12 @@
 
   // Portal addresses → icon (checked before the label rules).
   const URL_ICON_RULES = [
+    [/project-timeline/i, "timesheet"],
+    [/project-todo/i, "todo"],
+    [/project-files/i, "docs"],
+    [/project-accounting/i, "money"],
+    [/project-accounts|project-bid-invites/i, "vendor"],
+    [/project-form-logs/i, "page"],
     [/projects\.html\?id=|project-[a-z-]+\.html\?id=/i, "project"],
     [/project-home/i, "project"],
     [/dashboard\.html/i, "home"],
@@ -223,11 +230,29 @@
     return out;
   }
 
+  // The pages inside a project (same as the project side menu).
+  const PROJECT_PAGES = [
+    ["Overview", "/pages/projects.html"],
+    ["Project Files", "/pages/project-files.html"],
+    ["Form Logs", "/pages/project-form-logs.html"],
+    ["Bid Invites", "/pages/project-bid-invites.html"],
+    ["Project Timeline", "/pages/project-timeline.html"],
+    ["To-do", "/pages/project-todo.html"],
+    ["Accounts / Contacts", "/pages/project-accounts.html"],
+    ["Accounting", "/pages/project-accounting.html"],
+  ];
+  const openProjects = new Set();
+
   async function loadProjects() {
     if (projectsCache) return projectsCache;
     const { data } = await DS.safeQuery("quick link projects",
       window.supabaseClient.from("projects").select("id, name, status").neq("status", "archived").order("name"));
-    projectsCache = (data || []).map((p) => ({ label: p.name, url: `/pages/projects.html?id=${encodeURIComponent(p.id)}`, sub: "Project" }));
+    projectsCache = (data || []).map((p) => ({
+      id: p.id, label: p.name, url: `/pages/projects.html?id=${encodeURIComponent(p.id)}`, sub: "Project",
+      pages: PROJECT_PAGES.slice(1).map(([name, page]) => ({
+        label: `${p.name} · ${name}`, name, url: `${page}?id=${encodeURIComponent(p.id)}`, sub: name,
+      })),
+    }));
     return projectsCache;
   }
 
@@ -301,27 +326,56 @@
     search.hidden = custom; box.hidden = custom; form.hidden = !custom;
     if (custom) return;
 
-    search.placeholder = addTab === "projects" ? "Search projects…" : "Search pages…";
+    search.placeholder = addTab === "projects" ? "Search projects or pages (e.g. \"oleander to-do\")…" : "Search pages…";
     if (addTab === "projects" && !projectsCache) box.innerHTML = '<p class="ql-empty">Loading projects…</p>';
     const all = addTab === "projects" ? await loadProjects() : portalPages();
     if (addTab !== (overlay.querySelector('.ql-tabs [aria-selected="true"]') || {}).dataset?.tab) return; // switched while loading
     const q = search.value.trim().toLowerCase();
-    const list = all.filter((o) => !q || o.label.toLowerCase().includes(q) || (o.sub || "").toLowerCase().includes(q));
+    const norm = (t) => String(t || "").toLowerCase().replace(/[^a-z0-9\s]/g, "");   // "to-do" = "todo"
+    const words = norm(q).split(/\s+/).filter(Boolean);
+    const hit = (text) => { const t = norm(text); return words.every((w) => t.includes(w)); };
     const added = userLinks.map(resolveLinkDisplay).filter(Boolean);
     const full = userLinks.length >= MAX_SHORTCUTS;
-
-    box.innerHTML = list.length ? list.map((o, i) => {
+    const flat = [];   // every addable option shown, by index
+    const row = (o, extra = "", sub = false) => {
+      const i = flat.push(o) - 1;
       const isAdded = added.some((d) => sameUrl(d.url, o.url));
-      return `<div class="ql-row">
+      return `<div class="ql-row${sub ? " ql-row--sub" : ""}">
           <span class="ql-icon">${resolveIcon(o, i)}</span>
-          <span class="ql-text"><strong>${esc(o.label)}</strong><small>${esc(o.sub || "")}</small></span>
+          <span class="ql-text"><strong>${esc(sub ? o.name : o.label)}</strong><small>${esc(sub ? "Project page" : o.sub || "")}</small></span>
+          ${extra}
           <button type="button" class="ql-add${isAdded ? " is-added" : ""}" data-i="${i}" ${isAdded || full ? "disabled" : ""}>${isAdded ? "✓ Added" : "+ Add"}</button>
         </div>`;
-    }).join("") : `<p class="ql-empty">${q ? "Nothing matches that search." : addTab === "projects" ? "No active projects." : "No pages found."}</p>`;
+    };
 
+    let html = "";
+    if (addTab === "projects") {
+      for (const p of all) {
+        const nameHit = !words.length || hit(p.label);
+        // "oleander todo" finds that project's To-do page.
+        const pageHits = words.length ? p.pages.filter((pg) => hit(`${p.label} ${pg.name}`)) : [];
+        if (!nameHit && !pageHits.length) continue;
+        const open = openProjects.has(p.id) || (words.length && pageHits.length && !nameHit) || (words.length > 1 && pageHits.length);
+        const toggle = `<button type="button" class="ql-pages" data-pid="${esc(p.id)}" aria-expanded="${!!open}">Pages <span aria-hidden="true">${open ? "▴" : "▾"}</span></button>`;
+        html += row(p, toggle);
+        if (open) html += (pageHits.length && !nameHit ? pageHits : (words.length > 1 && pageHits.length ? pageHits : p.pages)).map((pg) => row(pg, "", true)).join("");
+      }
+    } else {
+      all.filter((o) => !words.length || hit(`${o.label} ${o.sub || ""}`)).forEach((o) => { html += row(o); });
+    }
+    box.innerHTML = html || `<p class="ql-empty">${q ? "Nothing matches that search." : addTab === "projects" ? "No active projects." : "No pages found."}</p>`;
+
+    box.querySelectorAll(".ql-pages").forEach((btn) => btn.addEventListener("click", () => {
+      const id = btn.dataset.pid;
+      if (btn.getAttribute("aria-expanded") === "true") {
+        openProjects.delete(id);
+        if (!openProjects.has(id) && search.value) search.value = "";   // it was open because of the search
+      } else openProjects.add(id);
+      renderOptions(overlay);
+    }));
     box.querySelectorAll(".ql-add:not([disabled])").forEach((btn) => btn.addEventListener("click", async () => {
       btn.disabled = true;
-      await addShortcut(overlay, list[Number(btn.dataset.i)]);
+      await addShortcut(overlay, flat[Number(btn.dataset.i)]);
     }));
   }
 
