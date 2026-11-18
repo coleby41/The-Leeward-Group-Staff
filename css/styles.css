@@ -19763,3 +19763,4 @@ a.hm-mc-item:hover strong { color: #085c98; }
 
 /* Home › Today calendar: linked calendar gets its own key color (2026-11-18) */
 .hm-mc-dot--event { background: #12a08a; }
+.hm-cal-popup .hm-cal-optional { font-weight: 500; color: var(--text-secondary, #6b7280); }

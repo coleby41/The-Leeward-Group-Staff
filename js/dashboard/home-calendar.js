@@ -129,6 +129,8 @@
       <form id="hmCalIcs" class="auth-form auth-form--compact" hidden>
         <div id="hmCalIcsHow"></div>
         <label class="auth-field">Calendar link<input type="url" id="hmCalIcsUrl" placeholder="https://… or webcal://…" autocomplete="off" required></label>
+        <label class="auth-field">Name it <span class="hm-cal-optional">(optional)</span><input type="text" id="hmCalIcsName" maxlength="80" placeholder="e.g. Coleby's Work" autocomplete="off"></label>
+        <p class="hm-cal-note">Leave blank to use the calendar's own name.</p>
         <p class="hm-cal-note">Keep this link private — anyone who has it can see your calendar. The portal stores it encrypted.</p>
         <p class="auth-message" id="hmCalIcsMsg"></p>
         <div class="popup-buttons">
@@ -187,7 +189,7 @@
       go.disabled = true;
       DS.setFormMessage(fmsg, "Checking your calendar link…", "");
       try {
-        const r = await call({ action: "ics_connect", provider: icsProvider, url: overlay.querySelector("#hmCalIcsUrl").value.trim() });
+        const r = await call({ action: "ics_connect", provider: icsProvider, url: overlay.querySelector("#hmCalIcsUrl").value.trim(), name: overlay.querySelector("#hmCalIcsName").value.trim() });
         if (r.status === "error") throw new Error(r.message || "Couldn't read that calendar.");
         DS.closePopup(overlay);
         if (typeof window.showToast === "function") window.showToast(`Calendar connected — ${r.count || 0} events synced.`, { type: "success" });

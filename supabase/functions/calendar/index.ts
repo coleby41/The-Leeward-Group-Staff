@@ -536,9 +536,16 @@ async function fetchFeed(url: string) {
   return text;
 }
 
-async function feedEvents(url: string): Promise<Ev[]> {
+// The calendar's own name inside the feed (X-WR-CALNAME), e.g. "Coleby's Work".
+function feedName(ics: string) {
+  const m = ics.replace(/\r\n[ \t]/g, "").match(/^X-WR-CALNAME[^:]*:(.*)$/im);
+  return m ? m[1].trim().replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\") : "";
+}
+
+async function feedEvents(url: string): Promise<{ events: Ev[]; name: string }> {
   const { from, to } = windowRange();
-  return parseFeed(await fetchFeed(url), from, to);
+  const text = await fetchFeed(url);
+  return { events: parseFeed(text, from, to), name: feedName(text) };
 }
 
 async function icloudEvents(acct: Row): Promise<Ev[]> {
@@ -570,8 +577,13 @@ async function syncUser(userId: string) {
   if (!acct) return { status: "none" };
   try {
     const secret = await unseal(acct.secret_enc);
-    const events = secret.ics_url ? await feedEvents(secret.ics_url)
-      : acct.provider_id === "microsoft" ? await microsoftEvents(acct)
+    let calName = "";
+    let events: Ev[];
+    if (secret.ics_url) {
+      const feed = await feedEvents(secret.ics_url);
+      events = feed.events;
+      calName = secret.name || feed.name;   // a name the person typed wins over the feed's
+    } else events = acct.provider_id === "microsoft" ? await microsoftEvents(acct)
       : acct.provider_id === "google" ? await googleEvents(acct)
       : await icloudEvents(acct);
     // Same event can come from more than one iCloud calendar — keep one.
@@ -583,7 +595,10 @@ async function syncUser(userId: string) {
       const { error } = await db.from("calendar_events_cache").insert(rows.slice(i, i + 500));
       if (error) throw new Error(error.message);
     }
-    await db.from("calendar_accounts").update({ status: "connected", last_error: null, last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("user_id", userId);
+    await db.from("calendar_accounts").update({
+      status: "connected", last_error: null, last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+      ...(calName ? { external_account_email: calName } : {}),
+    }).eq("user_id", userId);
     return { status: "connected", count: rows.length };
   } catch (e) {
     const message = (e as Error).message || "Sync failed.";
@@ -656,11 +671,13 @@ Deno.serve(async (req) => {
         const { data: prov } = await db.from("calendar_providers").select("id, label").eq("id", provider).eq("is_active", true).maybeSingle();
         if (!prov) return json({ error: "Unknown calendar." }, 400);
         const link = feedUrl(body.url);
-        const events = await feedEvents(link);   // check it works before saving
+        const typed = String(body.name || "").trim().slice(0, 80);
+        const feed = await feedEvents(link);   // check it works before saving
+        const events = feed.events;
         await db.from("calendar_accounts").upsert({
           user_id: staff.id, provider_id: prov.id, status: "connected",
-          external_account_email: `${prov.label} link`,
-          secret_enc: await seal({ ics_url: link }), token_expires_at: null,
+          external_account_email: typed || feed.name || prov.label,
+          secret_enc: await seal({ ics_url: link, name: typed || null }), token_expires_at: null,
           caldav_calendars: null, last_error: null, updated_at: new Date().toISOString(),
         });
         const result = await syncUser(staff.id);

@@ -111,9 +111,10 @@
       DS.safeQuery("month tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
       DS.safeQuery("month to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
       DS.safeQuery("month projects", sb.from("projects").select("id, name").eq("status", "active")),
-      DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("provider_label"))
+      DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("provider_label, external_account_email"))
     ]);
-    calendarLabel = (conn.data && conn.data[0] && conn.data[0].provider_label) || "";
+    const c = conn.data && conn.data[0];
+    calendarLabel = c ? (c.external_account_email || c.provider_label || "") : "";
     if (iso(shown) !== monthKey) return; // moved on while loading
 
     (tasks.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
