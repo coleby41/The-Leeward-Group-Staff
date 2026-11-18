@@ -2,25 +2,27 @@
    home-today.js — "Today" on the Home page: Rows / Calendar switch (2026-11-18)
 
    Rows     → the existing list from dashboard/calendar-card.js (unchanged).
-   Calendar → a day timeline:
-     - "Due today" strip: your open tasks + assigned project to-dos due today,
-       and timeline tasks/milestones due today on active projects.
-     - Hour grid with synced calendar events (calendar_events_cache) placed
-       at their times, side by side when they overlap, and a red "now" line.
-   The choice is remembered per person in this browser.
+   Calendar → a month view:
+     - each day shows up to 3 dots: blue = your tasks / project to-dos,
+       purple = project deadlines & milestones (active projects' timelines),
+       gray = synced calendar events (calendar_events_cache)
+     - tap a day to list what's on it underneath (today is picked to start)
+     - ‹ › move between months; "Today" jumps back
+   The Rows / Calendar choice is remembered per person in this browser.
 ============================================================================ */
 (function () {
   "use strict";
   const DS = window.DashboardShared;
-  const HOUR_PX = 48;
-  const DEFAULT_START = 7, DEFAULT_END = 19;   // 7 AM – 7 PM unless events go outside it
+  const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
   let staffId = null;
-  let loaded = false;
+  let shown = null;        // first day of the month on screen
+  let selected = null;     // "YYYY-MM-DD"
+  let items = new Map();   // "YYYY-MM-DD" → [{kind, title, sub, href, time}]
+  let started = false;
 
   const pad = (n) => String(n).padStart(2, "0");
-  function localISO(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
-  function hourLabel(h) { const x = h % 24; return x === 0 ? "12 AM" : x === 12 ? "Noon" : x < 12 ? `${x} AM` : `${x - 12} PM`; }
-  function timeText(d) { return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }); }
+  const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayISO = () => iso(new Date());
 
   function prefKey() {
     let p = window.currentSupabaseProfile;
@@ -40,9 +42,29 @@
       list.hidden = isCal;
       buttons.forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === view)));
       if (remember) { try { localStorage.setItem(prefKey(), view); } catch (_) { /* private mode */ } }
-      if (isCal && !loaded) { loaded = true; load(); }
+      if (isCal && !started) { started = true; const n = new Date(); selected = todayISO(); goTo(new Date(n.getFullYear(), n.getMonth(), 1)); }
     }
     buttons.forEach(b => b.addEventListener("click", () => setView(b.dataset.view, true)));
+
+    cal.addEventListener("click", (e) => {
+      const day = e.target.closest("[data-day]");
+      if (day) { selected = day.dataset.day; render(); return; }
+      const nav = e.target.closest("[data-nav]");
+      if (!nav) return;
+      if (nav.dataset.nav === "today") { const n = new Date(); selected = todayISO(); goTo(new Date(n.getFullYear(), n.getMonth(), 1)); }
+      else goTo(new Date(shown.getFullYear(), shown.getMonth() + (nav.dataset.nav === "next" ? 1 : -1), 1));
+    });
+    cal.addEventListener("keydown", (e) => {
+      const day = e.target.closest("[data-day]");
+      if (!day) return;
+      const step = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }[e.key];
+      if (!step) return;
+      e.preventDefault();
+      const d = new Date(`${day.dataset.day}T00:00:00`); d.setDate(d.getDate() + step);
+      selected = iso(d);
+      if (d.getMonth() !== shown.getMonth()) goTo(new Date(d.getFullYear(), d.getMonth(), 1), true);
+      else { render(); cal.querySelector(`[data-day="${selected}"]`)?.focus(); }
+    });
 
     const profile = await DS.getStaffProfile();
     staffId = DS.getUserId(profile);
@@ -51,117 +73,108 @@
     setView(saved === "calendar" ? "calendar" : "rows", false);
   });
 
-  async function load() {
-    const cal = document.getElementById("todayCalendar");
-    if (!staffId) { cal.innerHTML = '<p class="card-subtitle">Sign in to see your day.</p>'; return; }
-    cal.innerHTML = '<p class="card-subtitle">Loading your day…</p>';
-    const sb = window.supabaseClient;
-    const now = new Date();
-    const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
-    const today = localISO(now);
-
-    const [events, tasks, todos, projects] = await Promise.all([
-      DS.safeQuery("today events", sb.from("calendar_events_cache").select("id, title, start_time, end_time, location")
-        .eq("user_id", staffId).lt("start_time", dayEnd.toISOString()).gt("end_time", dayStart.toISOString()).order("start_time")),
-      DS.safeQuery("today tasks", sb.from("tasks").select("id, task_name").eq("user_id", staffId).eq("completed", false).eq("due_date", today)),
-      DS.safeQuery("today to-dos", sb.from("project_todo_subitems").select("id, label, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).eq("due_date", today)),
-      DS.safeQuery("today projects", sb.from("projects").select("id, name").eq("status", "active"))
-    ]);
-    const active = projects.data || [];
-    let milestones = [];
-    if (active.length) {
-      const { data } = await DS.safeQuery("today timeline", sb.from("schedule_tasks").select("id, name, item_type, project_id")
-        .in("project_id", active.map(p => p.id)).neq("status", "complete").eq("end_date", today));
-      const names = new Map(active.map(p => [p.id, p.name]));
-      milestones = (data || []).map(t => ({ ...t, projectName: names.get(t.project_id) || "" }));
+  async function goTo(firstOfMonth, keepFocus) {
+    shown = firstOfMonth;
+    const sel = new Date(`${selected}T00:00:00`);
+    if (sel.getMonth() !== shown.getMonth() || sel.getFullYear() !== shown.getFullYear()) {
+      const isThisMonth = shown.getMonth() === new Date().getMonth() && shown.getFullYear() === new Date().getFullYear();
+      selected = isThisMonth ? todayISO() : iso(shown);
     }
-
-    render({
-      events: events.data || [],
-      due: [
-        ...(tasks.data || []).map(t => ({ title: t.task_name, tag: "Personal", href: "/pages/staff-todo.html" })),
-        ...(todos.data || []).map(t => ({ title: t.label, tag: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` })),
-        ...milestones.map(t => ({ title: t.name, tag: t.projectName, href: `/pages/project-timeline.html?id=${encodeURIComponent(t.project_id)}`, milestone: t.item_type === "milestone" }))
-      ],
-      dayStart, now
-    });
+    items = new Map();
+    render(true);
+    await load();
+    render();
+    if (keepFocus) document.querySelector(`#todayCalendar [data-day="${selected}"]`)?.focus();
   }
 
-  function render({ events, due, dayStart, now }) {
+  function add(day, item) {
+    if (!day) return;
+    if (!items.has(day)) items.set(day, []);
+    items.get(day).push(item);
+  }
+
+  async function load() {
+    if (!staffId) return;
+    const sb = window.supabaseClient;
+    const from = iso(shown);
+    const end = new Date(shown.getFullYear(), shown.getMonth() + 1, 1);
+    const to = iso(new Date(end.getFullYear(), end.getMonth(), 0));
+    const monthKey = from;
+
+    const [events, tasks, todos, projects] = await Promise.all([
+      DS.safeQuery("month events", sb.from("calendar_events_cache").select("id, title, start_time, end_time, location")
+        .eq("user_id", staffId).gte("start_time", new Date(shown).toISOString()).lt("start_time", end.toISOString()).order("start_time")),
+      DS.safeQuery("month tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
+      DS.safeQuery("month to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
+      DS.safeQuery("month projects", sb.from("projects").select("id, name").eq("status", "active"))
+    ]);
+    if (iso(shown) !== monthKey) return; // moved on while loading
+
+    (tasks.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
+    (todos.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.label, sub: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` }));
+    (events.data || []).forEach(e => {
+      const s = new Date(e.start_time);
+      add(iso(s), { kind: "event", title: e.title || "Event", sub: e.location || "", time: s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), sort: s.getTime() });
+    });
+    const active = projects.data || [];
+    if (active.length) {
+      const names = new Map(active.map(p => [p.id, p.name]));
+      const { data } = await DS.safeQuery("month timeline", sb.from("schedule_tasks").select("id, name, item_type, end_date, project_id")
+        .in("project_id", active.map(p => p.id)).neq("status", "complete").gte("end_date", from).lte("end_date", to));
+      (data || []).forEach(t => add(t.end_date, {
+        kind: "deadline", title: t.name, sub: `${names.get(t.project_id) || ""}${t.item_type === "milestone" ? " · Milestone" : ""}`,
+        href: `/pages/project-timeline.html?id=${encodeURIComponent(t.project_id)}`
+      }));
+    }
+  }
+
+  function render(loading) {
     const cal = document.getElementById("todayCalendar");
     const esc = DS.escapeHtml;
+    const today = todayISO();
+    const first = shown;
+    const lead = first.getDay();
+    const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < lead; i++) cells.push('<span class="hm-mc-cell is-blank" aria-hidden="true"></span>');
+    for (let d = 1; d <= daysIn; d++) {
+      const key = iso(new Date(first.getFullYear(), first.getMonth(), d));
+      const list = items.get(key) || [];
+      const kinds = ["task", "deadline", "event"].filter(k => list.some(x => x.kind === k));
+      const cls = ["hm-mc-cell", key === today ? "is-today" : "", key === selected ? "is-selected" : "", key < today ? "is-past" : ""].filter(Boolean).join(" ");
+      const label = new Date(`${key}T00:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" }) +
+        (list.length ? `, ${list.length} item${list.length === 1 ? "" : "s"}` : "");
+      cells.push(`<button type="button" class="${cls}" data-day="${key}" aria-label="${label}" aria-pressed="${key === selected}" tabindex="${key === selected ? 0 : -1}">
+          <span class="hm-mc-num">${d}</span>
+          <span class="hm-mc-dots">${kinds.map(k => `<i class="hm-mc-dot hm-mc-dot--${k}"></i>`).join("")}</span>
+        </button>`);
+    }
 
-    // Hours shown: 7 AM – 7 PM, stretched to fit any event outside that.
-    let startH = DEFAULT_START, endH = DEFAULT_END;
-    const timed = events.map(e => {
-      const s = new Date(e.start_time), en = new Date(e.end_time || e.start_time);
-      const sH = Math.max(0, (s - dayStart) / 3600000), eH = Math.min(24, (en - dayStart) / 3600000);
-      return { ...e, s, en, sH, eH: Math.max(eH, sH + 0.5) };
-    }).filter(e => e.eH > 0 && e.sH < 24);
-    const allDay = timed.filter(e => e.sH <= 0 && e.eH >= 24);
-    const blocks = timed.filter(e => !(e.sH <= 0 && e.eH >= 24));
-    blocks.forEach(e => { startH = Math.min(startH, Math.floor(e.sH)); endH = Math.max(endH, Math.ceil(e.eH)); });
+    const dayItems = (items.get(selected) || []).slice().sort((a, b) => (a.kind === "event" ? 0 : 1) - (b.kind === "event" ? 0 : 1) || (a.sort || 0) - (b.sort || 0));
+    const selDate = new Date(`${selected}T00:00:00`);
+    const selTitle = selected === today ? "Today" : selDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+    const agenda = loading ? '<p class="hm-mc-none">Loading…</p>'
+      : dayItems.length ? dayItems.map(x => {
+          const lead = x.kind === "event" ? `<span class="hm-mc-time">${esc(x.time)}</span>` : `<i class="hm-mc-dot hm-mc-dot--${x.kind}"></i>`;
+          const inner = `${lead}<span class="hm-mc-item-text"><strong>${esc(x.title)}</strong>${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</span>`;
+          return x.href ? `<a class="hm-mc-item" href="${x.href}">${inner}</a>` : `<div class="hm-mc-item">${inner}</div>`;
+        }).join("")
+      : '<p class="hm-mc-none">Nothing on this day.</p>';
 
-    // Side-by-side columns for overlapping events.
-    const cols = [];
-    blocks.forEach(e => {
-      let c = cols.findIndex(endAt => endAt <= e.sH);
-      if (c < 0) { c = cols.length; cols.push(0); }
-      cols[c] = e.eH; e.col = c;
-    });
-    blocks.forEach(e => {
-      const overlapping = blocks.filter(o => o.sH < e.eH && o.eH > e.sH);
-      e.cols = Math.max(...overlapping.map(o => o.col)) + 1;
-    });
-
-    const dueItems = [
-      ...allDay.map(e => `<span class="hm-due-chip hm-due-chip--event"><strong>${esc(e.title || "Event")}</strong><small>All day</small></span>`),
-      ...due.map(d => `<a class="hm-due-chip${d.milestone ? " hm-due-chip--milestone" : ""}" href="${d.href}"><strong>${esc(d.title)}</strong><small>${esc(d.tag)}</small></a>`)
-    ];
-
-    const hours = [];
-    for (let h = startH; h < endH; h++) hours.push(`<div class="hm-daycal-hour"><span>${hourLabel(h)}</span></div>`);
-
-    const evHtml = blocks.map(e => {
-      const top = (e.sH - startH) * HOUR_PX, height = Math.max(24, (e.eH - e.sH) * HOUR_PX - 2);
-      const w = 100 / e.cols, left = e.col * w;
-      const short = height < 40;
-      return `<div class="hm-daycal-event${e.en < now ? " is-past" : ""}" style="top:${top}px;height:${height}px;left:calc(${left}% + 2px);width:calc(${w}% - 4px)" title="${esc(e.title || "Event")}">
-          <strong>${esc(e.title || "Event")}</strong>${short ? "" : `<small>${timeText(e.s)} – ${timeText(e.en)}${e.location ? " · " + esc(e.location) : ""}</small>`}
-        </div>`;
-    }).join("");
-
-    const nowH = (now - dayStart) / 3600000;
-    const nowLine = nowH >= startH && nowH <= endH
-      ? `<div class="hm-daycal-now" style="top:${(nowH - startH) * HOUR_PX}px"><span>${timeText(now)}</span></div>` : "";
-
+    const isThisMonth = first.getMonth() === new Date().getMonth() && first.getFullYear() === new Date().getFullYear();
     cal.innerHTML = `
-      <div class="hm-daycal-due">
-        <p class="hm-daycal-label">Due today</p>
-        <div class="hm-due-chips-row">${dueItems.length ? dueItems.join("") : '<span class="hm-daycal-none">Nothing due today</span>'}</div>
+      <div class="hm-mc-head">
+        <button type="button" class="hm-mc-nav" data-nav="prev" aria-label="Previous month">‹</button>
+        <p class="hm-mc-title" aria-live="polite">${first.toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
+        <button type="button" class="hm-mc-nav" data-nav="next" aria-label="Next month">›</button>
+        ${isThisMonth && selected === today ? "" : '<button type="button" class="hm-mc-today" data-nav="today">Today</button>'}
       </div>
-      <div class="hm-daycal-scroll" tabindex="0" aria-label="Today's schedule">
-        <div class="hm-daycal-grid" style="height:${(endH - startH) * HOUR_PX}px">
-          ${hours.join("")}
-          <div class="hm-daycal-events">${evHtml}${nowLine}</div>
-          ${blocks.length ? "" : '<p class="hm-daycal-empty">No calendar events today</p>'}
-        </div>
+      <div class="hm-mc-week" aria-hidden="true">${WEEKDAYS.map(w => `<span>${w}</span>`).join("")}</div>
+      <div class="hm-mc-grid" role="group" aria-label="Days">${cells.join("")}</div>
+      <div class="hm-mc-legend" aria-hidden="true"><span><i class="hm-mc-dot hm-mc-dot--task"></i>Tasks</span><span><i class="hm-mc-dot hm-mc-dot--deadline"></i>Project deadlines</span><span><i class="hm-mc-dot hm-mc-dot--event"></i>Events</span></div>
+      <div class="hm-mc-agenda">
+        <p class="hm-mc-agenda-title">${esc(selTitle)}</p>
+        ${agenda}
       </div>`;
-
-    // Start scrolled to an hour before now (or the first event).
-    const scroller = cal.querySelector(".hm-daycal-scroll");
-    const target = blocks.length && !(nowH >= startH && nowH <= endH) ? blocks[0].sH : nowH;
-    scroller.scrollTop = Math.max(0, (target - startH - 1) * HOUR_PX);
-
-    // Keep the "now" line moving.
-    clearInterval(render._t);
-    render._t = setInterval(() => {
-      const line = cal.querySelector(".hm-daycal-now");
-      if (!line) return;
-      const n = new Date(), h = (n - dayStart) / 3600000;
-      line.style.top = `${(h - startH) * HOUR_PX}px`;
-      line.querySelector("span").textContent = timeText(n);
-    }, 60000);
   }
 })();
