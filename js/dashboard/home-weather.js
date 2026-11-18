@@ -244,6 +244,7 @@
     const open = document.getElementById("weatherOpenForecast");
     if (!sheet || !open) return;
     const close = () => {
+      if (window.HomeWeatherPicker) window.HomeWeatherPicker.close();
       sheet.classList.add("hidden");
       if (!document.querySelector(".popup-overlay:not(.hidden)")) document.body.classList.remove("popup-active");
     };
@@ -254,12 +255,13 @@
       document.body.classList.add("popup-active");
     });
     document.getElementById("wfClose").addEventListener("click", close);
-    document.getElementById("wfDone").addEventListener("click", close);
     sheet.addEventListener("click", (e) => { if (e.target === sheet) close(); });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !sheet.classList.contains("hidden")) close(); });
-    document.getElementById("wfChange").addEventListener("click", () => {
-      close();
-      document.getElementById("weatherLocationBtn").click();
+    // Tap the place name to change the location right here.
+    const placeBtn = document.getElementById("wfPlaceBtn");
+    placeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (window.HomeWeatherPicker) window.HomeWeatherPicker.toggle(sheet.querySelector(".hm-fc-head"), placeBtn);
     });
   }
 
@@ -301,9 +303,20 @@
     if (!btn || !pop) return;
     let sites = null;
 
-    function setOpen(yes) {
+    // The picker normally hangs under the button in the glass bar; the
+    // forecast pop-up borrows it (opened from the place name in its header).
+    const home = pop.parentElement;
+    let anchor = btn;
+    function setOpen(yes, host, anchorBtn) {
+      if (yes) {
+        const h = host || home;
+        if (pop.parentElement !== h) h.appendChild(pop);
+        anchor.setAttribute("aria-expanded", "false");
+        anchor = anchorBtn || btn;
+      }
       pop.hidden = !yes;
-      btn.setAttribute("aria-expanded", String(yes));
+      anchor.setAttribute("aria-expanded", String(yes));
+      if (!yes && pop.parentElement !== home) home.appendChild(pop);
       if (yes) {
         if (search) search.value = "";
         results.innerHTML = ""; resultsLabel.hidden = true;
@@ -311,9 +324,17 @@
         setTimeout(() => search && search.focus(), 30);
       }
     }
-    btn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(pop.hidden); });
-    document.addEventListener("click", (e) => { if (!pop.hidden && !pop.contains(e.target) && !btn.contains(e.target)) setOpen(false); });
-    pop.addEventListener("keydown", (e) => { if (e.key === "Escape") { setOpen(false); btn.focus(); } });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); setOpen(pop.hidden || anchor !== btn); });
+    document.addEventListener("click", (e) => { if (!pop.hidden && !pop.contains(e.target) && !anchor.contains(e.target)) setOpen(false); });
+    pop.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation(); // don't also close the forecast
+      const a = anchor; setOpen(false); a.focus();
+    });
+    window.HomeWeatherPicker = {
+      toggle(host, anchorBtn) { if (!pop.hidden && anchor === anchorBtn) setOpen(false); else setOpen(true, host, anchorBtn); },
+      close() { if (!pop.hidden) setOpen(false); }
+    };
 
     function choose(loc) { saveLocation(loc); showLocation(loc); setOpen(false); }
 

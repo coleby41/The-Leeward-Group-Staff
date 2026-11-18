@@ -19576,3 +19576,32 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
 }
 .hm-fc-scroll { -webkit-backdrop-filter: none; backdrop-filter: none; background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%); }
 .hm-forecast .hm-fc-facts { background: linear-gradient(160deg, rgba(255,255,255,0.97) 0%, rgba(248,251,253,0.88) 100%); }
+
+/* Forecast: header and footer match; place name opens the location picker (2026-11-18) */
+.hm-forecast > .hm-fc-head, .hm-forecast > .hm-fc-footer {
+  background: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(255,255,255,0.58) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.95);
+}
+.hm-forecast > .hm-fc-head { z-index: 3; border-bottom: 1px solid rgba(11,34,54,0.10); }
+.hm-forecast > .hm-fc-footer { min-height: 18px; padding: 0; border-top: 1px solid rgba(11,34,54,0.10); border-bottom: 0; }
+
+.hm-forecast .hm-fc-place {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; margin: 0 0 0 -8px; padding: 5px 8px; cursor: pointer;
+  border: 0; border-radius: 8px; background: transparent; font: inherit; font-size: 0.8rem; font-weight: 700; color: #085c98; text-align: left;
+}
+.hm-forecast .hm-fc-place:hover, .hm-forecast .hm-fc-place[aria-expanded="true"] { background: rgba(8,92,152,0.08); }
+.hm-forecast .hm-fc-place:focus-visible { outline: 2px solid #085c98; outline-offset: 1px; }
+.hm-forecast .hm-fc-place #wfPlace { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-fc-place-caret { font-size: 0.9rem; transition: transform 0.15s ease; }
+.hm-fc-place[aria-expanded="true"] .hm-fc-place-caret { transform: rotate(180deg); }
+.hm-forecast .hm-fc-title { margin-top: 2px; }
+
+.hm-fc-head .hm-loc-pop {
+  left: 16px; right: auto; top: calc(100% - 6px); width: 340px;
+  max-height: min(440px, 62vh); overflow-y: auto; overscroll-behavior: contain;
+}
+@media (max-width: 768px) {
+  .hm-fc-head .hm-loc-pop { left: 12px; right: 12px; width: auto; }
+  .hm-forecast > .hm-fc-footer { min-height: calc(14px + env(safe-area-inset-bottom)); }
+}
+.hm-forecast > .hm-fc-head > div { flex: 1 1 auto; min-width: 0; }

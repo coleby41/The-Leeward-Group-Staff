@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118p">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118r">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -543,7 +543,9 @@
         <span class="hm-sheen" aria-hidden="true"></span>
         <header class="hm-fc-head">
             <div>
-                <p class="hm-fc-place"><span class="hm-pin" aria-hidden="true"></span><span id="wfPlace">&nbsp;</span></p>
+                <button type="button" class="hm-fc-place" id="wfPlaceBtn" aria-haspopup="dialog" aria-expanded="false" title="Change location">
+                    <span class="hm-pin" aria-hidden="true"></span><span id="wfPlace">&nbsp;</span><span class="hm-fc-place-caret" aria-hidden="true">⌄</span>
+                </button>
                 <h2 class="hm-fc-title" id="wfTitle">Weather forecast</h2>
             </div>
             <button type="button" class="sheet-close" id="wfClose" aria-label="Close">&times;</button>
@@ -583,13 +585,7 @@
             </section>
         </div>
 
-        <footer class="hm-fc-footer">
-            <a href="#" id="viewFullForecastLink" target="_blank" rel="noopener">National Weather Service ›</a>
-            <div class="hm-fc-actions">
-                <button type="button" class="hm-fc-btn" id="wfChange">Change location</button>
-                <button type="button" class="hm-fc-btn hm-fc-btn--primary" id="wfDone">Done</button>
-            </div>
-        </footer>
+        <footer class="hm-fc-footer" aria-hidden="true"></footer>
     </div>
 </div>
 
