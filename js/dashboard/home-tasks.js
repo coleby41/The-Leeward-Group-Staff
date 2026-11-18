@@ -53,18 +53,74 @@
     const btn = document.getElementById("homeNewTaskBtn");
     const overlay = document.getElementById("homeTaskSheet");
     const form = document.getElementById("homeTaskSheetForm");
+    const title = document.getElementById("homeTaskSheetTitle");
     const name = document.getElementById("homeTaskSheetName");
     const date = document.getElementById("homeTaskSheetDate");
     const msg = document.getElementById("homeTaskSheetMsg");
     const save = document.getElementById("homeTaskSheetSave");
+    const switchBtn = document.getElementById("homeTaskSheetSwitch");
+    const projFields = document.getElementById("homeSheetProjectFields");
+    const projSel = document.getElementById("homeSheetProject");
+    const listSel = document.getElementById("homeSheetList");
+    const newListWrap = document.getElementById("homeSheetNewListWrap");
+    const newList = document.getElementById("homeSheetNewList");
+    const assignWrap = document.getElementById("homeSheetAssignWrap");
+    const assignSel = document.getElementById("homeSheetAssign");
     const chips = overlay ? Array.from(overlay.querySelectorAll(".hm-chip")) : [];
+    let mode = "personal";
+    let staff = [];
+    let lookupsLoaded = false;
 
-    function pickChip(value) {
-      chips.forEach(c => c.classList.toggle("is-on", c.dataset.due === value));
+    const esc = (v) => DS.escapeHtml(v);
+    function setMsg(text, type) { msg.textContent = text || ""; msg.className = `auth-message${type ? " " + type : ""}`; }
+    function pickChip(value) { chips.forEach(c => c.classList.toggle("is-on", c.dataset.due === value)); }
+
+    function setMode(next) {
+      mode = next;
+      const project = mode === "project";
+      projFields.hidden = !project;
+      assignWrap.hidden = !project;
+      title.textContent = project ? "New project to-do" : "New task";
+      save.textContent = project ? "Add to-do" : "Add task";
+      switchBtn.textContent = project ? "Add a personal task instead" : "Add a project to-do";
+      name.placeholder = project ? "e.g. Order window flashing" : "e.g. Call the inspector";
+      setMsg("");
+      if (project) loadLookups();
     }
-    function openSheet() {
+
+    async function loadLookups() {
+      if (lookupsLoaded) return;
+      lookupsLoaded = true;
+      const sb = window.supabaseClient;
+      const [{ data: projects }, { data: people }] = await Promise.all([
+        DS.safeQuery("sheet projects", sb.from("projects").select("id, name, status").in("status", ["active", "onboarding", "on_hold"]).order("name")),
+        DS.safeQuery("sheet staff", sb.from("staff_users_directory").select("id, full_name, active").eq("active", true).order("full_name"))
+      ]);
+      projSel.innerHTML = '<option value="">Choose a project</option>' +
+        (projects || []).map(p => `<option value="${esc(p.id)}">${esc(p.name || "Untitled project")}</option>`).join("");
+      staff = people || [];
+      assignSel.innerHTML = '<option value="">Unassigned</option>' +
+        staff.map(p => `<option value="${esc(p.id)}"${String(p.id) === String(staffId) ? " selected" : ""}>${esc(p.full_name || "Staff")}${String(p.id) === String(staffId) ? " (me)" : ""}</option>`).join("");
+    }
+
+    async function loadLists(projectId) {
+      newListWrap.hidden = true;
+      if (!projectId) { listSel.innerHTML = '<option value="">Pick a project first</option>'; listSel.disabled = true; return; }
+      listSel.disabled = true;
+      listSel.innerHTML = '<option value="">Loading…</option>';
+      const { data } = await DS.safeQuery("sheet lists", window.supabaseClient.from("project_todo_items")
+        .select("id, title, completed, position").eq("project_id", projectId).order("position"));
+      const open = (data || []).filter(i => !i.completed);
+      listSel.innerHTML = open.map(i => `<option value="${esc(i.id)}">${esc(i.title)}</option>`).join("") +
+        '<option value="__new">+ New list…</option>';
+      listSel.disabled = false;
+      if (!open.length) { listSel.value = "__new"; newListWrap.hidden = false; }
+    }
+
+    function openSheet(startMode) {
       if (!overlay) return;
-      form.reset(); msg.textContent = ""; msg.className = "auth-message"; pickChip("");
+      form.reset(); pickChip(""); setMode(startMode || "personal");
+      newListWrap.hidden = true;
       overlay.classList.remove("hidden");
       document.body.classList.add("popup-active");
       setTimeout(() => name.focus(), 60);
@@ -75,17 +131,23 @@
     }
 
     if (btn) btn.addEventListener("click", () => {
-      if (phone.matches) { openSheet(); return; }
+      if (phone.matches) { openSheet("personal"); return; }
       if (addInput) { addInput.scrollIntoView({ behavior: "smooth", block: "center" }); addInput.focus(); }
     });
     // On a phone, tapping the inline "Add a task…" line opens the sheet instead of the tiny field.
     if (addInput) addInput.addEventListener("focus", () => {
       if (!phone.matches) return;
       addInput.blur();
-      openSheet();
+      openSheet("personal");
     });
     if (!overlay) return;
 
+    switchBtn.addEventListener("click", () => setMode(mode === "project" ? "personal" : "project"));
+    projSel.addEventListener("change", () => loadLists(projSel.value));
+    listSel.addEventListener("change", () => {
+      newListWrap.hidden = listSel.value !== "__new";
+      if (!newListWrap.hidden) newList.focus();
+    });
     chips.forEach(c => c.addEventListener("click", () => {
       const v = c.dataset.due;
       date.value = v === "today" ? isoOffset(0) : v === "tomorrow" ? isoOffset(1) : v === "week" ? isoOffset(7) : "";
@@ -98,98 +160,66 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const task = name.value.trim();
-      if (!task) { msg.textContent = "Type what needs doing first."; msg.className = "auth-message error"; name.focus(); return; }
+      const label = name.value.trim();
+      if (mode === "project" && !projSel.value) { setMsg("Choose a project first.", "error"); projSel.focus(); return; }
+      if (mode === "project" && listSel.value === "__new" && !newList.value.trim()) { setMsg("Name the new list.", "error"); newList.focus(); return; }
+      if (!label) { setMsg("Type what needs doing first.", "error"); name.focus(); return; }
       save.disabled = true;
-      const { error } = await DS.safeQuery("create task", window.supabaseClient.from("tasks").insert({
-        user_id: staffId, task_name: task, due_date: date.value || null, description: null, completed: false
-      }));
+      setMsg("Saving…");
+      const ok = mode === "project" ? await saveProjectTodo(label) : await savePersonal(label);
       save.disabled = false;
-      if (error) { msg.textContent = "Couldn't add that task. Please try again."; msg.className = "auth-message error"; return; }
+      if (!ok) return;
       closeSheet();
       load();
+      if (typeof window.showToast === "function") window.showToast(mode === "project" ? "Project to-do added" : "Task added");
     });
-  }
 
-  async function load() {
-    const sb = window.supabaseClient;
-    const listEl = document.getElementById("myTasksList");
-    const [mine, project] = await Promise.all([
-      DS.safeQuery("load tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false)),
-      DS.safeQuery("load assigned to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false))
-    ]);
-    if (mine.error && project.error) {
-      listEl.innerHTML = '<p class="card-subtitle">Couldn\'t load tasks right now.</p>';
-      return;
+    async function savePersonal(label) {
+      const { error } = await DS.safeQuery("create task", window.supabaseClient.from("tasks").insert({
+        user_id: staffId, task_name: label, due_date: date.value || null, description: null, completed: false
+      }));
+      if (error) { setMsg("Couldn't add that task. Please try again.", "error"); return false; }
+      return true;
     }
 
-    const rows = [
-      ...(mine.data || []).map(t => ({ kind: "personal", id: t.id, title: t.task_name, due: t.due_date, tag: "Personal" })),
-      ...(project.data || []).map(s => ({ kind: "project", id: s.id, title: s.label, due: s.due_date, tag: (s.projects && s.projects.name) || "Project", projectId: s.project_id }))
-    ].sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || String(a.due || "").localeCompare(String(b.due || "")) || a.title.localeCompare(b.title));
+    // Same rows the project To-do page writes (js/project-todo.js addSubitem / new big item).
+    async function saveProjectTodo(label) {
+      const sb = window.supabaseClient;
+      const projectId = projSel.value;
+      const projectName = projSel.options[projSel.selectedIndex]?.text || "a project";
+      const profile = window.currentSupabaseProfile || {};
+      let listId = listSel.value;
 
-    updateStrip(rows);
-    render(rows);
-  }
+      if (listId === "__new") {
+        const { data: lists } = await DS.safeQuery("sheet list count", sb.from("project_todo_items").select("id").eq("project_id", projectId));
+        const { data: created, error } = await DS.safeQuery("create list", sb.from("project_todo_items").insert({
+          project_id: projectId, title: newList.value.trim(), position: (lists || []).length,
+          created_by_id: staffId, created_by_name: profile.full_name || null
+        }).select().single());
+        if (error || !created) { setMsg("Couldn't create the new list. Please try again.", "error"); return false; }
+        listId = created.id;
+      }
 
-  function updateStrip(rows) {
-    const today = todayISO();
-    const dueNow = rows.filter(r => r.due && r.due <= today).length;
-    const count = document.getElementById("homeTaskCount");
-    const sub = document.getElementById("homeTaskSub");
-    if (count) count.textContent = String(rows.length);
-    if (sub) {
-      sub.textContent = dueNow ? `${dueNow} due today or late` : "Nothing due today";
-      sub.className = `hm-stat-sub ${dueNow ? "hm-warn" : ""}`;
+      const { data: existing } = await DS.safeQuery("sheet item count", sb.from("project_todo_subitems").select("id").eq("todo_item_id", listId));
+      const assigneeId = assignSel.value || null;
+      const assigneeName = assigneeId ? (staff.find(p => String(p.id) === String(assigneeId)) || {}).full_name || null : null;
+      const { error } = await DS.safeQuery("create project to-do", sb.from("project_todo_subitems").insert({
+        todo_item_id: listId, project_id: projectId, label,
+        assigned_to: assigneeId, assigned_to_name: assigneeName,
+        due_date: date.value || null, position: (existing || []).length
+      }));
+      if (error) { setMsg("Couldn't add that to-do. Please try again.", "error"); return false; }
+
+      // Let someone else know it's theirs (same notice the To-do page sends).
+      if (assigneeId && String(assigneeId) !== String(staffId)) {
+        DS.safeQuery("notify assignee", sb.from("notifications").insert({
+          user_id: assigneeId, title: "New project to-do",
+          message: `You were assigned "${label}" on ${projectName}.`,
+          type: "project_todo_assignment",
+          link_url: `/pages/project-todo.html?id=${encodeURIComponent(projectId)}`, link_label: "View it here"
+        }));
+      }
+      return true;
     }
-  }
-
-  function render(rows) {
-    const listEl = document.getElementById("myTasksList");
-    if (!rows.length) { listEl.innerHTML = '<p class="card-subtitle">No open tasks — nice work.</p>'; return; }
-    const esc = DS.escapeHtml;
-    const extra = rows.length - MAX_ROWS;
-    listEl.innerHTML = rows.slice(0, MAX_ROWS).map(r => {
-      const due = DS.formatDueLabel(r.due);
-      const late = due.cls === "due-overdue";
-      const soon = due.cls === "due-today";
-      const tag = r.kind === "personal"
-        ? '<span class="hm-tag">Personal</span>'
-        : `<a class="hm-tag hm-tag--blue" href="/pages/project-todo.html?id=${encodeURIComponent(r.projectId)}">${esc(r.tag)}</a>`;
-      return `<div class="mytask-row" data-kind="${r.kind}" data-id="${r.id}">
-          <input type="checkbox" class="todo-item-checkbox" aria-label="Mark '${esc(r.title)}' done">
-          <span class="mytask-row-title">${esc(r.title)}</span>
-          ${tag}
-          <span class="hm-due ${late ? "hm-due--late" : soon ? "hm-due--today" : ""}">${esc(due.text)}</span>
-        </div>`;
-    }).join("") + (extra > 0 ? `<a class="hm-more" href="/pages/staff-todo.html">${extra} more ›</a>` : "");
-
-    listEl.querySelectorAll(".mytask-row input[type=checkbox]").forEach(box => {
-      box.addEventListener("change", () => complete(box.closest(".mytask-row"), box));
-    });
-  }
-
-  async function complete(row, box) {
-    box.disabled = true;
-    const table = row.dataset.kind === "personal" ? "tasks" : "project_todo_subitems";
-    const { error } = await DS.safeQuery("complete task", window.supabaseClient.from(table).update({ completed: true }).eq("id", row.dataset.id));
-    if (error) { box.checked = false; box.disabled = false; return; }
-    row.classList.add("hm-done");
-    setTimeout(load, 350);
-  }
-
-  async function addPersonal(input, dueInput) {
-    const name = input.value.trim();
-    if (!name) return;
-    input.disabled = true;
-    const { error } = await DS.safeQuery("create task", window.supabaseClient.from("tasks").insert({
-      user_id: staffId, task_name: name, due_date: (dueInput && dueInput.value) || null, description: null, completed: false
-    }));
-    input.disabled = false;
-    if (error) return;
-    input.value = "";
-    if (dueInput) dueInput.value = "";
-    input.focus();
-    load();
   }
 })();

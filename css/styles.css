@@ -19307,3 +19307,15 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
 @media (max-width: 380px) { .hm-due-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .hm-task-sheet #homeTaskSheetCancel { background: #fff; color: #0b2236; border: 1px solid #b9c6d3; box-shadow: none; }
 .hm-chip { line-height: 1.15; padding: 4px 6px; }
+/* Home — task sheet: blurred background, project to-do mode (2026-11-18) */
+.hm-blur-overlay { background: rgba(7, 20, 30, 0.35); -webkit-backdrop-filter: blur(10px) saturate(140%); backdrop-filter: blur(10px) saturate(140%); }
+.hm-sheet-project { display: flex; flex-direction: column; gap: 14px; margin-bottom: 14px; }
+.hm-sheet-project[hidden], #homeSheetAssignWrap[hidden], #homeSheetNewListWrap[hidden] { display: none; }
+.hm-sheet-field select { min-height: 48px; padding: 10px 14px; border-radius: 10px; border: 1px solid #b9c6d3; font: inherit; font-size: 1rem; font-weight: 500; color: #0b2236; background: #fff; width: 100%; box-sizing: border-box; }
+#homeSheetAssignWrap { margin-top: 14px; }
+.hm-sheet-switch {
+  display: block; margin: 14px auto 2px; padding: 10px 12px; min-height: 44px;
+  border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 0.9rem; font-weight: 700; color: #085c98; text-decoration: underline; text-underline-offset: 3px;
+}
+.hm-sheet-switch:hover { color: #053f67; }

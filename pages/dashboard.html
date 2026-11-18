@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118f">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118g">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -542,13 +542,27 @@
 </main>
 
 <!-- New task — phone-only bottom sheet (js/dashboard/home-tasks.js), 2026-11-18 -->
-<div class="popup-overlay hidden" id="homeTaskSheet">
+<div class="popup-overlay hidden hm-blur-overlay" id="homeTaskSheet">
     <div class="popup hm-task-sheet" role="dialog" aria-modal="true" aria-labelledby="homeTaskSheetTitle">
         <button type="button" class="sheet-close" id="homeTaskSheetClose" aria-label="Close">&times;</button>
         <h2 id="homeTaskSheetTitle">New task</h2>
         <form id="homeTaskSheetForm" autocomplete="off">
+            <div class="hm-sheet-project" id="homeSheetProjectFields" hidden>
+                <label class="hm-sheet-field">Project
+                    <select id="homeSheetProject"><option value="">Loading projects…</option></select>
+                </label>
+                <label class="hm-sheet-field">To-do list
+                    <select id="homeSheetList" disabled><option value="">Pick a project first</option></select>
+                </label>
+                <label class="hm-sheet-field" id="homeSheetNewListWrap" hidden>New list name
+                    <input type="text" id="homeSheetNewList" maxlength="120" placeholder="e.g. Close-out paperwork">
+                </label>
+            </div>
             <label class="hm-sheet-field">What needs doing?
                 <input type="text" id="homeTaskSheetName" maxlength="120" placeholder="e.g. Call the inspector" enterkeyhint="done">
+            </label>
+            <label class="hm-sheet-field" id="homeSheetAssignWrap" hidden>Assign to
+                <select id="homeSheetAssign"><option value="">Unassigned</option></select>
             </label>
             <p class="hm-sheet-label">Due</p>
             <div class="hm-due-chips" role="group" aria-label="Due date">
@@ -565,6 +579,7 @@
                 <button type="button" class="auth-button auth-button--secondary" id="homeTaskSheetCancel">Cancel</button>
                 <button type="submit" class="auth-button" id="homeTaskSheetSave">Add task</button>
             </div>
+            <button type="button" class="hm-sheet-switch" id="homeTaskSheetSwitch">Add a project to-do</button>
         </form>
     </div>
 </div>
