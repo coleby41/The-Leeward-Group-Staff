@@ -41,6 +41,51 @@
     const sb = window.supabaseClient;
     const today = todayISO();
 
+    // Active projects + upcoming deadlines (2026-11-18). Replaces
+    // dashboard/projects.js on this page, which read a project_deadlines
+    // table that was never created (404). Deadlines now come from the
+    // project timelines: open tasks and milestones, late or due in the next
+    // 30 days, on active projects.
+    (async () => {
+      const { data: projects } = await DS.safeQuery("home active projects",
+        sb.from("projects").select("id, name").eq("status", "active"));
+      const list = projects || [];
+      const countEl = document.getElementById("activeProjectsCount");
+      if (countEl) countEl.textContent = String(list.length);
+
+      const wrap = document.getElementById("upcomingDeadlinesList");
+      if (!wrap) return;
+      if (!list.length) { wrap.innerHTML = '<p class="card-subtitle">No active projects.</p>'; return; }
+      const names = new Map(list.map(p => [p.id, p.name]));
+      const until = new Date(); until.setDate(until.getDate() + 30);
+      const untilISO = `${until.getFullYear()}-${String(until.getMonth() + 1).padStart(2, "0")}-${String(until.getDate()).padStart(2, "0")}`;
+      const { data: tasks, error } = await DS.safeQuery("home deadlines",
+        sb.from("schedule_tasks").select("id, name, item_type, end_date, status, project_id")
+          .in("project_id", list.map(p => p.id)).neq("status", "complete")
+          .lte("end_date", untilISO).order("end_date", { ascending: true }).limit(40));
+      if (error) { wrap.innerHTML = '<p class="card-subtitle">Couldn\'t load upcoming deadlines.</p>'; return; }
+      // Late ones first (most recent), then upcoming; milestones before plain tasks on the same day.
+      const rows = (tasks || [])
+        .sort((a, b) => (a.end_date < today) - (b.end_date < today) || a.end_date.localeCompare(b.end_date) || (a.item_type === "milestone" ? -1 : 1))
+        .slice(0, 6);
+      if (!rows.length) { wrap.innerHTML = '<p class="card-subtitle">Nothing due in the next 30 days.</p>'; return; }
+      const esc = DS.escapeHtml;
+      wrap.innerHTML = rows.map(t => {
+        const d = new Date(`${t.end_date}T00:00:00`);
+        const late = t.end_date < today;
+        const daysLate = late ? Math.round((new Date(`${today}T00:00:00`) - d) / 86400000) : 0;
+        const tagHtml = late
+          ? `<span class="hm-tag hm-tag--red">${daysLate} day${daysLate === 1 ? "" : "s"} late</span>`
+          : t.status === "in_progress" ? '<span class="hm-tag hm-tag--blue">In progress</span>'
+          : t.item_type === "milestone" ? '<span class="hm-tag">Milestone</span>' : "";
+        return `<a class="info-item hm-deadline" href="/pages/project-timeline.html?id=${encodeURIComponent(t.project_id)}">
+            <span class="hm-date-chip"><small>${d.toLocaleDateString("en-US", { month: "short" })}</small>${d.getDate()}</span>
+            <div><h3>${esc(t.name)}</h3><p>${esc(names.get(t.project_id) || "")}</p></div>
+            ${tagHtml}
+          </a>`;
+      }).join("");
+    })();
+
     // My tasks
     DS.safeQuery("home task count", sb.from("tasks").select("id, due_date").eq("user_id", staffId).eq("completed", false))
       .then(({ data }) => {

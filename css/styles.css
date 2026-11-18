@@ -19234,3 +19234,11 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
 @media (prefers-reduced-transparency: reduce) {
   .hm-glass { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+/* Home — deadline rows (js/dashboard/home-strip.js) */
+.hm-main .hm-deadline { color: #0b2236; text-decoration: none; }
+.hm-main .hm-deadline:hover h3 { color: #085c98; }
+.hm-date-chip { width: 44px; flex-shrink: 0; text-align: center; font-size: 1.25rem; font-weight: 800; line-height: 1.1; color: #0b2236; }
+.hm-date-chip small { display: block; font-size: 0.68rem; font-weight: 700; color: #085c98; }
+.hm-tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #eef1f4; color: #46525e; white-space: nowrap; }
+.hm-tag--red { background: #fbe8e8; color: #8f2a2a; }
+.hm-tag--blue { background: #e6f0f7; color: #085c98; }
