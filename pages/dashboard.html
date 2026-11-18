@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118s">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118t">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -514,12 +514,17 @@
         <div class="hm-col">
             <section class="hm-section">
                 <div class="hm-section-head"><h2>Today - IN BETA, Not working</h2>
-                    <span>
+                    <span class="hm-today-tools">
+                        <span class="hm-view-toggle" role="group" aria-label="Today view">
+                            <button type="button" data-view="rows" aria-pressed="true">Rows</button>
+                            <button type="button" data-view="calendar" aria-pressed="false">Calendar</button>
+                        </span>
                         <a href="#" id="linkCalendarLink">Link calendar</a>
                         <a href="#" id="manageCalendarLink" style="display:none;">Manage ›</a>
                     </span>
                 </div>
                 <div id="calendarEventsList" class="info-list hm-list"></div>
+                <div id="todayCalendar" class="hm-daycal" hidden></div>
             </section>
 
             <section class="hm-section">
@@ -712,6 +717,7 @@
 <script src="/js/dashboard/calendar-card.js"></script>
 <script src="/js/dashboard/contact-card.js"></script>
 <script src="/js/dashboard/home-strip.js"></script>
+<script src="/js/dashboard/home-today.js"></script>
 
 
 

@@ -19623,3 +19623,58 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
   border: 1px solid rgba(255,255,255,0.95);
   box-shadow: inset 0 1.5px 0 #fff, inset 0 0 18px rgba(255,255,255,0.45), 0 0 0 1px rgba(11,34,54,0.06), 0 8px 22px rgba(11,34,54,0.08);
 }
+
+/* Home — Today: Rows / Calendar switch and day timeline (js/dashboard/home-today.js), 2026-11-18 */
+.hm-today-tools { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end; }
+.hm-view-toggle { display: inline-flex; padding: 3px; gap: 2px; border-radius: 9px; background: #eef1f4; }
+.hm-view-toggle button {
+  border: 0; border-radius: 7px; padding: 5px 10px; min-height: 30px; cursor: pointer;
+  background: transparent; font: inherit; font-size: 0.78rem; font-weight: 600; color: #46525e;
+}
+.hm-view-toggle button[aria-pressed="true"] { background: #fff; color: #085c98; font-weight: 700; box-shadow: 0 1px 3px rgba(11,34,54,0.14); }
+.hm-view-toggle button:focus-visible { outline: 2px solid #085c98; outline-offset: 1px; }
+#calendarEventsList[hidden], .hm-daycal[hidden] { display: none; }
+
+.hm-daycal { padding-top: 12px; }
+.hm-daycal-label { margin: 0 0 6px; font-size: 0.72rem; font-weight: 700; color: #5a6878; }
+.hm-due-chips-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.hm-due-chip {
+  display: inline-flex; flex-direction: column; max-width: 100%; padding: 6px 10px; border-radius: 8px;
+  background: #e6f0f7; color: #0b2236; text-decoration: none; border: 1px solid rgba(8,92,152,0.15);
+}
+.hm-due-chip strong { font-size: 0.8rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-due-chip small { font-size: 0.7rem; color: #3d4b59; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-due-chip:hover { border-color: rgba(8,92,152,0.4); color: #0b2236; }
+.hm-due-chip--milestone { background: #eeebf8; border-color: rgba(70,58,140,0.18); }
+.hm-due-chip--event { background: #f3f5f7; border-color: #e3e8ee; }
+.hm-daycal-none { font-size: 0.82rem; color: #5a6878; }
+
+.hm-daycal-scroll {
+  position: relative; margin-top: 12px; max-height: 360px; overflow-y: auto; overscroll-behavior: contain;
+  border-top: 1px solid #e8edf2; scrollbar-width: thin; scrollbar-color: rgba(11,34,54,0.25) transparent;
+}
+.hm-daycal-scroll::-webkit-scrollbar { width: 6px; }
+.hm-daycal-scroll::-webkit-scrollbar-thumb { background: rgba(11,34,54,0.22); border-radius: 999px; }
+.hm-daycal-scroll:focus-visible { outline: 2px solid #085c98; outline-offset: 2px; }
+.hm-daycal-grid { position: relative; }
+.hm-daycal-hour { height: 48px; box-sizing: border-box; border-bottom: 1px solid #eef1f4; position: relative; }
+.hm-daycal-hour span { position: absolute; top: 4px; left: 0; width: 48px; font-size: 0.68rem; font-weight: 600; color: #5a6878; }
+.hm-daycal-events { position: absolute; top: 0; bottom: 0; left: 54px; right: 2px; }
+.hm-daycal-event {
+  position: absolute; box-sizing: border-box; overflow: hidden; padding: 4px 8px; border-radius: 8px;
+  background: linear-gradient(180deg, rgba(230,240,247,0.98) 0%, rgba(214,231,243,0.95) 100%);
+  border: 1px solid rgba(8,92,152,0.25); box-shadow: inset 3px 0 0 #085c98, 0 2px 6px rgba(11,34,54,0.08);
+  color: #0b2236;
+}
+.hm-daycal-event strong { display: block; font-size: 0.8rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-daycal-event small { display: block; font-size: 0.7rem; color: #3d4b59; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-daycal-event.is-past { opacity: 0.55; }
+.hm-daycal-now { position: absolute; left: -6px; right: 0; height: 0; border-top: 2px solid #d24545; z-index: 2; pointer-events: none; }
+.hm-daycal-now::before { content: ""; position: absolute; left: -4px; top: -6px; width: 10px; height: 10px; border-radius: 50%; background: #d24545; }
+.hm-daycal-now span { position: absolute; right: 0; top: -18px; font-size: 0.66rem; font-weight: 700; color: #b23a3a; background: #fff; padding: 0 4px; border-radius: 4px; }
+.hm-daycal-empty { position: absolute; top: 12px; left: 54px; right: 0; margin: 0; text-align: center; font-size: 0.8rem; color: #8a96a3; pointer-events: none; }
+@media (max-width: 640px) {
+  .hm-today-tools { gap: 8px; }
+  .hm-view-toggle button { min-height: 34px; padding: 6px 12px; }
+  .hm-daycal-scroll { max-height: 320px; }
+}
