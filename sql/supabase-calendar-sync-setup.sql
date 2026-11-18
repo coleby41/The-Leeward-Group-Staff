@@ -27,12 +27,19 @@ create table if not exists public.calendar_providers (
 );
 alter table public.calendar_providers add column if not exists is_active boolean not null default true;
 alter table public.calendar_providers add column if not exists sort_order integer not null default 0;
+-- An older version of this table also has a required icon_class column.
+alter table public.calendar_providers add column if not exists icon_class text;
 
-insert into public.calendar_providers (id, label, auth_type, is_active, sort_order) values
-  ('microsoft', 'Outlook / Microsoft 365', 'oauth2', true, 1),
-  ('google',    'Google Calendar',         'oauth2', true, 2),
-  ('icloud',    'Apple iCloud Calendar',   'caldav', true, 3)
-on conflict (id) do update set label = excluded.label, auth_type = excluded.auth_type, is_active = true, sort_order = excluded.sort_order;
+insert into public.calendar_providers (id, label, auth_type, icon_class, is_active, sort_order) values
+  ('microsoft', 'Outlook / Microsoft 365', 'oauth2', 'microsoft', true, 1),
+  ('google',    'Google Calendar',         'oauth2', 'google',    true, 2),
+  ('icloud',    'Apple iCloud Calendar',   'caldav', 'icloud',    true, 3)
+on conflict (id) do update set label = excluded.label, auth_type = excluded.auth_type,
+  icon_class = excluded.icon_class, is_active = true, sort_order = excluded.sort_order;
+
+-- Older choices with other ids (from the first, unfinished version) would
+-- show up in "Link calendar" but the calendar function doesn't know them.
+update public.calendar_providers set is_active = false where id not in ('microsoft', 'google', 'icloud');
 
 alter table public.calendar_providers enable row level security;
 drop policy if exists calendar_providers_read on public.calendar_providers;
