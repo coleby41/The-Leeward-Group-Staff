@@ -18,6 +18,7 @@
   let shown = null;        // first day of the month on screen
   let selected = null;     // "YYYY-MM-DD"
   let items = new Map();   // "YYYY-MM-DD" → [{kind, title, sub, href, time}]
+  let calendarLabel = "";  // the linked calendar's name, for the key
   let started = false;
 
   const pad = (n) => String(n).padStart(2, "0");
@@ -104,13 +105,15 @@
     const to = iso(new Date(end.getFullYear(), end.getMonth(), 0));
     const monthKey = from;
 
-    const [events, tasks, todos, projects] = await Promise.all([
+    const [events, tasks, todos, projects, conn] = await Promise.all([
       DS.safeQuery("month events", sb.from("calendar_events_cache").select("id, title, start_time, end_time, location")
         .eq("user_id", staffId).gte("start_time", new Date(shown).toISOString()).lt("start_time", end.toISOString()).order("start_time")),
       DS.safeQuery("month tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
       DS.safeQuery("month to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
-      DS.safeQuery("month projects", sb.from("projects").select("id, name").eq("status", "active"))
+      DS.safeQuery("month projects", sb.from("projects").select("id, name").eq("status", "active")),
+      DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("provider_label"))
     ]);
+    calendarLabel = (conn.data && conn.data[0] && conn.data[0].provider_label) || "";
     if (iso(shown) !== monthKey) return; // moved on while loading
 
     (tasks.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
@@ -174,7 +177,7 @@
       </div>
       <div class="hm-mc-week" aria-hidden="true">${WEEKDAYS.map(w => `<span>${w}</span>`).join("")}</div>
       <div class="hm-mc-grid" role="group" aria-label="Days">${cells.join("")}</div>
-      <div class="hm-mc-legend" aria-hidden="true"><span><i class="hm-mc-dot hm-mc-dot--task"></i>Tasks</span><span><i class="hm-mc-dot hm-mc-dot--deadline"></i>Project deadlines</span><span><i class="hm-mc-dot hm-mc-dot--event"></i>Events</span></div>
+      <div class="hm-mc-legend" aria-hidden="true"><span><i class="hm-mc-dot hm-mc-dot--task"></i>Tasks</span><span><i class="hm-mc-dot hm-mc-dot--deadline"></i>Project deadlines</span>${calendarLabel ? `<span><i class="hm-mc-dot hm-mc-dot--event"></i>${esc(calendarLabel)}</span>` : ""}</div>
       <div class="hm-mc-agenda">
         <p class="hm-mc-agenda-title">${esc(selTitle)}</p>
         ${agenda}

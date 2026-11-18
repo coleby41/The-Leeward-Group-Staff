@@ -19760,3 +19760,6 @@ a.hm-mc-item:hover strong { color: #085c98; }
 .hm-cal-popup .hm-cal-steps li::marker { color: var(--primary-color, #1d4ed8); font-weight: 600; }
 .hm-cal-popup .hm-cal-note { margin: 4px 0 10px; font-size: 12.5px; line-height: 1.4; color: var(--text-secondary, #6b7280); }
 .hm-cal-popup #hmCalIcsUrl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+
+/* Home › Today calendar: linked calendar gets its own key color (2026-11-18) */
+.hm-mc-dot--event { background: #12a08a; }
