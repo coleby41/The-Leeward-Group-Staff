@@ -131,6 +131,20 @@
     }
   }
 
+  // Names inside a day (wider screens; phones keep the dots). Events first, by time.
+  const CHIPS = 2;
+  function chips(list) {
+    if (!list.length) return "";
+    const esc = DS.escapeHtml;
+    const order = { event: 0, deadline: 1, task: 2 };
+    const sorted = list.slice().sort((a, b) => order[a.kind] - order[b.kind] || (a.sort || 0) - (b.sort || 0));
+    const shown = sorted.length > CHIPS + 1 ? sorted.slice(0, CHIPS) : sorted;
+    const more = sorted.length - shown.length;
+    return `<span class="hm-mc-chips">${shown.map(x =>
+      `<span class="hm-mc-chip hm-mc-chip--${x.kind}" title="${esc((x.time ? x.time + " · " : "") + x.title)}">${esc(x.title || "")}</span>`).join("")}${
+      more ? `<span class="hm-mc-more">+${more} more</span>` : ""}</span>`;
+  }
+
   function render(loading) {
     const cal = document.getElementById("todayCalendar");
     const esc = DS.escapeHtml;
@@ -150,6 +164,7 @@
       cells.push(`<button type="button" class="${cls}" data-day="${key}" aria-label="${label}" aria-pressed="${key === selected}" tabindex="${key === selected ? 0 : -1}">
           <span class="hm-mc-num">${d}</span>
           <span class="hm-mc-dots">${kinds.map(k => `<i class="hm-mc-dot hm-mc-dot--${k}"></i>`).join("")}</span>
+          ${chips(list)}
         </button>`);
     }
 
