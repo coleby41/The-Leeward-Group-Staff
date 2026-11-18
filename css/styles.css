@@ -19605,3 +19605,21 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
   .hm-forecast > .hm-fc-footer { min-height: calc(14px + env(safe-area-inset-bottom)); }
 }
 .hm-forecast > .hm-fc-head > div { flex: 1 1 auto; min-width: 0; }
+
+/* Forecast: one even liquid-glass surface for the whole pop-up (2026-11-18).
+   Header, body and footer all sit on the same glass; only hairlines divide them. */
+#weatherForecastSheet > .hm-forecast {
+  background: rgba(255,255,255,0.80);
+  background-image: none;
+}
+.hm-forecast > .hm-fc-head,
+.hm-forecast > .hm-fc-footer,
+.hm-forecast > .hm-fc-body { background: transparent; box-shadow: none; }
+/* Cards inside use the same glass tint, just a touch brighter, so they read as raised glass, not white boxes. */
+.hm-forecast .hm-fc-facts,
+.hm-fc-hours-card {
+  background: rgba(255,255,255,0.55);
+  background-image: none;
+  border: 1px solid rgba(255,255,255,0.95);
+  box-shadow: inset 0 1.5px 0 #fff, inset 0 0 18px rgba(255,255,255,0.45), 0 0 0 1px rgba(11,34,54,0.06), 0 8px 22px rgba(11,34,54,0.08);
+}
