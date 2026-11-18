@@ -119,7 +119,8 @@
 
     function openSheet(startMode) {
       if (!overlay) return;
-      form.reset(); pickChip(""); setMode(startMode || "personal");
+      form.reset(); pickChip(null); setMode(startMode || "personal");
+      document.getElementById("homeTaskSheetDateWrap").hidden = true;
       newListWrap.hidden = true;
       overlay.classList.remove("hidden");
       document.body.classList.add("popup-active");
@@ -148,12 +149,24 @@
       newListWrap.hidden = listSel.value !== "__new";
       if (!newListWrap.hidden) newList.focus();
     });
+    // Today / Tomorrow / Next week / Custom date. Tap the lit one again to
+    // clear it (no due date). Custom date shows the date picker.
+    const dateWrap = document.getElementById("homeTaskSheetDateWrap");
     chips.forEach(c => c.addEventListener("click", () => {
       const v = c.dataset.due;
-      date.value = v === "today" ? isoOffset(0) : v === "tomorrow" ? isoOffset(1) : v === "week" ? isoOffset(7) : "";
+      const wasOn = c.classList.contains("is-on");
+      if (wasOn) { pickChip(null); date.value = ""; dateWrap.hidden = true; return; }
       pickChip(v);
+      if (v === "custom") {
+        dateWrap.hidden = false;
+        date.value = "";
+        date.focus();
+        try { if (date.showPicker) date.showPicker(); } catch (_) { /* some browsers need a direct tap */ }
+        return;
+      }
+      dateWrap.hidden = true;
+      date.value = v === "today" ? isoOffset(0) : v === "tomorrow" ? isoOffset(1) : isoOffset(7);
     }));
-    date.addEventListener("change", () => pickChip(date.value ? "custom" : ""));
     document.getElementById("homeTaskSheetCancel").addEventListener("click", closeSheet);
     document.getElementById("homeTaskSheetClose").addEventListener("click", closeSheet);
     overlay.addEventListener("click", (e) => { if (e.target === overlay) closeSheet(); });

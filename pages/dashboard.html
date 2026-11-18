@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118g">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118h">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -569,9 +569,9 @@
                 <button type="button" class="hm-chip" data-due="today">Today</button>
                 <button type="button" class="hm-chip" data-due="tomorrow">Tomorrow</button>
                 <button type="button" class="hm-chip" data-due="week">Next week</button>
-                <button type="button" class="hm-chip is-on" data-due="">No date</button>
+                <button type="button" class="hm-chip" data-due="custom">Custom date</button>
             </div>
-            <label class="hm-sheet-field hm-sheet-date">Or pick a date
+            <label class="hm-sheet-field hm-sheet-date" id="homeTaskSheetDateWrap" hidden>Pick a date
                 <input type="date" id="homeTaskSheetDate">
             </label>
             <p class="auth-message" id="homeTaskSheetMsg"></p>

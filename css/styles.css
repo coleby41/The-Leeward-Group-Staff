@@ -19319,3 +19319,4 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
   font: inherit; font-size: 0.9rem; font-weight: 700; color: #085c98; text-decoration: underline; text-underline-offset: 3px;
 }
 .hm-sheet-switch:hover { color: #053f67; }
+#homeTaskSheetDateWrap[hidden] { display: none; }
