@@ -835,7 +835,12 @@
             sheetHome = { dropdown, parent: dropdown.parentNode, next: dropdown.nextSibling };
             const backdrop = document.createElement("div");
             backdrop.className = "pf-menu-backdrop";
+            backdrop.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
             document.body.appendChild(backdrop);
+            // Freeze the page behind the sheet (iPhone ignores overflow:hidden alone).
+            sheetScrollY = window.scrollY;
+            document.documentElement.classList.add("pf-sheet-lock");
+            document.body.style.top = `-${sheetScrollY}px`;
             const name = dropdown.closest(".all-files-file-row")?.querySelector(".all-files-file-name-main")?.firstChild?.textContent?.trim();
             if (name && !dropdown.querySelector(".pf-menu-sheet-title")) {
                 dropdown.insertAdjacentHTML("afterbegin", `<p class="pf-menu-sheet-title">${escapeHtmlFiles(name)}</p>`);
@@ -881,6 +886,7 @@
     // different one (only one open at a time), on any outside click, and
     // on Escape.
     let sheetHome = null;   // where a phone bottom-sheet menu came from
+    let sheetScrollY = 0;
 
     function closeAllFileMenus() {
         if (sheetHome) {
@@ -892,6 +898,11 @@
             else dropdown.remove();
         }
         document.querySelectorAll(".pf-menu-backdrop").forEach(b => b.remove());
+        if (document.documentElement.classList.contains("pf-sheet-lock")) {
+            document.documentElement.classList.remove("pf-sheet-lock");
+            document.body.style.top = "";
+            window.scrollTo(0, sheetScrollY);
+        }
         document.querySelectorAll(".all-files-file-menu-dropdown.is-open").forEach(d => d.classList.remove("is-open"));
         document.querySelectorAll(".all-files-file-menu-btn.is-open").forEach(b => {
             b.classList.remove("is-open");

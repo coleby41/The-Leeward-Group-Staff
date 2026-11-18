@@ -19930,3 +19930,7 @@ a.hm-mc-item:hover strong { color: #085c98; }
 .pf-menu-sheet-title { margin: 0 4px 6px; padding-bottom: 10px; border-bottom: 1px solid #e8edf2; font-size: 0.85rem; font-weight: 700; color: #5a6878; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .all-files-file-menu-dropdown.is-sheet .all-files-file-menu-item { width: 100%; min-height: 48px; padding: 12px 10px; font-size: 1rem; text-align: left; border-radius: 10px; }
 @keyframes pf-fade { from { opacity: 0; } to { opacity: 1; } }
+html.pf-sheet-lock, html.pf-sheet-lock body { overflow: hidden !important; overscroll-behavior: none; }
+html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
+.pf-menu-backdrop { touch-action: none; }
+.all-files-file-menu-dropdown.is-sheet { overscroll-behavior: contain; touch-action: pan-y; }
