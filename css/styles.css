@@ -19760,22 +19760,3 @@ a.hm-mc-item:hover strong { color: #085c98; }
 .hm-cal-popup .hm-cal-steps li::marker { color: var(--primary-color, #1d4ed8); font-weight: 600; }
 .hm-cal-popup .hm-cal-note { margin: 4px 0 10px; font-size: 12.5px; line-height: 1.4; color: var(--text-secondary, #6b7280); }
 .hm-cal-popup #hmCalIcsUrl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
-
-/* Home › Today calendar: names inside each day (2026-11-18) */
-.hm-mc-chips { display: none; }
-@media (min-width: 641px) {
-  .hm-mc-cell { height: auto; min-height: 74px; padding: 4px 3px 4px; align-items: stretch; gap: 2px; }
-  .hm-mc-cell .hm-mc-num { align-self: center; flex-shrink: 0; }
-  .hm-mc-cell .hm-mc-dots { display: none; }
-  .hm-mc-chips { display: flex; flex-direction: column; gap: 2px; min-width: 0; width: 100%; }
-  .hm-mc-chip {
-    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
-    min-width: 0; padding: 1px 3px; border-radius: 4px; text-align: left;
-    font-size: 0.6rem; font-weight: 600; line-height: 1.25; overflow: hidden; overflow-wrap: anywhere; hyphens: auto;
-  }
-  .hm-mc-chip--event { background: #eef1f4; color: #33414f; }
-  .hm-mc-chip--task { background: #e3eff8; color: #085c98; }
-  .hm-mc-chip--deadline { background: #ece9f8; color: #4f42a6; }
-  .hm-mc-more { font-size: 0.62rem; font-weight: 700; color: #5a6878; text-align: left; padding: 0 4px; }
-  .hm-mc-cell.is-past .hm-mc-chip { opacity: 0.6; }
-}
