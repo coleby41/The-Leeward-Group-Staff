@@ -19723,3 +19723,34 @@ a.hm-mc-item:hover strong { color: #085c98; }
   .hm-mc-nav { width: 36px; height: 36px; }
 }
 .hm-mc-cell { aspect-ratio: auto; height: 46px; min-height: 0; }
+
+/* Home — link / manage calendar pop-ups (js/dashboard/home-calendar.js), 2026-11-18 */
+.hm-cal-popup { text-align: left; width: min(94vw, 460px); }
+.hm-cal-popup h2 { margin: 0 0 6px; }
+.hm-cal-providers { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 6px; }
+.hm-cal-providers[hidden], #hmCalIcloud[hidden], #hmCalLinkClose[hidden] { display: none; }
+.hm-cal-provider, .hm-cal-account {
+  display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 12px 14px; min-height: 56px;
+  border-radius: 12px; border: 1px solid #d5dde6; background: #fff; text-align: left; font: inherit; color: #0b2236;
+}
+.hm-cal-provider { cursor: pointer; transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+.hm-cal-provider:hover { border-color: #8fb4d4; box-shadow: 0 4px 14px rgba(11,34,54,0.08); }
+.hm-cal-provider:disabled { opacity: 0.6; cursor: progress; }
+.hm-cal-provider > span:nth-child(2), .hm-cal-account > span:nth-child(2) { flex: 1; min-width: 0; }
+.hm-cal-provider strong, .hm-cal-account strong { display: block; font-size: 0.92rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hm-cal-provider small, .hm-cal-account small { display: block; font-size: 0.75rem; color: #5a6878; }
+.hm-cal-go { font-size: 1.2rem; color: #9aa6b2; }
+.hm-cal-logo { width: 30px; height: 30px; flex-shrink: 0; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 800; color: #fff; }
+.hm-cal-logo--microsoft { background: #0f6cbd; }
+.hm-cal-logo--microsoft::after { content: "O"; }
+.hm-cal-logo--google { background: #fff; border: 1px solid #d5dde6; color: #1a73e8; }
+.hm-cal-logo--google::after { content: "G"; }
+.hm-cal-logo--icloud { background: #1d1d1f; }
+.hm-cal-logo--icloud::after { content: "iC"; font-size: 0.72rem; }
+.hm-cal-status { flex-shrink: 0; padding: 3px 9px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; }
+.hm-cal-status--ok { background: #e3f3ea; color: #1d6238; }
+.hm-cal-status--error { background: #fbe8e8; color: #8f2a2a; }
+.hm-cal-account { margin: 12px 0 4px; }
+.hm-cal-disconnect { display: block; margin: 12px auto 0; padding: 8px 10px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 700; color: #8f2a2a; text-decoration: underline; text-underline-offset: 3px; }
+#hmCalIcloud .auth-inline-copy { margin-top: 12px; font-size: 0.82rem; line-height: 1.5; }
+.hm-cal-popup #hmCalLinkClose .auth-button, .hm-cal-popup #hmCalSync { background: #fff; color: #0b2236; border: 1px solid #b9c6d3; box-shadow: none; }

@@ -66,6 +66,9 @@
       else { render(); cal.querySelector(`[data-day="${selected}"]`)?.focus(); }
     });
 
+    // New events after a sync / connect / disconnect (home-calendar.js).
+    window.addEventListener("calendar:synced", () => { if (started && shown) goTo(shown); });
+
     const profile = await DS.getStaffProfile();
     staffId = DS.getUserId(profile);
     let saved = null;
