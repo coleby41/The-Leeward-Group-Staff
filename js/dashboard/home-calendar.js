@@ -10,7 +10,7 @@
    - Manage ›       → every linked calendar (up to 8): color, name, last sync,
                       Rename / Reconnect / Remove, Sync now, Add another calendar
    - Rows view      → your next 4 events (the month view is home-today.js)
-   - Syncs quietly in the background when the last sync is over 15 minutes old.
+   - Syncs quietly when Home opens, when you come back to the tab, or when Manage opens, if the last sync is over 5 minutes old.
    Tables: calendar_providers, calendar_connections_status, calendar_events_cache
    (sql/supabase-calendar-sync-setup.sql).
 ============================================================================ */
@@ -19,7 +19,7 @@
   const DS = window.DashboardShared;
   const FN = "calendar";
   const MAX_ROWS = 4;
-  const STALE_MS = 15 * 60000;
+  const STALE_MS = 5 * 60000;
   let conns = [];          // the person's linked calendars, oldest first
   let staffId = null;
 
@@ -53,13 +53,20 @@
     afterRedirect();
     document.getElementById("linkCalendarLink")?.addEventListener("click", (e) => { e.preventDefault(); openLink(); });
     document.getElementById("manageCalendarLink")?.addEventListener("click", (e) => { e.preventDefault(); openManage(); });
+    // Coming back to the tab after a while also refreshes.
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && isStale()) backgroundSync(); });
     await refresh();
 
     // Background sync when it's been a while.
-    if (conns.some(c => c.status === "connected" && (!c.last_synced_at || Date.now() - new Date(c.last_synced_at).getTime() > STALE_MS))) {
-      call({ action: "sync" }).then(() => refresh(true)).catch(err => console.warn("calendar: background sync failed", err));
-    }
+    if (isStale()) backgroundSync();
   });
+
+  const isStale = () => conns.some(c => c.status === "connected" && (!c.last_synced_at || Date.now() - new Date(c.last_synced_at).getTime() > STALE_MS));
+  let syncing = null;
+  function backgroundSync() {
+    if (!syncing) syncing = call({ action: "sync" }).then(() => refresh(true)).catch(err => console.warn("calendar: background sync failed", err)).finally(() => { syncing = null; });
+    return syncing;
+  }
 
   function afterRedirect() {
     const params = new URLSearchParams(window.location.search);
@@ -221,11 +228,15 @@
       finally { go.disabled = false; }
     });
     DS.openPopup(overlay);
+    if (!opts.fresh && (isStale() || syncing)) {
+      DS.setFormMessage(msg, "Syncing…", "");
+      backgroundSync().then(() => { if (overlay.isConnected && !overlay.classList.contains("hidden")) { DS.closePopup(overlay); openManage({ fresh: true }); } });
+    }
   }
 
   /* ---------- Manage (all linked calendars) ---------- */
 
-  function openManage() {
+  function openManage(opts = {}) {
     if (!conns.length) return;
     const fmt = (t) => t ? new Date(t).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Not yet";
     const rows = conns.map((c, i) => `
