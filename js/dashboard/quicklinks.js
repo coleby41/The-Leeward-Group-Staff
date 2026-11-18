@@ -123,6 +123,20 @@
 
     await loadUserLinks();
 
+    // Soft fade on whichever side has more icons to scroll to.
+    const row = gridEl.closest(".hm-shortcuts");
+    if (row) {
+      const edges = () => {
+        const max = row.scrollWidth - row.clientWidth;
+        row.classList.toggle("fade-left", row.scrollLeft > 2);
+        row.classList.toggle("fade-right", max - row.scrollLeft > 2);
+      };
+      row.addEventListener("scroll", edges, { passive: true });
+      window.addEventListener("resize", edges);
+      new MutationObserver(edges).observe(gridEl, { childList: true });
+      edges();
+    }
+
     if (editLink) {
       editLink.addEventListener("click", (e) => {
         e.preventDefault();
