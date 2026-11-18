@@ -19242,3 +19242,12 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
 .hm-tag { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; background: #eef1f4; color: #46525e; white-space: nowrap; }
 .hm-tag--red { background: #fbe8e8; color: #8f2a2a; }
 .hm-tag--blue { background: #e6f0f7; color: #085c98; }
+/* Home — My tasks tags + due (js/dashboard/home-tasks.js) */
+.hm-main .mytask-row .hm-tag { max-width: 220px; overflow: hidden; text-overflow: ellipsis; text-decoration: none; }
+.hm-due { min-width: 84px; text-align: right; font-size: 0.82rem; font-weight: 700; color: #0b2236; white-space: nowrap; }
+.hm-due--today { color: #7a4a12; }
+.hm-due--late { color: #8f2a2a; }
+.hm-main .mytask-row.hm-done { opacity: 0.45; }
+.hm-main .mytask-row.hm-done .mytask-row-title { text-decoration: line-through; }
+.hm-more { display: block; padding: 11px 2px; font-size: 0.82rem; font-weight: 700; border-bottom: 1px solid #e8edf2; }
+@media (max-width: 520px) { .hm-main .mytask-row { flex-wrap: wrap; } .hm-main .mytask-row .mytask-row-title { flex-basis: calc(100% - 40px); } }

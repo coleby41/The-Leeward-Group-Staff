@@ -86,14 +86,7 @@
       }).join("");
     })();
 
-    // My tasks
-    DS.safeQuery("home task count", sb.from("tasks").select("id, due_date").eq("user_id", staffId).eq("completed", false))
-      .then(({ data }) => {
-        const rows = data || [];
-        const dueToday = rows.filter(t => t.due_date && t.due_date <= today).length;
-        setText("homeTaskCount", String(rows.length));
-        setText("homeTaskSub", dueToday ? `${dueToday} due today or late` : "Nothing due today", dueToday ? "hm-warn" : "");
-      });
+    // My tasks count: filled by home-tasks.js (personal + project to-dos).
 
     // Approvals waiting on me
     DS.safeQuery("home approvals", sb.from("incident_reports").select("id").eq("assigned_approver_id", staffId).eq("status", "pending_approval"))
