@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118a">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -428,116 +428,116 @@
 
 </aside>
 
-<main class="main-content">
-
-    <h1 id="welcomeHeading">
-        Welcome, Staff
-    </h1>
-
-
-    <section class="hero-section hero-section--construction">
-
-        <div>
-
-            <p class="eyebrow">
-                The LeeWard Group Staff Portal
-            </p>
-
-
-            <h1>
-                Supporting our team with the tools, resources, and information needed every day.
-            </h1>
-
-        </div>
-
-    </section>
-
+<main class="main-content hm-main">
 
     <!-- ===========================================================
-         DASHBOARD CARDS
-         Top row: My Tasks, Quick Links, Weather, Company Updates
-         Bottom row: Project Snapshot, Calendar, Important Contacts
-         Each card's data/behavior is driven by its own *-card.js file
-         (see script tags near the bottom of this file).
+         HOME — redesigned 2026-11-18 ("Leeward Portal Redesign" › Home).
+         Greeting, one liquid-glass "today" bar, then plain lists (no cards).
+         The lists are still filled by the same js/dashboard/*.js files —
+         every element id they look for is unchanged.
     ============================================================ -->
 
-    <div class="dashboard-top-grid">
-
-        <!-- My Tasks -->
-        <div class="card dashboard-card--wide">
-            <div class="card-header">
-                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>My Tasks</h2>
-                <a href="/pages/staff-todo.html" class="chip">View all</a>
-            </div>
-            <div id="myTasksList" data-paint-cache="tasks" class="mytask-list"></div>
-            <div class="todo-item-row todo-item-add-row">
-                <span class="todo-item-add-icon">+</span>
-                <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="New task" maxlength="120">
-                <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
-            </div>
+    <div class="hm-head">
+        <div>
+            <p class="hm-date" id="homeDate">&nbsp;</p>
+            <h1 class="hm-greeting" id="welcomeHeading">Welcome</h1>
         </div>
-
-        <!-- Quick Links -->
-        <div class="card dashboard-card--wide">
-            <div class="card-header">
-                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>Quick Links</h2>
-            </div>
-            <div id="quickLinksGrid" data-paint-cache="quicklinks" class="quick-links-grid"></div>
-            <a href="#" id="editShortcutsLink" class="auth-link" style="display:block; margin-top:12px;">Edit shortcuts</a>
+        <div class="hm-actions">
+            <a href="/pages/timesheet.html" class="hm-glass hm-btn">Open timesheet</a>
+            <button type="button" class="hm-btn hm-btn--primary" id="homeNewTaskBtn">+ New task</button>
         </div>
-
-        <!-- Weather -->
-        <div class="card">
-            <div class="card-header">
-                <div>
-                    <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>Weather</h2>
-                    <p class="card-subtitle" id="weatherLocation">Wilmington, NC</p>
-                </div>
-            </div>
-            <div id="weatherBody" data-paint-cache="weather"></div>
-            <a href="#" id="viewFullForecastLink" class="auth-link" target="_blank" rel="noopener" style="display:block; margin-top:12px;">View full forecast</a>
-        </div>
-
     </div>
 
-    <div class="dashboard-bottom-grid">
+    <section class="hm-glass hm-strip" aria-label="Today at a glance">
+        <span class="hm-sheen" aria-hidden="true"></span>
 
-        <!-- Project Snapshot -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>Project Snapshot</h2>
-                <a href="/pages/projects.html" class="chip">View all projects</a>
+        <div class="hm-stat hm-weather">
+            <span class="hm-weather-icon" id="weatherIcon" aria-hidden="true">⛅</span>
+            <div>
+                <p class="hm-stat-value"><span id="weatherBody" data-paint-cache="weather">—</span> <span class="hm-weather-desc" id="weatherDesc"></span></p>
+                <button type="button" class="hm-loc-btn" id="weatherLocationBtn" aria-haspopup="dialog" aria-expanded="false">
+                    <span class="hm-pin" aria-hidden="true"></span><span id="weatherLocation">Wilmington, NC</span><span aria-hidden="true">⌄</span>
+                </button>
             </div>
-            <div class="stats-grid" style="grid-template-columns: 1fr;">
-                <div class="stat-item">
-                    <div class="stat-number-status-projector" id="activeProjectsCount" data-paint-cache="active-projects">—</div>
-                    <div class="stat-label">Active Projects</div>
+            <div class="hm-loc-pop" id="weatherLocationPop" role="dialog" aria-label="Weather location" hidden>
+                <p class="hm-loc-title">Weather location</p>
+                <label class="hm-loc-search">
+                    <span class="hm-search-icon" aria-hidden="true"></span>
+                    <input type="text" id="weatherLocationSearch" placeholder="City or ZIP code" autocomplete="off" aria-label="City or ZIP code">
+                </label>
+                <div id="weatherLocationResults"></div>
+                <button type="button" class="hm-loc-here" id="weatherUseMyLocation"><span class="hm-target" aria-hidden="true"></span>Use my current location</button>
+                <p class="hm-loc-label">Project sites</p>
+                <div id="weatherLocationSites"></div>
+                <div class="hm-loc-foot">
+                    <span>Saved for you on this device.</span>
+                    <a href="#" id="viewFullForecastLink" target="_blank" rel="noopener">Full forecast ›</a>
                 </div>
             </div>
-            <h3 style="margin:16px 0 8px; font-size:0.95rem;">Upcoming Deadlines</h3>
-            <div id="upcomingDeadlinesList" data-paint-cache="deadlines" class="info-list"></div>
         </div>
 
-        <!-- Calendar -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>Todays Calendar</h2>
-                <a href="#" id="linkCalendarLink" class="chip">Link Calendar</a>
-                <a href="#" id="manageCalendarLink" class="chip" style="display:none;">Manage Calendar</a>
-            </div>
-            <div id="calendarEventsList" class="info-list"></div>
+        <a class="hm-stat" href="/pages/staff-todo.html">
+            <p class="hm-stat-label">My tasks</p>
+            <p class="hm-stat-value" id="homeTaskCount">—</p>
+            <p class="hm-stat-sub" id="homeTaskSub">&nbsp;</p>
+        </a>
+        <a class="hm-stat" href="/pages/account-activity.html">
+            <p class="hm-stat-label">Approvals</p>
+            <p class="hm-stat-value" id="homeApprovalCount">—</p>
+            <p class="hm-stat-sub" id="homeApprovalSub">Incident reports</p>
+        </a>
+        <a class="hm-stat" href="/pages/project-home.html">
+            <p class="hm-stat-label">Active projects</p>
+            <p class="hm-stat-value" id="activeProjectsCount" data-paint-cache="active-projects">—</p>
+            <p class="hm-stat-sub">View projects</p>
+        </a>
+        <a class="hm-stat" href="/pages/timesheet.html">
+            <p class="hm-stat-label">Timesheet</p>
+            <p class="hm-stat-value" id="homeTimesheetStatus">—</p>
+            <p class="hm-stat-sub" id="homeTimesheetSub">&nbsp;</p>
+        </a>
+    </section>
+
+    <div class="hm-columns">
+        <div class="hm-col">
+            <section class="hm-section">
+                <div class="hm-section-head"><h2>My tasks</h2><a href="/pages/staff-todo.html">View all ›</a></div>
+                <div id="myTasksList" data-paint-cache="tasks" class="mytask-list hm-list"></div>
+                <div class="todo-item-row todo-item-add-row hm-add-row">
+                    <span class="todo-item-add-icon">+</span>
+                    <input type="text" id="newTaskInlineInput" class="todo-item-add-input" placeholder="Add a task…" maxlength="120">
+                    <input type="date" id="newTaskDueDateInput" class="todo-item-add-date" aria-label="Due date">
+                </div>
+            </section>
+
+            <section class="hm-section">
+                <div class="hm-section-head"><h2>Upcoming deadlines</h2><a href="/pages/project-home.html">All projects ›</a></div>
+                <div id="upcomingDeadlinesList" data-paint-cache="deadlines" class="info-list hm-list"></div>
+            </section>
         </div>
 
-        <!-- Important Contacts -->
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title"><svg class="card-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>Important Contacts</h2>
-            </div>
-            <div id="importantContactsList" class="info-list"></div>
-        </div>
+        <div class="hm-col">
+            <section class="hm-section">
+                <div class="hm-section-head"><h2>Today</h2>
+                    <span>
+                        <a href="#" id="linkCalendarLink">Link calendar</a>
+                        <a href="#" id="manageCalendarLink" style="display:none;">Manage ›</a>
+                    </span>
+                </div>
+                <div id="calendarEventsList" class="info-list hm-list"></div>
+            </section>
 
+            <section class="hm-section">
+                <div class="hm-section-head"><h2>Quick links</h2><a href="#" id="editShortcutsLink">Edit</a></div>
+                <div id="quickLinksGrid" data-paint-cache="quicklinks" class="quick-links-grid hm-links"></div>
+            </section>
+
+            <section class="hm-section">
+                <div class="hm-section-head"><h2>Important contacts</h2></div>
+                <div id="importantContactsList" class="info-list hm-list"></div>
+            </section>
+        </div>
     </div>
-
 
 </main>
 
@@ -615,10 +615,11 @@
 <script src="/js/dashboard/dashboard.js"></script>
 <script src="/js/dashboard/task.js"></script>
 <script src="/js/dashboard/quicklinks.js"></script>
-<script src="/js/dashboard/weather.js"></script>
+<script src="/js/dashboard/home-weather.js"></script>
 <script src="/js/dashboard/projects.js"></script>
 <script src="/js/dashboard/calendar-card.js"></script>
 <script src="/js/dashboard/contact-card.js"></script>
+<script src="/js/dashboard/home-strip.js"></script>
 
 
 
@@ -721,8 +722,11 @@ function updateStaffName(profile) {
 
     if (welcomeHeading) {
 
+        // Home redesign 2026-11-18: time-of-day greeting, first name.
+        const hour = new Date().getHours();
+        const part = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
         welcomeHeading.textContent =
-            `Welcome, ${name}`;
+            `${part}, ${String(name).split(" ")[0]}`;
 
     }
 
