@@ -222,4 +222,86 @@
       return true;
     }
   }
+
+  async function load() {
+    const sb = window.supabaseClient;
+    const listEl = document.getElementById("myTasksList");
+    const [mine, project] = await Promise.all([
+      DS.safeQuery("load tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false)),
+      DS.safeQuery("load assigned to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false))
+    ]);
+    if (mine.error && project.error) {
+      listEl.innerHTML = '<p class="card-subtitle">Couldn\'t load tasks right now.</p>';
+      return;
+    }
+
+    const rows = [
+      ...(mine.data || []).map(t => ({ kind: "personal", id: t.id, title: t.task_name, due: t.due_date, tag: "Personal" })),
+      ...(project.data || []).map(s => ({ kind: "project", id: s.id, title: s.label, due: s.due_date, tag: (s.projects && s.projects.name) || "Project", projectId: s.project_id }))
+    ].sort((a, b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || String(a.due || "").localeCompare(String(b.due || "")) || a.title.localeCompare(b.title));
+
+    updateStrip(rows);
+    render(rows);
+  }
+
+  function updateStrip(rows) {
+    const today = todayISO();
+    const dueNow = rows.filter(r => r.due && r.due <= today).length;
+    const count = document.getElementById("homeTaskCount");
+    const sub = document.getElementById("homeTaskSub");
+    if (count) count.textContent = String(rows.length);
+    if (sub) {
+      sub.textContent = dueNow ? `${dueNow} due today or late` : "Nothing due today";
+      sub.className = `hm-stat-sub ${dueNow ? "hm-warn" : ""}`;
+    }
+  }
+
+  function render(rows) {
+    const listEl = document.getElementById("myTasksList");
+    if (!rows.length) { listEl.innerHTML = '<p class="card-subtitle">No open tasks — nice work.</p>'; return; }
+    const esc = DS.escapeHtml;
+    const extra = rows.length - MAX_ROWS;
+    listEl.innerHTML = rows.slice(0, MAX_ROWS).map(r => {
+      const due = DS.formatDueLabel(r.due);
+      const late = due.cls === "due-overdue";
+      const soon = due.cls === "due-today";
+      const tag = r.kind === "personal"
+        ? '<span class="hm-tag">Personal</span>'
+        : `<a class="hm-tag hm-tag--blue" href="/pages/project-todo.html?id=${encodeURIComponent(r.projectId)}">${esc(r.tag)}</a>`;
+      return `<div class="mytask-row" data-kind="${r.kind}" data-id="${r.id}">
+          <input type="checkbox" class="todo-item-checkbox" aria-label="Mark '${esc(r.title)}' done">
+          <span class="mytask-row-title">${esc(r.title)}</span>
+          ${tag}
+          <span class="hm-due ${late ? "hm-due--late" : soon ? "hm-due--today" : ""}">${esc(due.text)}</span>
+        </div>`;
+    }).join("") + (extra > 0 ? `<a class="hm-more" href="/pages/staff-todo.html">${extra} more ›</a>` : "");
+
+    listEl.querySelectorAll(".mytask-row input[type=checkbox]").forEach(box => {
+      box.addEventListener("change", () => complete(box.closest(".mytask-row"), box));
+    });
+  }
+
+  async function complete(row, box) {
+    box.disabled = true;
+    const table = row.dataset.kind === "personal" ? "tasks" : "project_todo_subitems";
+    const { error } = await DS.safeQuery("complete task", window.supabaseClient.from(table).update({ completed: true }).eq("id", row.dataset.id));
+    if (error) { box.checked = false; box.disabled = false; return; }
+    row.classList.add("hm-done");
+    setTimeout(load, 350);
+  }
+
+  async function addPersonal(input, dueInput) {
+    const name = input.value.trim();
+    if (!name) return;
+    input.disabled = true;
+    const { error } = await DS.safeQuery("create task", window.supabaseClient.from("tasks").insert({
+      user_id: staffId, task_name: name, due_date: (dueInput && dueInput.value) || null, description: null, completed: false
+    }));
+    input.disabled = false;
+    if (error) return;
+    input.value = "";
+    if (dueInput) dueInput.value = "";
+    input.focus();
+    load();
+  }
 })();
