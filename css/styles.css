@@ -19293,3 +19293,17 @@ a.hm-stat:hover { background: rgba(255,255,255,0.35); color: #0b2236; }
   .hm-main .hm-add-row .todo-item-add-date { flex: 0 0 132px; width: 132px; min-width: 0; min-height: 40px; font-size: 0.85rem; }
   .hm-main .hm-links .quick-link-item, .hm-main .hm-list .info-item { min-height: 44px; }
 }
+/* Home — New task phone sheet (js/dashboard/home-tasks.js) */
+.hm-task-sheet h2 { margin: 0 0 14px; }
+.hm-sheet-field { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; font-weight: 700; color: #0b2236; text-align: left; }
+.hm-sheet-field input { min-height: 48px; padding: 10px 14px; border-radius: 10px; border: 1px solid #b9c6d3; font: inherit; font-size: 1rem; font-weight: 500; color: #0b2236; background: #fff; box-sizing: border-box; width: 100%; }
+.hm-sheet-label { margin: 16px 0 8px; font-size: 0.82rem; font-weight: 700; color: #0b2236; text-align: left; }
+.hm-due-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.hm-chip { min-height: 44px; border-radius: 10px; border: 1px solid #c9d3dc; background: #fff; font: inherit; font-size: 0.85rem; font-weight: 600; color: #3d4b59; cursor: pointer; }
+.hm-chip.is-on { border-color: #085c98; background: #e6f0f7; color: #085c98; font-weight: 700; }
+.hm-sheet-date { margin-top: 14px; font-weight: 600; color: #5a6878; }
+.hm-task-sheet .popup-buttons { margin-top: 18px; }
+.hm-task-sheet .popup-buttons .auth-button { min-height: 48px; }
+@media (max-width: 380px) { .hm-due-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.hm-task-sheet #homeTaskSheetCancel { background: #fff; color: #0b2236; border: 1px solid #b9c6d3; box-shadow: none; }
+.hm-chip { line-height: 1.15; padding: 4px 6px; }

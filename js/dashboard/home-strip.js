@@ -30,9 +30,7 @@
     const dateEl = document.getElementById("homeDate");
     if (dateEl) dateEl.textContent = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
-    const btn = document.getElementById("homeNewTaskBtn");
-    const input = document.getElementById("newTaskInlineInput");
-    if (btn && input) btn.addEventListener("click", () => { input.scrollIntoView({ behavior: "smooth", block: "center" }); input.focus(); });
+    // "+ New task" is wired in home-tasks.js (phone sheet / desktop inline line).
 
     if (!DS || !window.supabaseClient) return;
     const profile = await DS.getStaffProfile();

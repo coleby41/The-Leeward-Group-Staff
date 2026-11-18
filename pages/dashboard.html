@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118d">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118f">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -540,6 +540,35 @@
     </div>
 
 </main>
+
+<!-- New task — phone-only bottom sheet (js/dashboard/home-tasks.js), 2026-11-18 -->
+<div class="popup-overlay hidden" id="homeTaskSheet">
+    <div class="popup hm-task-sheet" role="dialog" aria-modal="true" aria-labelledby="homeTaskSheetTitle">
+        <button type="button" class="sheet-close" id="homeTaskSheetClose" aria-label="Close">&times;</button>
+        <h2 id="homeTaskSheetTitle">New task</h2>
+        <form id="homeTaskSheetForm" autocomplete="off">
+            <label class="hm-sheet-field">What needs doing?
+                <input type="text" id="homeTaskSheetName" maxlength="120" placeholder="e.g. Call the inspector" enterkeyhint="done">
+            </label>
+            <p class="hm-sheet-label">Due</p>
+            <div class="hm-due-chips" role="group" aria-label="Due date">
+                <button type="button" class="hm-chip" data-due="today">Today</button>
+                <button type="button" class="hm-chip" data-due="tomorrow">Tomorrow</button>
+                <button type="button" class="hm-chip" data-due="week">Next week</button>
+                <button type="button" class="hm-chip is-on" data-due="">No date</button>
+            </div>
+            <label class="hm-sheet-field hm-sheet-date">Or pick a date
+                <input type="date" id="homeTaskSheetDate">
+            </label>
+            <p class="auth-message" id="homeTaskSheetMsg"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="homeTaskSheetCancel">Cancel</button>
+                <button type="submit" class="auth-button" id="homeTaskSheetSave">Add task</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 
 
 

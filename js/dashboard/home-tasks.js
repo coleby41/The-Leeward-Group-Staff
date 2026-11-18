@@ -38,7 +38,78 @@
     if (addInput) addInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); addPersonal(addInput, dueInput); }
     });
+    wireNewTask(addInput);
   });
+
+  /* ---- "+ New task": phones get a bottom sheet, desktop jumps to the inline line ---- */
+  const phone = window.matchMedia("(max-width: 768px)");
+
+  function isoOffset(days) {
+    const d = new Date(); d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function wireNewTask(addInput) {
+    const btn = document.getElementById("homeNewTaskBtn");
+    const overlay = document.getElementById("homeTaskSheet");
+    const form = document.getElementById("homeTaskSheetForm");
+    const name = document.getElementById("homeTaskSheetName");
+    const date = document.getElementById("homeTaskSheetDate");
+    const msg = document.getElementById("homeTaskSheetMsg");
+    const save = document.getElementById("homeTaskSheetSave");
+    const chips = overlay ? Array.from(overlay.querySelectorAll(".hm-chip")) : [];
+
+    function pickChip(value) {
+      chips.forEach(c => c.classList.toggle("is-on", c.dataset.due === value));
+    }
+    function openSheet() {
+      if (!overlay) return;
+      form.reset(); msg.textContent = ""; msg.className = "auth-message"; pickChip("");
+      overlay.classList.remove("hidden");
+      document.body.classList.add("popup-active");
+      setTimeout(() => name.focus(), 60);
+    }
+    function closeSheet() {
+      overlay.classList.add("hidden");
+      if (!document.querySelector(".popup-overlay:not(.hidden)")) document.body.classList.remove("popup-active");
+    }
+
+    if (btn) btn.addEventListener("click", () => {
+      if (phone.matches) { openSheet(); return; }
+      if (addInput) { addInput.scrollIntoView({ behavior: "smooth", block: "center" }); addInput.focus(); }
+    });
+    // On a phone, tapping the inline "Add a task…" line opens the sheet instead of the tiny field.
+    if (addInput) addInput.addEventListener("focus", () => {
+      if (!phone.matches) return;
+      addInput.blur();
+      openSheet();
+    });
+    if (!overlay) return;
+
+    chips.forEach(c => c.addEventListener("click", () => {
+      const v = c.dataset.due;
+      date.value = v === "today" ? isoOffset(0) : v === "tomorrow" ? isoOffset(1) : v === "week" ? isoOffset(7) : "";
+      pickChip(v);
+    }));
+    date.addEventListener("change", () => pickChip(date.value ? "custom" : ""));
+    document.getElementById("homeTaskSheetCancel").addEventListener("click", closeSheet);
+    document.getElementById("homeTaskSheetClose").addEventListener("click", closeSheet);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) closeSheet(); });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const task = name.value.trim();
+      if (!task) { msg.textContent = "Type what needs doing first."; msg.className = "auth-message error"; name.focus(); return; }
+      save.disabled = true;
+      const { error } = await DS.safeQuery("create task", window.supabaseClient.from("tasks").insert({
+        user_id: staffId, task_name: task, due_date: date.value || null, description: null, completed: false
+      }));
+      save.disabled = false;
+      if (error) { msg.textContent = "Couldn't add that task. Please try again."; msg.className = "auth-message error"; return; }
+      closeSheet();
+      load();
+    });
+  }
 
   async function load() {
     const sb = window.supabaseClient;
