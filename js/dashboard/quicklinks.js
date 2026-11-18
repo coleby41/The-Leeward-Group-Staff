@@ -40,6 +40,11 @@
     vendor: `<svg ${ICON_SVG_ATTRS}><circle cx="8.5" cy="8" r="3.5" fill="currentColor" stroke="none"></circle><path d="M2 20v-1.5A4.5 4.5 0 0 1 6.5 14h4A4.5 4.5 0 0 1 15 18.5V20z" fill="currentColor" stroke="none"></path><circle cx="17" cy="7" r="3" fill="currentColor" stroke="none" opacity="0.85"></circle><path d="M14.5 13.2A4.5 4.5 0 0 1 20 17.5V19h-3" fill="currentColor" stroke="none" opacity="0.85"></path></svg>`,
     ithelp: `<svg ${ICON_SVG_ATTRS}><path d="M4 13v-1a8 8 0 0 1 16 0v1"></path><rect x="2" y="13" width="5" height="7" rx="2" fill="currentColor" stroke="none"></rect><rect x="17" y="13" width="5" height="7" rx="2" fill="currentColor" stroke="none"></rect><path d="M19 20a4 4 0 0 1-4 2h-2"></path></svg>`,
     site: `<svg ${ICON_SVG_ATTRS}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>`,
+    project: `<svg ${ICON_SVG_ATTRS}><path d="M3 21h18"></path><path d="M5 21V8l7-5 7 5v13"></path><path d="M9 21v-6h6v6"></path></svg>`,
+    page: `<svg ${ICON_SVG_ATTRS}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><path d="M14 3v6h6"></path><path d="M8 13h8M8 17h5"></path></svg>`,
+    home: `<svg ${ICON_SVG_ATTRS}><path d="M3 11l9-8 9 8"></path><path d="M5 10v10h14V10"></path></svg>`,
+    incident: `<svg ${ICON_SVG_ATTRS}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path><path d="M12 9v4M12 17h.01"></path></svg>`,
+    money: `<svg ${ICON_SVG_ATTRS}><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>`,
     default: `<svg ${ICON_SVG_ATTRS}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>`,
   };
 
@@ -67,8 +72,21 @@
   ];
   ICONS.default = FALLBACK_ICONS[0];
 
+  // Portal addresses → icon (checked before the label rules).
+  const URL_ICON_RULES = [
+    [/projects\.html\?id=|project-[a-z-]+\.html\?id=/i, "project"],
+    [/project-home/i, "project"],
+    [/dashboard\.html/i, "home"],
+    [/timesheet/i, "timesheet"],
+    [/vendor/i, "vendor"],
+    [/incident/i, "incident"],
+    [/account-activity|invoice|expense|payroll/i, "money"],
+  ];
+
   function resolveIcon(display, index) {
     if (display.iconClass && ICONS[display.iconClass]) return ICONS[display.iconClass];
+    const byUrl = URL_ICON_RULES.find(([pattern]) => pattern.test(display.url || ""));
+    if (byUrl) return ICONS[byUrl[1]];
     const label = display.label || "";
     const rule = LABEL_ICON_RULES.find(([pattern]) => pattern.test(label));
     if (rule) return ICONS[rule[1]];
@@ -154,7 +172,7 @@
     const gridEl = document.getElementById("quickLinksGrid");
 
     if (userLinks.length === 0) {
-      gridEl.innerHTML = `<p class="card-subtitle quick-links-empty">No shortcuts yet. Use "Edit shortcuts" to add up to ${MAX_SHORTCUTS}.</p>`;
+      gridEl.innerHTML = `<p class="card-subtitle quick-links-empty">No shortcuts yet. Use "Edit" to add up to ${MAX_SHORTCUTS}.</p>`;
       return;
     }
 
@@ -176,153 +194,190 @@
 
   /* ------------------------------------------------------------------- */
 
+  /* ---------- Edit popup: your links + add from Portal pages / Projects / Custom ---------- */
+
+  let addTab = "portal";
+  let projectsCache = null;
+  const esc = (v) => DS.escapeHtml(v == null ? "" : String(v));
+  const sameUrl = (a, b) => String(a || "").replace(/\/+$/, "").toLowerCase() === String(b || "").replace(/\/+$/, "").toLowerCase();
+
+  // Every page in the side menu this person can see (nav-access hides the rest).
+  function portalPages() {
+    const seen = new Set();
+    const out = [];
+    document.querySelectorAll(".sidebar a[href^='/pages/']").forEach((a) => {
+      const group = a.closest(".nav-item-group");
+      if (a.style.display === "none" || (group && group.style.display === "none")) return;
+      const url = a.getAttribute("href");
+      const label = (a.querySelector(".nav-text") || a).textContent.replace(/\s+/g, " ").trim();
+      if (!label || seen.has(url)) return;
+      seen.add(url);
+      const parent = group && group.querySelector(".nav-parent .nav-text");
+      out.push({ label, url, sub: parent && !a.classList.contains("nav-parent") ? parent.textContent.trim() : "Portal page" });
+    });
+    // Built-in shortcut types (company tools, outside sites).
+    typeCatalog.filter((t) => !t.requires_custom_url).forEach((t) => {
+      if (out.some((p) => sameUrl(p.url, t.default_url))) return;
+      out.push({ label: t.label, url: t.default_url, sub: t.default_url && /^https?:/i.test(t.default_url) ? "Company tool" : "Portal page", typeId: t.id, iconClass: t.icon_class });
+    });
+    return out;
+  }
+
+  async function loadProjects() {
+    if (projectsCache) return projectsCache;
+    const { data } = await DS.safeQuery("quick link projects",
+      window.supabaseClient.from("projects").select("id, name, status").neq("status", "archived").order("name"));
+    projectsCache = (data || []).map((p) => ({ label: p.name, url: `/pages/projects.html?id=${encodeURIComponent(p.id)}`, sub: "Project" }));
+    return projectsCache;
+  }
+
   function openEditShortcutsModal() {
+    addTab = "portal";
     const overlay = DS.buildPopup(
       "editShortcutsModal",
       `
-      <h2>Edit shortcuts</h2>
-      <p class="card-subtitle">Choose up to ${MAX_SHORTCUTS} shortcuts for your dashboard.</p>
-      <div id="currentShortcutsList" class="equipment-list" style="margin:14px 0;"></div>
-
-      <div class="auth-divider"></div>
-
-      <form id="addShortcutForm" class="auth-form auth-form--compact">
-        <h3>Add a shortcut</h3>
-        <label class="auth-field">
-          Type
-          <select id="shortcutTypeSelect"></select>
-        </label>
-        <div id="customUrlFields" style="display:none;">
-          <label class="auth-field">
-            Label
-            <input type="text" id="customLabelInput" maxlength="60" placeholder="e.g. Fleet Tracker" />
-          </label>
-          <label class="auth-field">
-            URL
-            <input type="url" id="customUrlInput" placeholder="https://" />
-          </label>
+      <header class="ql-head">
+        <div>
+          <h2>Quick links</h2>
+          <p id="qlCount" class="ql-count"></p>
         </div>
+        <button type="button" class="ql-x sheet-close" aria-label="Close">×</button>
+      </header>
+      <div class="ql-body">
+        <p class="ql-label">Your quick links</p>
+        <div id="currentShortcutsList" class="ql-list"></div>
+
+        <p class="ql-label ql-label--add">Add a quick link</p>
+        <div class="ql-tabs" role="tablist">
+          <button type="button" role="tab" data-tab="portal">Portal pages</button>
+          <button type="button" role="tab" data-tab="projects">Projects</button>
+          <button type="button" role="tab" data-tab="custom">Custom link</button>
+        </div>
+        <input type="search" id="qlSearch" class="ql-search" placeholder="Search…" autocomplete="off">
+        <div id="qlOptions" class="ql-list ql-options"></div>
+        <form id="addShortcutForm" class="ql-custom" hidden>
+          <label class="auth-field">Name<input type="text" id="customLabelInput" maxlength="60" placeholder="e.g. Procore"></label>
+          <label class="auth-field">Web address<input type="url" id="customUrlInput" placeholder="https://"></label>
+          <button type="submit" class="auth-button" id="addShortcutBtn">Add link</button>
+        </form>
+      </div>
+      <footer class="ql-foot">
         <p id="shortcutMessage" class="auth-message"></p>
-        <div class="popup-buttons">
-          <button type="button" class="auth-button auth-button--secondary" id="closeEditShortcutsBtn">Done</button>
-          <button type="submit" class="auth-button" id="addShortcutBtn">Add</button>
-        </div>
-      </form>
+        <button type="button" class="auth-button" id="closeEditShortcutsBtn">Done</button>
+      </footer>
       `,
-      { extraClass: "workbook-popup" }
+      { extraClass: "ql-popup" }
     );
 
-    populateTypeSelect(overlay);
     renderCurrentShortcuts(overlay);
+    renderOptions(overlay);
     DS.openPopup(overlay);
 
-    overlay.querySelector("#closeEditShortcutsBtn").addEventListener("click", () => DS.closePopup(overlay));
-
-    overlay.querySelector("#shortcutTypeSelect").addEventListener("change", (e) => {
-      const type = typeCatalog.find((t) => t.id === e.target.value);
-      overlay.querySelector("#customUrlFields").style.display = type && type.requires_custom_url ? "block" : "none";
-    });
-
+    const close = () => DS.closePopup(overlay);
+    overlay.querySelector("#closeEditShortcutsBtn").addEventListener("click", close);
+    overlay.querySelector(".ql-x").addEventListener("click", close);
+    overlay.querySelectorAll(".ql-tabs [data-tab]").forEach((btn) => btn.addEventListener("click", () => {
+      addTab = btn.dataset.tab;
+      overlay.querySelector("#qlSearch").value = "";
+      renderOptions(overlay);
+    }));
+    overlay.querySelector("#qlSearch").addEventListener("input", () => renderOptions(overlay));
     overlay.querySelector("#addShortcutForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      await handleAddShortcut(overlay);
+      const label = overlay.querySelector("#customLabelInput").value.trim();
+      let url = overlay.querySelector("#customUrlInput").value.trim();
+      if (!label || !url) { DS.setFormMessage(overlay.querySelector("#shortcutMessage"), "Enter a name and a web address.", "error"); return; }
+      if (!/^https?:\/\//i.test(url) && !url.startsWith("/")) url = `https://${url}`;
+      if (await addShortcut(overlay, { label, url })) overlay.querySelector("#addShortcutForm").reset();
     });
   }
 
-  function populateTypeSelect(overlay) {
-    const select = overlay.querySelector("#shortcutTypeSelect");
-    select.innerHTML = typeCatalog
-      .map((t) => `<option value="${t.id}">${DS.escapeHtml(t.label)}</option>`)
-      .join("");
+  async function renderOptions(overlay) {
+    overlay.querySelectorAll(".ql-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === addTab)));
+    const search = overlay.querySelector("#qlSearch");
+    const box = overlay.querySelector("#qlOptions");
+    const form = overlay.querySelector("#addShortcutForm");
+    const custom = addTab === "custom";
+    search.hidden = custom; box.hidden = custom; form.hidden = !custom;
+    if (custom) return;
+
+    search.placeholder = addTab === "projects" ? "Search projects…" : "Search pages…";
+    if (addTab === "projects" && !projectsCache) box.innerHTML = '<p class="ql-empty">Loading projects…</p>';
+    const all = addTab === "projects" ? await loadProjects() : portalPages();
+    if (addTab !== (overlay.querySelector('.ql-tabs [aria-selected="true"]') || {}).dataset?.tab) return; // switched while loading
+    const q = search.value.trim().toLowerCase();
+    const list = all.filter((o) => !q || o.label.toLowerCase().includes(q) || (o.sub || "").toLowerCase().includes(q));
+    const added = userLinks.map(resolveLinkDisplay).filter(Boolean);
+    const full = userLinks.length >= MAX_SHORTCUTS;
+
+    box.innerHTML = list.length ? list.map((o, i) => {
+      const isAdded = added.some((d) => sameUrl(d.url, o.url));
+      return `<div class="ql-row">
+          <span class="ql-icon">${resolveIcon(o, i)}</span>
+          <span class="ql-text"><strong>${esc(o.label)}</strong><small>${esc(o.sub || "")}</small></span>
+          <button type="button" class="ql-add${isAdded ? " is-added" : ""}" data-i="${i}" ${isAdded || full ? "disabled" : ""}>${isAdded ? "✓ Added" : "+ Add"}</button>
+        </div>`;
+    }).join("") : `<p class="ql-empty">${q ? "Nothing matches that search." : addTab === "projects" ? "No active projects." : "No pages found."}</p>`;
+
+    box.querySelectorAll(".ql-add:not([disabled])").forEach((btn) => btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      await addShortcut(overlay, list[Number(btn.dataset.i)]);
+    }));
   }
 
   function renderCurrentShortcuts(overlay) {
     const listEl = overlay.querySelector("#currentShortcutsList");
+    const countEl = overlay.querySelector("#qlCount");
+    if (countEl) countEl.textContent = `${userLinks.length} of ${MAX_SHORTCUTS} used`;
+
+    listEl.innerHTML = userLinks.length ? userLinks.map((link, index) => {
+      const d = resolveLinkDisplay(link);
+      if (!d) return "";
+      return `<div class="ql-row">
+          <span class="ql-icon">${resolveIcon(d, index)}</span>
+          <span class="ql-text"><strong>${esc(d.label)}</strong><small>${esc(d.url || "")}</small></span>
+          <span class="ql-acts">
+            <button type="button" class="ql-btn" data-move="up" data-index="${index}" aria-label="Move ${esc(d.label)} left" ${index === 0 ? "disabled" : ""}>↑</button>
+            <button type="button" class="ql-btn" data-move="down" data-index="${index}" aria-label="Move ${esc(d.label)} right" ${index === userLinks.length - 1 ? "disabled" : ""}>↓</button>
+            <button type="button" class="ql-btn ql-btn--remove" data-remove="${link.id}" aria-label="Remove ${esc(d.label)}">×</button>
+          </span>
+        </div>`;
+    }).join("") : '<p class="ql-empty">No quick links yet. Add some below.</p>';
+
     const addBtn = overlay.querySelector("#addShortcutBtn");
-
-    if (userLinks.length === 0) {
-      listEl.innerHTML = `<p class="card-subtitle">No shortcuts saved yet.</p>`;
-    } else {
-      listEl.innerHTML = userLinks
-        .map((link, index) => {
-          const display = resolveLinkDisplay(link);
-          if (!display) return "";
-          return `
-            <div class="equipment-item">
-              <div>
-                <h3>${DS.escapeHtml(display.label)}</h3>
-                <p>${DS.escapeHtml(display.url || "")}</p>
-              </div>
-              <div style="display:flex; gap:6px;">
-                <button type="button" class="workbook-btn workbook-btn--preview" data-move="up" data-index="${index}" ${index === 0 ? "disabled" : ""}>↑</button>
-                <button type="button" class="workbook-btn workbook-btn--preview" data-move="down" data-index="${index}" ${index === userLinks.length - 1 ? "disabled" : ""}>↓</button>
-                <button type="button" class="workbook-btn" style="background:var(--danger-soft); color:var(--danger);" data-remove="${link.id}">Remove</button>
-              </div>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
     if (addBtn) addBtn.disabled = userLinks.length >= MAX_SHORTCUTS;
 
-    listEl.querySelectorAll("[data-remove]").forEach((btn) => {
-      btn.addEventListener("click", () => removeShortcut(overlay, btn.dataset.remove));
-    });
-    listEl.querySelectorAll("[data-move]").forEach((btn) => {
-      btn.addEventListener("click", () =>
-        reorderShortcut(overlay, parseInt(btn.dataset.index, 10), btn.dataset.move)
-      );
-    });
+    listEl.querySelectorAll("[data-remove]").forEach((btn) => btn.addEventListener("click", () => removeShortcut(overlay, btn.dataset.remove)));
+    listEl.querySelectorAll("[data-move]").forEach((btn) => btn.addEventListener("click", () =>
+      reorderShortcut(overlay, parseInt(btn.dataset.index, 10), btn.dataset.move)));
   }
 
-  async function handleAddShortcut(overlay) {
+  // Saves a built-in type (option.typeId) or any page / project / web address
+  // (stored on the catalog's custom-link type with its own name + address).
+  async function addShortcut(overlay, option) {
     const messageEl = overlay.querySelector("#shortcutMessage");
-
     if (userLinks.length >= MAX_SHORTCUTS) {
-      DS.setFormMessage(messageEl, `You can only have ${MAX_SHORTCUTS} shortcuts. Remove one first.`, "error");
-      return;
+      DS.setFormMessage(messageEl, `You can have up to ${MAX_SHORTCUTS} quick links. Remove one first.`, "error");
+      return false;
     }
-
-    const typeId = overlay.querySelector("#shortcutTypeSelect").value;
-    const type = typeCatalog.find((t) => t.id === typeId);
-    if (!type) return;
-
+    const customType = typeCatalog.find((t) => t.requires_custom_url);
     const payload = {
       user_id: DS.getUserId(currentProfile),
-      shortcut_type: typeId,
       sort_order: userLinks.length,
-      custom_label: null,
-      custom_url: null,
+      shortcut_type: option.typeId || (customType && customType.id),
+      custom_label: option.typeId ? null : option.label,
+      custom_url: option.typeId ? null : option.url,
     };
+    if (!payload.shortcut_type) { DS.setFormMessage(messageEl, "Custom links aren't set up (no custom type in quick_link_types).", "error"); return false; }
 
-    if (type.requires_custom_url) {
-      const label = overlay.querySelector("#customLabelInput").value.trim();
-      const url = overlay.querySelector("#customUrlInput").value.trim();
-      if (!label || !url) {
-        DS.setFormMessage(messageEl, "Label and URL are required for a custom shortcut.", "error");
-        return;
-      }
-      payload.custom_label = label;
-      payload.custom_url = url;
-    }
-
-    const { error } = await DS.safeQuery(
-      "add shortcut",
-      window.supabaseClient.from("user_quick_links").insert(payload)
-    );
-
-    if (error) {
-      DS.setFormMessage(messageEl, "Couldn't add that shortcut.", "error");
-      return;
-    }
-
+    const { error } = await DS.safeQuery("add shortcut", window.supabaseClient.from("user_quick_links").insert(payload));
+    if (error) { DS.setFormMessage(messageEl, "Couldn't add that quick link.", "error"); return false; }
     DS.setFormMessage(messageEl, "", "");
-    window.showToast?.("Shortcut added."); // shared bottom-right popup (js/toast.js)
-    overlay.querySelector("#addShortcutForm").reset();
-    overlay.querySelector("#customUrlFields").style.display = "none";
+    window.showToast?.(`${option.label} added.`);
     await loadUserLinks();
     renderCurrentShortcuts(overlay);
+    renderOptions(overlay);
+    return true;
   }
 
   async function removeShortcut(overlay, linkId) {
@@ -330,9 +385,10 @@
       "remove shortcut",
       window.supabaseClient.from("user_quick_links").delete().eq("id", linkId)
     );
-    if (!error) window.showToast?.("Shortcut removed."); // shared bottom-right popup (js/toast.js)
+    if (!error) window.showToast?.("Quick link removed."); // shared bottom-right popup (js/toast.js)
     await loadUserLinks();
     renderCurrentShortcuts(overlay);
+    renderOptions(overlay);
   }
 
   async function reorderShortcut(overlay, index, direction) {
