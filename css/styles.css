@@ -19911,3 +19911,7 @@ a.hm-mc-item:hover strong { color: #085c98; }
   .hm-main .hm-icons .quick-link-item, .hm-main .hm-icons-edit { width: 64px; }
   .hm-main .hm-icons .quick-link-icon, .hm-main .hm-icons-edit-btn { width: 42px; height: 42px; }
 }
+/* tighter: icons sit right under the strip */
+.hm-main .hm-strip { margin-bottom: 0; }
+.hm-main .hm-shortcuts { margin: 12px 0 28px; }
+@media (max-width: 640px) { .hm-main .hm-shortcuts { margin: 10px 0 22px; } }
