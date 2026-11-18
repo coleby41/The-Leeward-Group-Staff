@@ -19874,3 +19874,40 @@ a.hm-mc-item:hover strong { color: #085c98; }
 .ql-row--sub .ql-icon { width: 28px; height: 28px; border-radius: 7px; }
 .ql-row--sub .ql-icon svg { width: 15px; height: 15px; }
 @media (max-width: 640px) { .ql-row--sub { padding-left: 22px; } .ql-pages { padding: 6px 8px; } }
+
+/* Home — quick links below the strip: smaller, liquid-glass tiles (2026-11-18) */
+.hm-main .hm-shortcuts { margin: 18px 0 22px; padding: 2px 2px 6px; }
+.hm-main .hm-icons .quick-link-item,
+.hm-main .hm-icons-edit { width: 70px; gap: 6px; padding: 4px 2px; }
+.hm-main .hm-icons .quick-link-item:hover, .hm-main .hm-icons-edit:hover { background: none; }
+.hm-main .hm-icons .quick-link-icon,
+.hm-main .hm-icons-edit-btn {
+  position: relative; overflow: hidden; width: 44px; height: 44px; border-radius: 12px;
+  color: #085c98; border: 1px solid rgba(255, 255, 255, 0.9);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.95) 0%, rgba(232, 241, 249, 0.75) 55%, rgba(208, 226, 242, 0.7) 100%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 -1px 0 rgba(8, 92, 152, 0.10),
+    0 1px 2px rgba(11, 34, 54, 0.08), 0 6px 14px -6px rgba(8, 92, 152, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* glossy sheen across the top half */
+.hm-main .hm-icons .quick-link-icon::before,
+.hm-main .hm-icons-edit-btn::before {
+  content: ""; position: absolute; inset: 0 0 50% 0; border-radius: 12px 12px 40% 40% / 12px 12px 10px 10px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0)); pointer-events: none;
+}
+.hm-main .hm-icons .quick-link-icon svg { position: relative; width: 19px; height: 19px; }
+.hm-main .hm-icons-edit-btn { border-style: dashed; border-color: #b9c6d3; color: #5a6878; }
+.hm-main .hm-icons-edit-btn svg { position: relative; width: 17px; height: 17px; }
+.hm-main .hm-icons .quick-link-item:hover .quick-link-icon,
+.hm-main .hm-icons-edit:hover .hm-icons-edit-btn {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(8, 92, 152, 0.12), 0 2px 4px rgba(11, 34, 54, 0.08), 0 10px 20px -8px rgba(8, 92, 152, 0.45);
+}
+.hm-main .hm-icons .quick-link-text, .hm-main .hm-icons-edit > span:last-child { font-size: 0.7rem; }
+@media (max-width: 640px) {
+  .hm-main .hm-icons .quick-link-item, .hm-main .hm-icons-edit { width: 64px; }
+  .hm-main .hm-icons .quick-link-icon, .hm-main .hm-icons-edit-btn { width: 42px; height: 42px; }
+}
