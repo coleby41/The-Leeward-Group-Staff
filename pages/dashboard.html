@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118i">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118l">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -448,27 +448,26 @@
         <span class="hm-sheen" aria-hidden="true"></span>
 
         <div class="hm-stat hm-weather">
-            <span class="hm-weather-icon" id="weatherIcon" aria-hidden="true">⛅</span>
-            <div>
-                <p class="hm-stat-value"><span id="weatherBody" data-paint-cache="weather">—</span> <span class="hm-weather-desc" id="weatherDesc"></span></p>
-                <button type="button" class="hm-loc-btn" id="weatherLocationBtn" aria-haspopup="dialog" aria-expanded="false">
-                    <span class="hm-pin" aria-hidden="true"></span><span id="weatherLocation">Wilmington, NC</span><span aria-hidden="true">⌄</span>
-                </button>
-            </div>
+            <button type="button" class="hm-weather-now" id="weatherOpenForecast" aria-haspopup="dialog" aria-label="Open the forecast">
+                <span class="hm-weather-icon" id="weatherIcon" aria-hidden="true">⛅</span>
+                <span class="hm-stat-value"><span id="weatherBody" data-paint-cache="weather">—</span> <span class="hm-weather-desc" id="weatherDesc"></span></span>
+                <span class="hm-weather-more" aria-hidden="true">Forecast ›</span>
+            </button>
+            <button type="button" class="hm-loc-btn" id="weatherLocationBtn" aria-haspopup="dialog" aria-expanded="false">
+                <span class="hm-pin" aria-hidden="true"></span><span id="weatherLocation" class="hm-loc-name">Main office · Wilmington, NC</span><span aria-hidden="true">⌄</span>
+            </button>
             <div class="hm-loc-pop" id="weatherLocationPop" role="dialog" aria-label="Weather location" hidden>
                 <p class="hm-loc-title">Weather location</p>
                 <label class="hm-loc-search">
                     <span class="hm-search-icon" aria-hidden="true"></span>
-                    <input type="text" id="weatherLocationSearch" placeholder="City or ZIP code" autocomplete="off" aria-label="City or ZIP code">
+                    <input type="text" id="weatherLocationSearch" placeholder="Search projects, cities or ZIP" autocomplete="off" aria-label="Search projects, cities or ZIP">
                 </label>
-                <div id="weatherLocationResults"></div>
                 <button type="button" class="hm-loc-here" id="weatherUseMyLocation"><span class="hm-target" aria-hidden="true"></span>Use my current location</button>
-                <p class="hm-loc-label">Project sites</p>
-                <div id="weatherLocationSites"></div>
-                <div class="hm-loc-foot">
-                    <span>Saved for you on this device.</span>
-                    <a href="#" id="viewFullForecastLink" target="_blank" rel="noopener">Full forecast ›</a>
-                </div>
+                <p class="hm-loc-label">Projects</p>
+                <div class="hm-loc-list" id="weatherLocationSites"></div>
+                <p class="hm-loc-label" id="weatherLocationResultsLabel" hidden>Other places</p>
+                <div id="weatherLocationResults"></div>
+                <div class="hm-loc-foot"><span>Saved for you on this device.</span></div>
             </div>
         </div>
 
@@ -536,6 +535,38 @@
     </div>
 
 </main>
+
+
+<!-- Forecast — same Open-Meteo data and spot as the Home weather (js/dashboard/home-weather.js), 2026-11-18 -->
+<div class="popup-overlay hidden hm-blur-overlay" id="weatherForecastSheet">
+    <div class="popup hm-forecast" role="dialog" aria-modal="true" aria-labelledby="wfTitle">
+        <button type="button" class="sheet-close" id="wfClose" aria-label="Close">&times;</button>
+        <p class="hm-fc-place" id="wfPlace">&nbsp;</p>
+        <h2 class="hm-fc-title" id="wfTitle">Forecast</h2>
+        <div class="hm-fc-now">
+            <span class="hm-fc-icon" id="wfIcon" aria-hidden="true"></span>
+            <div>
+                <p class="hm-fc-temp" id="wfTemp">—</p>
+                <p class="hm-fc-desc" id="wfDesc">&nbsp;</p>
+            </div>
+            <dl class="hm-fc-facts">
+                <div><dt>Feels like</dt><dd id="wfFeels">—</dd></div>
+                <div><dt>Wind</dt><dd id="wfWind">—</dd></div>
+                <div><dt>Humidity</dt><dd id="wfHumidity">—</dd></div>
+                <div><dt>Rain today</dt><dd id="wfRain">—</dd></div>
+            </dl>
+        </div>
+        <h3 class="hm-fc-h">Next 12 hours</h3>
+        <div class="hm-fc-hours" id="wfHours"></div>
+        <h3 class="hm-fc-h">Next 7 days</h3>
+        <div class="hm-fc-days" id="wfDays"></div>
+        <div class="hm-fc-foot">
+            <button type="button" class="hm-fc-link" id="wfChange">Change location</button>
+            <a href="#" id="viewFullForecastLink" target="_blank" rel="noopener">National Weather Service ›</a>
+        </div>
+        <div class="popup-buttons"><button type="button" class="auth-button" id="wfDone">Done</button></div>
+    </div>
+</div>
 
 <!-- New task — phone-only bottom sheet (js/dashboard/home-tasks.js), 2026-11-18 -->
 <div class="popup-overlay hidden hm-blur-overlay" id="homeTaskSheet">
