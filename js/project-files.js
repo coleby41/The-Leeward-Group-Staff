@@ -828,6 +828,24 @@
         menuBtn.classList.add("is-open");
         menuBtn.setAttribute("aria-expanded", "true");
 
+        // Phones: the list scrolls sideways, which clipped the menu out of
+        // sight. Show it as a bottom sheet instead, moved to <body> while
+        // open (its buttons keep their click handlers) and put back on close.
+        if (window.matchMedia("(max-width: 820px)").matches) {
+            sheetHome = { dropdown, parent: dropdown.parentNode, next: dropdown.nextSibling };
+            const backdrop = document.createElement("div");
+            backdrop.className = "pf-menu-backdrop";
+            document.body.appendChild(backdrop);
+            const name = dropdown.closest(".all-files-file-row")?.querySelector(".all-files-file-name-main")?.firstChild?.textContent?.trim();
+            if (name && !dropdown.querySelector(".pf-menu-sheet-title")) {
+                dropdown.insertAdjacentHTML("afterbegin", `<p class="pf-menu-sheet-title">${escapeHtmlFiles(name)}</p>`);
+            }
+            dropdown.classList.add("is-sheet");
+            dropdown.style.position = dropdown.style.left = dropdown.style.top = dropdown.style.right = "";
+            document.body.appendChild(dropdown);
+            return;
+        }
+
         if (atPoint) {
             dropdown.style.position = "fixed";
             dropdown.style.right = "auto";
@@ -862,7 +880,18 @@
     // Closes every open "⋯" menu across the list — called before opening a
     // different one (only one open at a time), on any outside click, and
     // on Escape.
+    let sheetHome = null;   // where a phone bottom-sheet menu came from
+
     function closeAllFileMenus() {
+        if (sheetHome) {
+            const { dropdown, parent, next } = sheetHome;
+            sheetHome = null;
+            dropdown.classList.remove("is-sheet", "is-open");
+            dropdown.querySelector(".pf-menu-sheet-title")?.remove();
+            if (parent && parent.isConnected) parent.insertBefore(dropdown, next && next.parentNode === parent ? next : null);
+            else dropdown.remove();
+        }
+        document.querySelectorAll(".pf-menu-backdrop").forEach(b => b.remove());
         document.querySelectorAll(".all-files-file-menu-dropdown.is-open").forEach(d => d.classList.remove("is-open"));
         document.querySelectorAll(".all-files-file-menu-btn.is-open").forEach(b => {
             b.classList.remove("is-open");
@@ -1623,7 +1652,7 @@
     // Escape also closes the Preview modal, matching Delete/Rename's own
     // overlay-click-to-close behavior.
     document.addEventListener("click", (event) => {
-        if (!event.target.closest(".all-files-file-actions-cell")) closeAllFileMenus();
+        if (!event.target.closest(".all-files-file-actions-cell") && !event.target.closest(".all-files-file-menu-dropdown.is-sheet .pf-menu-sheet-title")) closeAllFileMenus();
     });
     document.addEventListener("keydown", (event) => {
         if (event.key === "Escape") {

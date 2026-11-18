@@ -19915,3 +19915,18 @@ a.hm-mc-item:hover strong { color: #085c98; }
 .hm-main .hm-strip { margin-bottom: 0; }
 .hm-main .hm-shortcuts { margin: 12px 0 28px; }
 @media (max-width: 640px) { .hm-main .hm-shortcuts { margin: 10px 0 22px; } }
+
+/* Project Files: the file "⋯" menu as a bottom sheet on phones (2026-11-18) */
+.pf-menu-backdrop { position: fixed; inset: 0; z-index: 9998; background: rgba(11, 34, 54, 0.4); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); animation: pf-fade 0.15s ease-out; }
+.all-files-file-menu-dropdown.is-sheet {
+  display: flex !important; flex-direction: column; position: fixed !important; z-index: 9999;
+  left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important;
+  width: auto !important; min-width: 0 !important; max-height: 80vh; overflow-y: auto; margin: 0;
+  padding: 8px 12px calc(14px + env(safe-area-inset-bottom));
+  background: #fff; border: 0; border-radius: 18px 18px 0 0; box-shadow: 0 -12px 40px rgba(11, 34, 54, 0.25);
+  animation: mobile-sheet-up 0.22s ease-out;
+}
+.all-files-file-menu-dropdown.is-sheet::before { content: ""; display: block; width: 38px; height: 4px; margin: 4px auto 8px; border-radius: 2px; background: #d5dde6; }
+.pf-menu-sheet-title { margin: 0 4px 6px; padding-bottom: 10px; border-bottom: 1px solid #e8edf2; font-size: 0.85rem; font-weight: 700; color: #5a6878; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.all-files-file-menu-dropdown.is-sheet .all-files-file-menu-item { width: 100%; min-height: 48px; padding: 12px 10px; font-size: 1rem; text-align: left; border-radius: 10px; }
+@keyframes pf-fade { from { opacity: 0; } to { opacity: 1; } }
