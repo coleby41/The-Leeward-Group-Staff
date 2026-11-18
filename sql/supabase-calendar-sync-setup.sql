@@ -75,6 +75,11 @@ create view public.calendar_connections_status as
 grant select on public.calendar_connections_status to authenticated;
 
 -- 4. Event cache -------------------------------------------------------------------
+-- Only ever a copy of people's calendars (refilled on every sync), and the
+-- first unfinished version never filled it — so it's rebuilt here to make
+-- sure no leftover required columns from that version block syncing.
+-- Comment this line out after the first run if you'd rather keep it.
+drop table if exists public.calendar_events_cache cascade;
 create table if not exists public.calendar_events_cache (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.staff_users(id) on delete cascade,
