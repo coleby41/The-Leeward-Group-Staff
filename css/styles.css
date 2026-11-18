@@ -19754,3 +19754,9 @@ a.hm-mc-item:hover strong { color: #085c98; }
 .hm-cal-disconnect { display: block; margin: 12px auto 0; padding: 8px 10px; border: 0; background: none; cursor: pointer; font: inherit; font-size: 0.82rem; font-weight: 700; color: #8f2a2a; text-decoration: underline; text-underline-offset: 3px; }
 #hmCalIcloud .auth-inline-copy { margin-top: 12px; font-size: 0.82rem; line-height: 1.5; }
 .hm-cal-popup #hmCalLinkClose .auth-button, .hm-cal-popup #hmCalSync { background: #fff; color: #0b2236; border: 1px solid #b9c6d3; box-shadow: none; }
+
+/* Home › Link calendar: paste-a-link how-to (2026-11-18) */
+.hm-cal-popup .hm-cal-steps { margin: 4px 0 12px; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; color: var(--text-primary, #1f2937); }
+.hm-cal-popup .hm-cal-steps li::marker { color: var(--primary-color, #1d4ed8); font-weight: 600; }
+.hm-cal-popup .hm-cal-note { margin: 4px 0 10px; font-size: 12.5px; line-height: 1.4; color: var(--text-secondary, #6b7280); }
+.hm-cal-popup #hmCalIcsUrl { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }

@@ -4,8 +4,9 @@
    left as is). Talks to the "calendar" Edge Function with the person's own
    sign-in, so nobody can link, sync or disconnect someone else's calendar.
 
-   - Link calendar  → Outlook / Microsoft 365 or Google (sign in with them),
-                      or Apple iCloud (Apple ID + app-specific password)
+   - Link calendar  → Outlook / Microsoft 365, Google or Apple iCloud: pick one,
+                      follow the short how-to, paste its private ICS link
+                      (sign-in / app-password paths stay for later use)
    - Manage ›       → status, account, last sync, Sync now, Reconnect, Disconnect
    - Rows view      → your next 4 events (the month view is home-today.js)
    - Syncs quietly in the background when the last sync is over 15 minutes old.
@@ -99,12 +100,42 @@
 
   /* ---------- Link calendar ---------- */
 
+  // Where each calendar keeps its private subscribe (ICS) link.
+  const HOW_TO = {
+    microsoft: `<ol class="hm-cal-steps">
+        <li>Open <a class="auth-link" href="https://outlook.office.com/calendar" target="_blank" rel="noopener">Outlook on the web</a> (not the desktop app).</li>
+        <li>Settings ⚙ › <strong>Calendar</strong> › <strong>Shared calendars</strong>.</li>
+        <li>Under <strong>Publish a calendar</strong>, pick your calendar and <strong>Can view all details</strong>, then <strong>Publish</strong>.</li>
+        <li>Copy the <strong>ICS</strong> link and paste it below.</li></ol>
+      <p class="hm-cal-note">Don't see "Publish a calendar"? Your company's Microsoft 365 admin has it turned off. Outlook can take a few hours to show new events here.</p>`,
+    google: `<ol class="hm-cal-steps">
+        <li>Open <a class="auth-link" href="https://calendar.google.com/calendar/r/settings" target="_blank" rel="noopener">Google Calendar settings</a> on a computer.</li>
+        <li>On the left under <strong>Settings for my calendars</strong>, click your calendar.</li>
+        <li>Scroll to <strong>Integrate calendar</strong> and copy <strong>Secret address in iCal format</strong>.</li>
+        <li>Paste it below.</li></ol>`,
+    icloud: `<ol class="hm-cal-steps">
+        <li>On your iPhone, open <strong>Calendar</strong> › <strong>Calendars</strong>.</li>
+        <li>Tap ⓘ next to your calendar and turn on <strong>Public Calendar</strong>.</li>
+        <li>Tap <strong>Share Link…</strong> › <strong>Copy</strong>, and paste it below (the webcal:// link is fine).</li></ol>
+      <p class="hm-cal-note">On a Mac: Calendar app › right-click the calendar › Share Calendar › tick Public Calendar.</p>`
+  };
+
   async function openLink() {
     const { data: providers } = await DS.safeQuery("calendar providers", window.supabaseClient.from("calendar_providers").select("*").eq("is_active", true).order("sort_order"));
     const overlay = DS.buildPopup("homeLinkCalendar", `
       <h2>Link a calendar</h2>
       <p class="card-subtitle">Pick the calendar you use. The portal only reads it — it never changes anything.</p>
       <div class="hm-cal-providers" id="hmCalProviders"></div>
+      <form id="hmCalIcs" class="auth-form auth-form--compact" hidden>
+        <div id="hmCalIcsHow"></div>
+        <label class="auth-field">Calendar link<input type="url" id="hmCalIcsUrl" placeholder="https://… or webcal://…" autocomplete="off" required></label>
+        <p class="hm-cal-note">Keep this link private — anyone who has it can see your calendar. The portal stores it encrypted.</p>
+        <p class="auth-message" id="hmCalIcsMsg"></p>
+        <div class="popup-buttons">
+          <button type="button" class="auth-button auth-button--secondary" id="hmCalIcsBack">Back</button>
+          <button type="submit" class="auth-button" id="hmCalIcsGo">Connect</button>
+        </div>
+      </form>
       <form id="hmCalIcloud" class="auth-form auth-form--compact" hidden>
         <p class="auth-inline-copy">Apple needs an <strong>app-specific password</strong> for this (not your normal one):
           go to <a class="auth-link" href="https://account.apple.com/account/manage" target="_blank" rel="noopener">account.apple.com</a> ›
@@ -123,13 +154,23 @@
     const list = overlay.querySelector("#hmCalProviders");
     const msg = overlay.querySelector("#hmCalLinkMsg");
     const form = overlay.querySelector("#hmCalIcloud");
+    const icsForm = overlay.querySelector("#hmCalIcs");
+    let icsProvider = null;
     list.innerHTML = (providers || []).map(p => `
       <button type="button" class="hm-cal-provider" data-id="${esc(p.id)}" data-type="${esc(p.auth_type)}">
         <span class="hm-cal-logo hm-cal-logo--${esc(p.id)}" aria-hidden="true"></span>
-        <span><strong>${esc(p.label)}</strong><small>${p.auth_type === "oauth2" ? "Sign in and allow read-only access" : "Apple ID + app-specific password"}</small></span>
+        <span><strong>${esc(p.label)}</strong><small>${p.auth_type === "ics" ? "Paste your calendar's private link" : p.auth_type === "oauth2" ? "Sign in and allow read-only access" : "Apple ID + app-specific password"}</small></span>
         <span class="hm-cal-go" aria-hidden="true">›</span>
       </button>`).join("") || '<p class="card-subtitle">No calendars are set up yet. Run sql/supabase-calendar-sync-setup.sql.</p>';
     list.querySelectorAll(".hm-cal-provider").forEach(b => b.addEventListener("click", async () => {
+      if (b.dataset.type === "ics") {
+        icsProvider = b.dataset.id;
+        overlay.querySelector("#hmCalIcsHow").innerHTML = HOW_TO[icsProvider] || "";
+        list.hidden = true; icsForm.hidden = false; overlay.querySelector("#hmCalLinkClose").hidden = true;
+        DS.setFormMessage(overlay.querySelector("#hmCalIcsMsg"), "", "");
+        overlay.querySelector("#hmCalIcsUrl").focus();
+        return;
+      }
       if (b.dataset.type === "caldav") { list.hidden = true; form.hidden = false; overlay.querySelector("#hmCalLinkClose").hidden = true; overlay.querySelector("#hmCalAppleId").focus(); return; }
       b.disabled = true;
       DS.setFormMessage(msg, "Opening sign-in…", "");
@@ -138,6 +179,22 @@
     }));
     overlay.querySelector("#hmCalIcloudBack").addEventListener("click", () => { form.hidden = true; list.hidden = false; overlay.querySelector("#hmCalLinkClose").hidden = false; });
     overlay.querySelector("#hmCalLinkClose button").addEventListener("click", () => DS.closePopup(overlay));
+    overlay.querySelector("#hmCalIcsBack").addEventListener("click", () => { icsForm.hidden = true; list.hidden = false; overlay.querySelector("#hmCalLinkClose").hidden = false; });
+    icsForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const fmsg = overlay.querySelector("#hmCalIcsMsg");
+      const go = overlay.querySelector("#hmCalIcsGo");
+      go.disabled = true;
+      DS.setFormMessage(fmsg, "Checking your calendar link…", "");
+      try {
+        const r = await call({ action: "ics_connect", provider: icsProvider, url: overlay.querySelector("#hmCalIcsUrl").value.trim() });
+        if (r.status === "error") throw new Error(r.message || "Couldn't read that calendar.");
+        DS.closePopup(overlay);
+        if (typeof window.showToast === "function") window.showToast(`Calendar connected — ${r.count || 0} events synced.`, { type: "success" });
+        refresh(true);
+      } catch (err) { DS.setFormMessage(fmsg, err.message, "error"); }
+      finally { go.disabled = false; }
+    });
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const fmsg = overlay.querySelector("#hmCalIcloudMsg");

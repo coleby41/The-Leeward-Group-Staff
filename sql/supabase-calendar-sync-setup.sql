@@ -1,8 +1,8 @@
 -- ============================================================================
 -- Calendar connections for Home › Today (2026-11-18)
 --
--- Each staff member can link ONE calendar: Outlook / Microsoft 365 or Google
--- (sign-in), or Apple iCloud (Apple ID + app-specific password). The Edge
+-- Each staff member can link ONE calendar — Outlook / Microsoft 365, Google or
+-- Apple iCloud — by pasting that calendar's private subscribe (ICS) link. The Edge
 -- Function supabase/functions/calendar does the sign-in, keeps the tokens
 -- (encrypted) and copies the next few months of events into
 -- calendar_events_cache, which Home reads.
@@ -21,7 +21,7 @@
 create table if not exists public.calendar_providers (
   id text primary key,
   label text not null,
-  auth_type text not null check (auth_type in ('oauth2', 'caldav')),
+  auth_type text not null,
   is_active boolean not null default true,
   sort_order integer not null default 0
 );
@@ -30,10 +30,27 @@ alter table public.calendar_providers add column if not exists sort_order intege
 -- An older version of this table also has a required icon_class column.
 alter table public.calendar_providers add column if not exists icon_class text;
 
+-- How each calendar connects. 'ics' = the person pastes their calendar's
+-- private subscribe link (read-only, no Microsoft/Google app needed).
+-- 'oauth2' / 'caldav' are still understood by the calendar function if
+-- sign-in is ever set up later.
+do $$
+declare c record;
+begin
+  for c in select conname from pg_constraint
+           where conrelid = 'public.calendar_providers'::regclass and contype = 'c'
+             and pg_get_constraintdef(oid) ilike '%auth_type%'
+  loop
+    execute format('alter table public.calendar_providers drop constraint %I', c.conname);
+  end loop;
+end $$;
+alter table public.calendar_providers add constraint calendar_providers_auth_type_check
+  check (auth_type in ('ics', 'oauth2', 'caldav'));
+
 insert into public.calendar_providers (id, label, auth_type, icon_class, is_active, sort_order) values
-  ('microsoft', 'Outlook / Microsoft 365', 'oauth2', 'microsoft', true, 1),
-  ('google',    'Google Calendar',         'oauth2', 'google',    true, 2),
-  ('icloud',    'Apple iCloud Calendar',   'caldav', 'icloud',    true, 3)
+  ('microsoft', 'Outlook / Microsoft 365', 'ics', 'microsoft', true, 1),
+  ('google',    'Google Calendar',         'ics', 'google',    true, 2),
+  ('icloud',    'Apple iCloud Calendar',   'ics', 'icloud',    true, 3)
 on conflict (id) do update set label = excluded.label, auth_type = excluded.auth_type,
   icon_class = excluded.icon_class, is_active = true, sort_order = excluded.sort_order;
 
@@ -52,7 +69,7 @@ create table if not exists public.calendar_accounts (
   provider_id text not null references public.calendar_providers(id),
   status text not null default 'connected' check (status in ('connected', 'error')),
   external_account_email text,
-  secret_enc text,              -- encrypted JSON: OAuth tokens, or the iCloud app password
+  secret_enc text,              -- encrypted JSON: the calendar link (or sign-in tokens)
   token_expires_at timestamptz,
   caldav_calendars jsonb,       -- iCloud: the calendar URLs found at connect time
   last_synced_at timestamptz,

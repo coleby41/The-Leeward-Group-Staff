@@ -6,6 +6,7 @@
 //   POST {action:"oauth_start", provider:"microsoft"|"google"}  -> { url }   (browser then goes there)
 //   GET  ?action=callback&code=…&state=…                         (Microsoft/Google send people back here)
 //   POST {action:"caldav_connect", username, app_password}       (Apple iCloud)
+//   POST {action:"ics_connect", provider, url}                    (pasted calendar link — what Home uses now)
 //   POST {action:"sync"}                                          (refresh events now)
 //   POST {action:"disconnect"}
 // Every POST must carry the signed-in staff member's session
@@ -123,8 +124,24 @@ function tzOffset(tz: string, at: Date) {
   const asUTC = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour % 24, +parts.minute, +parts.second);
   return (asUTC - at.getTime()) / 60000;
 }
+// Outlook feeds name zones the Windows way ("Eastern Standard Time").
+const WIN_TZ: Record<string, string> = {
+  "eastern standard time": "America/New_York", "us eastern standard time": "America/Indiana/Indianapolis",
+  "central standard time": "America/Chicago", "mountain standard time": "America/Denver",
+  "us mountain standard time": "America/Phoenix", "pacific standard time": "America/Los_Angeles",
+  "alaskan standard time": "America/Anchorage", "hawaiian standard time": "Pacific/Honolulu",
+  "atlantic standard time": "America/Halifax", "utc": "UTC", "coordinated universal time": "UTC",
+  "gmt standard time": "Europe/London", "w. europe standard time": "Europe/Berlin",
+  "central europe standard time": "Europe/Budapest", "romance standard time": "Europe/Paris",
+};
+function resolveTz(tz: string) {
+  const t = String(tz || "").replace(/^"|"$/g, "").trim();
+  try { new Intl.DateTimeFormat("en-US", { timeZone: t }); return t; } catch { /* not an IANA name */ }
+  return WIN_TZ[t.toLowerCase()] || (/^\(UTC\)|^UTC$/i.test(t) ? "UTC" : TZ);
+}
 // A wall-clock time in a zone → the real instant.
-function zoned(y: number, m: number, d: number, h: number, mi: number, s: number, tz: string) {
+function zoned(y: number, m: number, d: number, h: number, mi: number, s: number, tzIn: string) {
+  const tz = resolveTz(tzIn);
   const guess = Date.UTC(y, m - 1, d, h, mi, s);
   try {
     const off1 = tzOffset(tz, new Date(guess));
@@ -332,6 +349,198 @@ function parseIcs(ics: string, calName: string): Ev[] {
   return out;
 }
 
+/* ---------------- Calendar link (ICS feed: Outlook, Google, iCloud) ---------------- */
+// A published calendar link gives the raw calendar: repeating events come as
+// one event + a rule (RRULE), so they're expanded here for the sync window.
+
+const WD = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+const DAY = 86400000;
+
+type Stamp = { y: number; m: number; d: number; h: number; mi: number; s: number; utc: boolean; tz: string; allDay: boolean };
+
+function stamp(key: string, val: string): Stamp | null {
+  const tz = (key.match(/TZID=("?)([^";:]+)\1/i)?.[2]) || TZ;
+  const v = val.trim();
+  const dm = v.match(/^(\d{4})(\d{2})(\d{2})$/);
+  if (dm || /VALUE=DATE(?!-)/i.test(key)) {
+    const m = v.match(/^(\d{4})(\d{2})(\d{2})/);
+    if (!m) return null;
+    return { y: +m[1], m: +m[2], d: +m[3], h: 0, mi: 0, s: 0, utc: false, tz, allDay: true };
+  }
+  const m = v.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z?)$/);
+  if (!m) return null;
+  return { y: +m[1], m: +m[2], d: +m[3], h: +m[4], mi: +m[5], s: +m[6], utc: !!m[7], tz, allDay: false };
+}
+// The real instant for a stamp moved to another calendar date (keeps the wall-clock time).
+function instant(st: Stamp, y = st.y, m = st.m, d = st.d): Date {
+  if (st.allDay) return zoned(y, m, d, 0, 0, 0, TZ);
+  if (st.utc) return new Date(Date.UTC(y, m - 1, d, st.h, st.mi, st.s));
+  return zoned(y, m, d, st.h, st.mi, st.s, st.tz);
+}
+function durationMs(v: string) {
+  const m = v.match(/^([+-])?P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+  if (!m) return 0;
+  return (m[1] === "-" ? -1 : 1) * ((+(m[2] || 0)) * 7 * DAY + (+(m[3] || 0)) * DAY + (+(m[4] || 0)) * 3600000 + (+(m[5] || 0)) * 60000 + (+(m[6] || 0)) * 1000);
+}
+const ymd = (t: number) => { const d = new Date(t); return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate() }; };
+const dayNum = (y: number, m: number, d: number) => Date.UTC(y, m - 1, d);
+const monthLen = (y: number, m: number) => new Date(Date.UTC(y, m, 0)).getUTCDate();
+
+// Days (UTC midnight numbers) of one month that match BYDAY / BYMONTHDAY.
+function monthDays(y: number, m: number, byday: string[], bymonthday: number[], fallbackDay: number): number[] {
+  const len = monthLen(y, m);
+  const out: number[] = [];
+  if (byday.length) {
+    for (const part of byday) {
+      const p = part.match(/^([+-]?\d+)?(SU|MO|TU|WE|TH|FR|SA)$/);
+      if (!p) continue;
+      const wd = WD.indexOf(p[2]);
+      const all: number[] = [];
+      for (let d = 1; d <= len; d++) if (new Date(dayNum(y, m, d)).getUTCDay() === wd) all.push(d);
+      if (p[1]) { const n = +p[1]; const d = n > 0 ? all[n - 1] : all[all.length + n]; if (d) out.push(dayNum(y, m, d)); }
+      else all.forEach(d => out.push(dayNum(y, m, d)));
+    }
+  } else {
+    for (const n of (bymonthday.length ? bymonthday : [fallbackDay])) {
+      const d = n > 0 ? n : len + n + 1;
+      if (d >= 1 && d <= len) out.push(dayNum(y, m, d));
+    }
+  }
+  return out.sort((a, b) => a - b);
+}
+
+// Start instants of every occurrence of a repeating event that starts before `to`.
+function expand(start: Stamp, rrule: string, to: Date): Date[] {
+  const r: Row = Object.fromEntries(rrule.split(";").map(p => p.split("=")).filter(p => p.length === 2).map(([k, v]) => [k.toUpperCase(), v.toUpperCase()]));
+  const freq = r.FREQ;
+  const interval = Math.max(1, +(r.INTERVAL || 1));
+  const count = r.COUNT ? +r.COUNT : Infinity;
+  const untilSt = r.UNTIL ? stamp(/T/.test(r.UNTIL) ? "" : "VALUE=DATE", r.UNTIL) : null;
+  const until = untilSt ? (untilSt.allDay ? zoned(untilSt.y, untilSt.m, untilSt.d, 23, 59, 59, TZ) : new Date(Date.UTC(untilSt.y, untilSt.m - 1, untilSt.d, untilSt.h, untilSt.mi, untilSt.s))) : null;
+  const byday: string[] = r.BYDAY ? r.BYDAY.split(",") : [];
+  const bymonthday: number[] = r.BYMONTHDAY ? r.BYMONTHDAY.split(",").map(Number) : [];
+  const bymonth: number[] = r.BYMONTH ? r.BYMONTH.split(",").map(Number) : [];
+  const d0 = dayNum(start.y, start.m, start.d);
+  const out: Date[] = [];
+  let n = 0;
+
+  const take = (days: number[]) => {     // false = stop
+    for (const t of days) {
+      if (t < d0) continue;
+      const { y, m, d } = ymd(t);
+      const at = instant(start, y, m, d);
+      if (until && at > until) return false;
+      if (at >= to) return false;
+      if (++n > count) return false;
+      out.push(at);
+    }
+    return true;
+  };
+
+  for (let k = 0; k < 3000; k++) {
+    let days: number[] = [];
+    if (freq === "DAILY") days = [d0 + k * interval * DAY];
+    else if (freq === "WEEKLY") {
+      const wkst = WD.indexOf(r.WKST || "MO");
+      const back = (new Date(d0).getUTCDay() - wkst + 7) % 7;
+      const ws = d0 - back * DAY + k * interval * 7 * DAY;
+      const wds = byday.length ? byday.map(b => WD.indexOf(b.replace(/^[+-]?\d+/, ""))).filter(i => i >= 0) : [new Date(d0).getUTCDay()];
+      days = wds.map(wd => ws + ((wd - wkst + 7) % 7) * DAY).sort((a, b) => a - b);
+    } else if (freq === "MONTHLY") {
+      const mi = start.m - 1 + k * interval;
+      days = monthDays(start.y + Math.floor(mi / 12), (mi % 12) + 1, byday, bymonthday, start.d);
+    } else if (freq === "YEARLY") {
+      const y = start.y + k * interval;
+      for (const m of (bymonth.length ? bymonth : [start.m])) days.push(...monthDays(y, m, byday, bymonthday, start.d));
+      days.sort((a, b) => a - b);
+    } else return [instant(start)];
+    if (!take(days)) break;
+  }
+  return out;
+}
+
+function parseFeed(ics: string, from: Date, to: Date): Ev[] {
+  const lines = ics.replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "").split(/\r?\n/);
+  const raw: Row[] = [];
+  let cur: Row = null, depth = 0;
+  const unescape = (v: string) => v.replace(/\\n/gi, " ").replace(/\\,/g, ",").replace(/\\;/g, ";").replace(/\\\\/g, "\\");
+  for (const line of lines) {
+    if (line === "BEGIN:VEVENT") { cur = { exdates: [] }; depth = 0; continue; }
+    if (!cur) continue;
+    if (line.startsWith("BEGIN:")) { depth++; continue; }       // VALARM etc.
+    if (line.startsWith("END:") && line !== "END:VEVENT") { depth--; continue; }
+    if (line === "END:VEVENT") { raw.push(cur); cur = null; continue; }
+    if (depth > 0) continue;
+    const i = line.indexOf(":");
+    if (i < 0) continue;
+    const key = line.slice(0, i), val = line.slice(i + 1), name = key.split(";")[0].toUpperCase();
+    if (name === "SUMMARY") cur.summary = unescape(val);
+    else if (name === "LOCATION") cur.location = unescape(val);
+    else if (name === "UID") cur.uid = val;
+    else if (name === "STATUS") cur.status = val.toUpperCase();
+    else if (name === "DTSTART") cur.start = stamp(key, val);
+    else if (name === "DTEND") cur.end = stamp(key, val);
+    else if (name === "DURATION") cur.duration = durationMs(val);
+    else if (name === "RRULE") cur.rrule = val;
+    else if (name === "RECURRENCE-ID") cur.rid = stamp(key, val);
+    else if (name === "EXDATE") val.split(",").forEach(v => { const s = stamp(key, v); if (s) cur.exdates.push(s); });
+  }
+
+  // Single changed/cancelled occurrences of a repeating event.
+  const moved = new Map<string, Set<number>>();
+  for (const e of raw) if (e.rid && e.uid) {
+    if (!moved.has(e.uid)) moved.set(e.uid, new Set());
+    moved.get(e.uid)!.add(instant(e.rid).getTime());
+  }
+
+  const out: Ev[] = [];
+  const push = (e: Row, at: Date, len: number) => {
+    const end = new Date(at.getTime() + len);
+    if (end < from || at >= to) return;
+    out.push({
+      external_id: `${e.uid || crypto.randomUUID()}#${at.getTime()}`,
+      title: e.summary || "Busy",
+      start_time: at.toISOString(),
+      end_time: end.toISOString(),
+      location: e.location || null,
+      all_day: !!e.start.allDay,
+    });
+  };
+  for (const e of raw) {
+    if (!e.start || e.status === "CANCELLED") continue;
+    const first = instant(e.start);
+    const len = e.end ? instant(e.end).getTime() - first.getTime() : (e.duration || (e.start.allDay ? DAY : 0));
+    if (!e.rrule || e.rid) { push(e, first, Math.max(0, len)); continue; }
+    const skip = new Set<number>([...e.exdates.map((x: Stamp) => instant(x).getTime()), ...(moved.get(e.uid) || [])]);
+    for (const at of expand(e.start, e.rrule, to)) if (!skip.has(at.getTime())) push(e, at, Math.max(0, len));
+  }
+  return out;
+}
+
+function feedUrl(input: string) {
+  let s = String(input || "").trim();
+  if (/^webcals?:\/\//i.test(s)) s = s.replace(/^webcals?:\/\//i, "https://");
+  let u: URL;
+  try { u = new URL(s); } catch { throw new Error("That doesn't look like a calendar link. It should start with https:// or webcal://"); }
+  if (u.protocol !== "https:" && u.protocol !== "http:") throw new Error("That doesn't look like a calendar link. It should start with https:// or webcal://");
+  if (/^(localhost|127\.|10\.|192\.168\.|169\.254\.|0\.)/i.test(u.hostname) || u.hostname.endsWith(".internal")) throw new Error("That link isn't reachable from the portal.");
+  return u.toString();
+}
+
+async function fetchFeed(url: string) {
+  const res = await fetch(url, { headers: { Accept: "text/calendar, */*" }, redirect: "follow", signal: AbortSignal.timeout(20000) });
+  if (res.status === 401 || res.status === 403 || res.status === 404) throw new Error("The calendar link stopped working (it may have been unpublished or reset). Paste a new link.");
+  if (!res.ok) throw new Error(`The calendar link returned an error (${res.status}).`);
+  const text = await res.text();
+  if (!/BEGIN:VCALENDAR/i.test(text)) throw new Error("That link didn't return a calendar. Make sure you copied the ICS / iCal link, not the web page link.");
+  return text;
+}
+
+async function feedEvents(url: string): Promise<Ev[]> {
+  const { from, to } = windowRange();
+  return parseFeed(await fetchFeed(url), from, to);
+}
+
 async function icloudEvents(acct: Row): Promise<Ev[]> {
   const secret = await unseal(acct.secret_enc);
   const auth = basic(acct.external_account_email, secret.app_password);
@@ -360,7 +569,9 @@ async function syncUser(userId: string) {
   const { data: acct } = await db.from("calendar_accounts").select("*").eq("user_id", userId).maybeSingle();
   if (!acct) return { status: "none" };
   try {
-    const events = acct.provider_id === "microsoft" ? await microsoftEvents(acct)
+    const secret = await unseal(acct.secret_enc);
+    const events = secret.ics_url ? await feedEvents(secret.ics_url)
+      : acct.provider_id === "microsoft" ? await microsoftEvents(acct)
       : acct.provider_id === "google" ? await googleEvents(acct)
       : await icloudEvents(acct);
     // Same event can come from more than one iCloud calendar — keep one.
@@ -439,6 +650,21 @@ Deno.serve(async (req) => {
         });
         const result = await syncUser(staff.id);
         return json({ ok: true, calendars: calendars.length, ...result });
+      }
+      case "ics_connect": {
+        const provider = String(body.provider || "");
+        const { data: prov } = await db.from("calendar_providers").select("id, label").eq("id", provider).eq("is_active", true).maybeSingle();
+        if (!prov) return json({ error: "Unknown calendar." }, 400);
+        const link = feedUrl(body.url);
+        const events = await feedEvents(link);   // check it works before saving
+        await db.from("calendar_accounts").upsert({
+          user_id: staff.id, provider_id: prov.id, status: "connected",
+          external_account_email: `${prov.label} link`,
+          secret_enc: await seal({ ics_url: link }), token_expires_at: null,
+          caldav_calendars: null, last_error: null, updated_at: new Date().toISOString(),
+        });
+        const result = await syncUser(staff.id);
+        return json({ ok: true, found: events.length, ...result });
       }
       case "sync":
         return json({ ok: true, synced: [await syncUser(staff.id)] });
