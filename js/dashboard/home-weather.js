@@ -171,7 +171,7 @@
     document.getElementById("wfPlace").textContent = placeText(currentLoc);
     document.getElementById("wfIcon").textContent = code.icon;
     document.getElementById("wfTemp").textContent = `${r(c.temperature_2m)}°`;
-    document.getElementById("wfDesc").textContent = `${code.label} · H ${r(d.temperature_2m_max?.[0])}°  L ${r(d.temperature_2m_min?.[0])}°`;
+    document.getElementById("wfDesc").innerHTML = `${esc(code.label)} <span class="hm-nowrap">· H ${r(d.temperature_2m_max?.[0])}°  L ${r(d.temperature_2m_min?.[0])}°</span>`;
     document.getElementById("wfFeels").textContent = `${r(c.apparent_temperature)}°`;
     document.getElementById("wfWind").textContent = `${r(c.wind_speed_10m)} mph ${compass(c.wind_direction_10m)}`.trim();
     document.getElementById("wfHumidity").textContent = `${r(c.relative_humidity_2m)}%`;

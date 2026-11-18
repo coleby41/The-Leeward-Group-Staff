@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261118l">
+    <link rel="stylesheet" href="/css/styles.css?v=20261118n">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -540,31 +540,51 @@
 <!-- Forecast — same Open-Meteo data and spot as the Home weather (js/dashboard/home-weather.js), 2026-11-18 -->
 <div class="popup-overlay hidden hm-blur-overlay" id="weatherForecastSheet">
     <div class="popup hm-forecast" role="dialog" aria-modal="true" aria-labelledby="wfTitle">
-        <button type="button" class="sheet-close" id="wfClose" aria-label="Close">&times;</button>
-        <p class="hm-fc-place" id="wfPlace">&nbsp;</p>
-        <h2 class="hm-fc-title" id="wfTitle">Forecast</h2>
-        <div class="hm-fc-now">
-            <span class="hm-fc-icon" id="wfIcon" aria-hidden="true"></span>
+        <span class="hm-sheen" aria-hidden="true"></span>
+        <header class="hm-fc-head">
             <div>
-                <p class="hm-fc-temp" id="wfTemp">—</p>
-                <p class="hm-fc-desc" id="wfDesc">&nbsp;</p>
+                <p class="hm-fc-place"><span class="hm-pin" aria-hidden="true"></span><span id="wfPlace">&nbsp;</span></p>
+                <h2 class="hm-fc-title" id="wfTitle">Weather forecast</h2>
             </div>
-            <dl class="hm-fc-facts">
-                <div><dt>Feels like</dt><dd id="wfFeels">—</dd></div>
-                <div><dt>Wind</dt><dd id="wfWind">—</dd></div>
-                <div><dt>Humidity</dt><dd id="wfHumidity">—</dd></div>
-                <div><dt>Rain today</dt><dd id="wfRain">—</dd></div>
-            </dl>
+            <button type="button" class="sheet-close" id="wfClose" aria-label="Close">&times;</button>
+        </header>
+
+        <div class="hm-fc-body" tabindex="0" aria-label="Forecast details">
+            <section class="hm-fc-now" aria-label="Right now">
+                <div class="hm-fc-now-main">
+                    <span class="hm-fc-icon" id="wfIcon" aria-hidden="true"></span>
+                    <div>
+                        <p class="hm-fc-temp" id="wfTemp">—</p>
+                        <p class="hm-fc-desc" id="wfDesc">&nbsp;</p>
+                    </div>
+                </div>
+                <dl class="hm-fc-facts">
+                    <div><dt>Feels like</dt><dd id="wfFeels">—</dd></div>
+                    <div><dt>Wind</dt><dd id="wfWind">—</dd></div>
+                    <div><dt>Humidity</dt><dd id="wfHumidity">—</dd></div>
+                    <div><dt>Rain today</dt><dd id="wfRain">—</dd></div>
+                </dl>
+            </section>
+
+            <section aria-labelledby="wfHoursH">
+                <h3 class="hm-fc-h" id="wfHoursH">Next 12 hours</h3>
+                <div class="hm-fc-hours" id="wfHours"></div>
+            </section>
+
+            <section aria-labelledby="wfDaysH">
+                <h3 class="hm-fc-h" id="wfDaysH">Next 7 days</h3>
+                <div class="hm-fc-days-head" aria-hidden="true"><span>Day</span><span></span><span>Rain</span><span class="hm-fc-days-range">Low – High</span></div>
+                <div class="hm-fc-days" id="wfDays"></div>
+            </section>
         </div>
-        <h3 class="hm-fc-h">Next 12 hours</h3>
-        <div class="hm-fc-hours" id="wfHours"></div>
-        <h3 class="hm-fc-h">Next 7 days</h3>
-        <div class="hm-fc-days" id="wfDays"></div>
-        <div class="hm-fc-foot">
-            <button type="button" class="hm-fc-link" id="wfChange">Change location</button>
+
+        <footer class="hm-fc-footer">
             <a href="#" id="viewFullForecastLink" target="_blank" rel="noopener">National Weather Service ›</a>
-        </div>
-        <div class="popup-buttons"><button type="button" class="auth-button" id="wfDone">Done</button></div>
+            <div class="hm-fc-actions">
+                <button type="button" class="hm-fc-btn" id="wfChange">Change location</button>
+                <button type="button" class="hm-fc-btn hm-fc-btn--primary" id="wfDone">Done</button>
+            </div>
+        </footer>
     </div>
 </div>
 
