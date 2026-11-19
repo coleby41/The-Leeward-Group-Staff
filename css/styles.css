@@ -19941,3 +19941,8 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 .hm-main .hm-shortcuts.fade-right { --fr: 44px; }
 /* keep the quick links row lined up with the rest of Home (margin shorthands above reset the auto sides) */
 .hm-main > .hm-shortcuts { margin-left: auto; margin-right: auto; }
+
+/* Forecast: night icons + sunrise/sunset (2026-11-19) */
+.hm-fc-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.hm-fc-hour--sun strong { font-size: 0.72rem; font-weight: 700; color: #b45309; }
+.hm-fc-hour--sun .hm-fc-hour-t { color: #b45309; }

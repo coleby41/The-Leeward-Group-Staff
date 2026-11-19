@@ -96,7 +96,18 @@
     return d.innerHTML;
   }
   const r = (n) => (n == null || Number.isNaN(n) ? "—" : Math.round(n));
-  function codeOf(c) { return WMO_CODES[c] || { icon: "🌡️", label: "—" }; }
+  // Night versions of the sunny icons (is_day = 0 from the forecast).
+  const NIGHT = { 0: "🌙", 1: "🌙", 2: "☁️", 51: "🌧️", 53: "🌧️", 61: "🌧️", 80: "🌧️" };
+  function codeOf(c, isDay) {
+    const base = WMO_CODES[c] || { icon: "🌡️", label: "—" };
+    if (isDay === 0 && NIGHT[c]) return { icon: NIGHT[c], label: c === 0 ? "Clear" : base.label };
+    return base;
+  }
+  // "2026-11-19T17:04" → "5:04p"
+  function clock(t) {
+    const hr = Number(t.slice(11, 13)), mi = t.slice(14, 16);
+    return `${hr % 12 || 12}:${mi}${hr < 12 ? "a" : "p"}`;
+  }
   function placeText(loc) { return loc.site ? `${loc.site} · ${loc.label}` : loc.label; }
 
   document.addEventListener("DOMContentLoaded", async () => {
@@ -136,9 +147,9 @@
   // One request feeds both the glass bar and the forecast pop-up, so they always match.
   async function fetchWeather(lat, lon) {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code` +
-      `&hourly=temperature_2m,weather_code,precipitation_probability` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max` +
+      `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,weather_code,is_day` +
+      `&hourly=temperature_2m,weather_code,precipitation_probability,is_day` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset` +
       `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=7`;
     const res = await fetch(url);
     if (!res.ok) throw new Error("Forecast request failed");
@@ -147,7 +158,7 @@
 
   function renderWeather(data) {
     const current = data.current || {};
-    const code = codeOf(current.weather_code);
+    const code = codeOf(current.weather_code, current.is_day);
     document.getElementById("weatherBody").textContent = `${r(current.temperature_2m)}°`;
     const desc = document.getElementById("weatherDesc");
     if (desc) desc.textContent = code.label;
@@ -167,7 +178,7 @@
     const c = lastData.current || {};
     const h = lastData.hourly || {};
     const d = lastData.daily || {};
-    const code = codeOf(c.weather_code);
+    const code = codeOf(c.weather_code, c.is_day);
     document.getElementById("wfPlace").textContent = placeText(currentLoc);
     document.getElementById("wfIcon").textContent = code.icon;
     document.getElementById("wfTemp").textContent = `${r(c.temperature_2m)}°`;
@@ -176,22 +187,38 @@
     document.getElementById("wfWind").textContent = `${r(c.wind_speed_10m)} mph ${compass(c.wind_direction_10m)}`.trim();
     document.getElementById("wfHumidity").textContent = `${r(c.relative_humidity_2m)}%`;
     document.getElementById("wfRain").textContent = `${r(d.precipitation_probability_max?.[0])}%`;
+    const sunEl = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t ? clock(t).replace(/([ap])$/, " $1M").toUpperCase() : "—"; };
+    sunEl("wfSunrise", d.sunrise?.[0]);
+    sunEl("wfSunset", d.sunset?.[0]);
 
-    // Next 12 hours from the current hour (times are local to the place).
+    // Next 24 hours from the current hour (times are local to the place),
+    // with sunrise and sunset dropped in where they happen.
     const times = h.time || [];
     const nowHour = (c.time || "").slice(0, 13);
     let start = times.findIndex(t => t.slice(0, 13) >= nowHour);
     if (start < 0) start = 0;
-    document.getElementById("wfHours").innerHTML = times.slice(start, start + 12).map((t, i) => {
+    const sunEvents = [
+      ...(d.sunrise || []).map(t => ({ t, kind: "Sunrise", icon: "🌅" })),
+      ...(d.sunset || []).map(t => ({ t, kind: "Sunset", icon: "🌇" })),
+    ].filter(e => e.t).sort((a, b) => a.t.localeCompare(b.t));
+    const cells = [];
+    times.slice(start, start + 24).forEach((t, i) => {
       const idx = start + i;
       const hr = Number(t.slice(11, 13));
       const label = i === 0 ? "Now" : `${hr % 12 || 12}${hr < 12 ? "a" : "p"}`;
       // "Now" uses the same current reading as the big number, so they match.
-      const cc = codeOf(i === 0 ? c.weather_code : h.weather_code?.[idx]);
+      const cc = i === 0 ? codeOf(c.weather_code, c.is_day) : codeOf(h.weather_code?.[idx], h.is_day?.[idx]);
       const rain = h.precipitation_probability?.[idx];
       const temp = i === 0 ? c.temperature_2m : h.temperature_2m?.[idx];
-      return `<div class="hm-fc-hour"><span class="hm-fc-hour-t">${label}</span><span class="hm-fc-hour-i" title="${esc(cc.label)}">${cc.icon}</span><strong>${r(temp)}°</strong><span class="hm-fc-hour-r">${rain ? rain + "%" : "&nbsp;"}</span></div>`;
-    }).join("");
+      cells.push(`<div class="hm-fc-hour"><span class="hm-fc-hour-t">${label}</span><span class="hm-fc-hour-i" title="${esc(cc.label)}">${cc.icon}</span><strong>${r(temp)}°</strong><span class="hm-fc-hour-r">${rain ? rain + "%" : "&nbsp;"}</span></div>`);
+      // A sunrise/sunset during this hour (and after "now") goes right after it.
+      const hourEnd = times[idx + 1] || "9999";
+      const from = i === 0 ? (c.time || t) : t;
+      sunEvents.filter(e => e.t >= from && e.t < hourEnd).forEach(e => {
+        cells.push(`<div class="hm-fc-hour hm-fc-hour--sun"><span class="hm-fc-hour-t">${clock(e.t)}</span><span class="hm-fc-hour-i" title="${e.kind}">${e.icon}</span><strong>${e.kind}</strong><span class="hm-fc-hour-r">&nbsp;</span></div>`);
+      });
+    });
+    document.getElementById("wfHours").innerHTML = cells.join("");
 
     const hoursEl = document.getElementById("wfHours");
     hoursEl.scrollLeft = 0;
