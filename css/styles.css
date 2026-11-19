@@ -19939,3 +19939,5 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 .hm-main .hm-shortcuts { --fl: 0px; --fr: 0px; -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 var(--fl), #000 calc(100% - var(--fr)), transparent 100%); }
 .hm-main .hm-shortcuts.fade-left { --fl: 44px; }
 .hm-main .hm-shortcuts.fade-right { --fr: 44px; }
+/* keep the quick links row lined up with the rest of Home (margin shorthands above reset the auto sides) */
+.hm-main > .hm-shortcuts { margin-left: auto; margin-right: auto; }
