@@ -303,6 +303,8 @@ window.ProjectFields = (function () {
     //   status                   → the status chip quick-edit (cards + Overview)
     //   project manager          → Project Members (Accounts / Contacts)
     //   owner / GC / POC / county → Accounts / Contacts › contacts
+    //     (except the "Owner & Lender" step, 2026-11-19: legal owner, owner
+    //     contact, county and lender — the Contract Builder needs them)
     //   utilities, trash, potty  → Accounts / Contacts › utility accounts
     //   site & permit plan files → Project Files
     // The old columns stay in `projects` (nothing dropped) and
@@ -335,6 +337,23 @@ window.ProjectFields = (function () {
                 { name: "site_city", label: "City", type: "text" },
                 { name: "site_state", label: "State", type: "text", maxlength: 2, uppercase: true, placeholder: "e.g. NC" },
                 { name: "site_zip", label: "Zip", type: "text" }
+            ]
+        },
+        {
+            // Contract Builder (2026-11-19): the legal owner goes on every
+            // vendor subcontract (additional insured) and both lien waivers;
+            // county + lender go on the lien waivers.
+            key: "owner_lender",
+            title: "Owner & Lender",
+            hint: "Used on vendor contracts and lien waivers. Use the owner's exact legal name.",
+            page: "/pages/projects.html",
+            fields: [
+                { name: "owner_entity", label: "Legal owner entity (project-owning entity)", type: "text", placeholder: "e.g. 6828 Market St., LLC" },
+                { name: "owner_name", label: "Owner contact name", type: "text" },
+                { name: "owner_phone", label: "Owner contact phone", type: "tel" },
+                { name: "owner_email", label: "Owner contact email", type: "email" },
+                { name: "site_county", label: "County", type: "text", placeholder: "e.g. New Hanover" },
+                { name: "lender_name", label: "Lender", type: "text", placeholder: "e.g. Dogwood Bank" }
             ]
         },
         {

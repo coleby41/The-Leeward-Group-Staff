@@ -25,10 +25,15 @@
 //       the COI PDF for that project: filed in the project's Files ›
 //       Contracts & Procurement › Vendors, answers the "COI needed" request
 //   project_file_url { project_id, file_id, download? }   their COI / proposal / contract on that project
-//   sign_contract { project_id, name, title?, signature_png, agree }
+//   sign_contract { project_id, name, title?, signature_png, agree, initials?, initialed? }
 //       signs the project's contract in the portal: adds a signature page
 //       (name, title, signature, email, date/time, IP, file fingerprint) to
 //       the PDF, files it in Contracts & Procurement › Vendors.
+//       A contract made with the Contract Builder (generated, 2026-11-19)
+//       also needs the vendor's initials on every page (initialed = every
+//       page's index); they're stamped on each page's first Init: blank and
+//       the signature goes on the contract's signature page. The project's
+//       Project Manager signs for Leeward afterwards (contract-builder).
 //   A project stays LOCKED (no scopes, amounts or proposals) until the
 //   contract is signed, the company has a W-9 on file and this project's
 //   COI is uploaded (exempt / not-needed count as done).
@@ -42,6 +47,7 @@ import { CORS_HEADERS, formatMoney, json, sendEmail, serviceClient } from "../_s
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import { renderTeamInviteEmail } from "../_shared/bid-email.ts";
 import { paperworkState } from "../_shared/paperwork.ts";
+import { type ContractLayout, stampVendor } from "../_shared/contract-pdf.ts";
 import {
   STAFF_PORTAL_URL, TEAM_INVITE_LINK_HOURS, type Row, type VendorContext, clean, createLoginLink,
   findVendorUserByEmail, lang, maskTaxId, normalizeEmail, notifyStaff, requireVendor, safeFileName,
@@ -478,7 +484,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
       ctx.admin.from("project_coi_templates").select("project_id, project_file_id, updated_at").in("project_id", projectIds),
       // This vendor's contract on each project (staff upload it on the project's Accounts page).
       ctx.admin.from("project_vendor_contracts")
-        .select("id, project_id, file_id, signed_file_id, not_needed, signed_at, signed_in_portal, signer_name")
+        .select("id, project_id, file_id, signed_file_id, not_needed, signed_at, signed_in_portal, signer_name, generated, layout, countersigned_file_id, countersigned_at, countersigner_name")
         .eq("company_id", ctx.company!.id).in("project_id", projectIds),
       // Leeward's review of this vendor's paperwork on each project (2026-11-10).
       ctx.admin.from("project_vendor_reviews").select("*")
@@ -491,7 +497,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
 
   // Round 3: file names for everything above.
   const fileIds = [...new Set([
-    ...contractRows.flatMap((c: Row) => [c.file_id, c.signed_file_id]),
+    ...contractRows.flatMap((c: Row) => [c.file_id, c.signed_file_id, c.countersigned_file_id]),
     ...invsOnly.flatMap((r: Row) => [r.coi_file_id, r.proposal_file_id]),
     ...assigned.map((a: Row) => a.coi_file_id),
     ...templates.map((t: Row) => t.project_file_id),
@@ -522,6 +528,12 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
       signed_at: k?.signed_at || null,
       signed_in_portal: Boolean(k?.signed_in_portal),
       signer_name: k?.signer_name || null,
+      // Contract Builder contracts: initial every page, then Leeward's PM signs.
+      generated: Boolean(k?.generated && k?.layout),
+      pages: k?.generated && k?.layout ? ((k.layout as Row).pages || []).map((pg: Row) => pg.label) : [],
+      countersigned_file: kFile(k?.countersigned_file_id),
+      countersigned_at: k?.countersigned_at || null,
+      countersigner_name: k?.countersigner_name || null,
     };
     const done = (key: "contract" | "w9" | "coi") => pw.items[key].state === "submitted" || pw.items[key].state === "exempt";
     const checklist = { contract: done("contract"), w9: done("w9"), coi: done("coi") };
@@ -727,6 +739,7 @@ async function projectFileUrl(ctx: VendorContext, body: Row) {
   const fileId = String(body.file_id || "");
   const allowed = project.coi.file?.id === fileId || project.coi_template?.id === fileId
     || project.contract.file?.id === fileId || project.contract.signed_file?.id === fileId
+    || project.contract.countersigned_file?.id === fileId
     || (!project.locked && project.scopes.some((sc: Row) => sc.proposal?.id === fileId));
   if (!allowed) return fail("not_found", 404);
   const { data: file } = await ctx.admin.from("project_files").select("bucket, storage_path, file_name").eq("id", fileId).maybeSingle();
@@ -771,7 +784,16 @@ async function signContract(ctx: VendorContext, body: Row) {
   if (sigBytes.length > MAX_SIGNATURE_BYTES) return fail("signature_too_big", 400, { fields: ["signature"] });
 
   const { data: contractRow } = await ctx.admin.from("project_vendor_contracts")
-    .select("id, file_id, uploaded_by").eq("project_id", project.id).eq("company_id", ctx.company!.id).maybeSingle();
+    .select("id, file_id, uploaded_by, generated, layout").eq("project_id", project.id).eq("company_id", ctx.company!.id).maybeSingle();
+  // Contract Builder contract: initials on every page first.
+  const layout = contractRow?.generated && contractRow?.layout ? contractRow.layout as ContractLayout : null;
+  const initials = String(body.initials || "").replace(/[^A-Za-z.\- ]/g, "").trim().toUpperCase().slice(0, 6);
+  if (layout) {
+    const done = new Set((Array.isArray(body.initialed) ? body.initialed : []).map((n: unknown) => Number(n)));
+    const allInitialed = layout.pages.every((_: unknown, i: number) => done.has(i));
+    const more = [!initials ? "initials" : null, !allInitialed ? "initialed" : null].filter(Boolean) as string[];
+    if (more.length) return fail("missing_fields", 400, { fields: more });
+  }
   if (!contractRow?.file_id) return fail("no_contract", 409);
   const { data: original } = await ctx.admin.from("project_files").select("bucket, storage_path, file_name").eq("id", contractRow.file_id).maybeSingle();
   if (!original) return fail("no_contract", 409);
@@ -780,15 +802,19 @@ async function signContract(ctx: VendorContext, body: Row) {
   const originalBytes = new Uint8Array(await blob.arrayBuffer());
   const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", originalBytes))).map((b) => b.toString(16).padStart(2, "0")).join("");
 
-  // Original pages, then one signature page.
+  // Original pages, then one signature page. A Contract Builder contract also
+  // gets the initials on every page and the signature on its signature page.
+  const now = new Date();
   let pdf: Row;
-  try { pdf = await PDFDocument.load(originalBytes, { ignoreEncryption: true }); }
-  catch { return fail("bad_contract_pdf", 409); }
+  try {
+    pdf = layout
+      ? await stampVendor(originalBytes, layout, { initials, signaturePng: sigBytes, name: name!, title: title || null, when: now })
+      : await PDFDocument.load(originalBytes, { ignoreEncryption: true });
+  } catch { return fail("bad_contract_pdf", 409); }
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
   const sig = await pdf.embedPng(sigBytes);
   const page = pdf.addPage([612, 792]);
-  const now = new Date();
   const when = now.toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "long", timeStyle: "long" });
   const ink = rgb(0.08, 0.15, 0.23), soft = rgb(0.37, 0.43, 0.49);
   let y = 730;
@@ -806,6 +832,7 @@ async function signContract(ctx: VendorContext, body: Row) {
     ["Project", String(project.name || "")],
     ["Document", String(original.file_name || "")],
     ["Signed by", `${name}${title ? `, ${title}` : ""}`],
+    ...(layout ? [["Initials on every page", `${initials} (${layout.pages.length} pages)`] as [string, string]] : []),
     ["Email", String(ctx.user.email || "")],
     ["Date / time", when],
     ["IP address", String(body._ip || "unknown")],
@@ -838,17 +865,36 @@ async function signContract(ctx: VendorContext, body: Row) {
     signed_file_id: fileRow.id, signed_at: now.toISOString(), signed_in_portal: true,
     signer_name: name, signer_title: title, signer_email: ctx.user.email || null,
     signer_vendor_user_id: ctx.user.id, signer_ip: body._ip || null,
+    ...(layout ? { vendor_initials: initials } : {}),
   }).eq("id", contractRow.id);
   if (error) throw error;
 
   if (contractRow.uploaded_by) {
     await notifyStaff(ctx.admin, [contractRow.uploaded_by], {
       title: "Contract signed",
-      message: `${companyName(ctx)} signed their contract for ${project.name} on the Vendor Portal.`,
+      message: `${companyName(ctx)} signed their contract for ${project.name} on the Vendor Portal.${layout ? " The Project Manager signs it next." : ""}`,
       type: "vendor_document",
       link_url: `${STAFF_PORTAL_URL}/pages/project-accounts.html?id=${project.id}`,
       link_label: "View accounts",
     });
+  }
+  // Contract Builder contract: the project's Project Manager signs next.
+  if (layout) {
+    try {
+      const { data: pmRows } = await ctx.admin.from("project_members").select("user_id").eq("project_id", project.id).eq("role", "project_manager");
+      const authIds = (pmRows || []).map((r: Row) => r.user_id);
+      const { data: pmStaff } = authIds.length ? await ctx.admin.from("staff_users").select("id").in("auth_user_id", authIds) : { data: [] };
+      const ids = (pmStaff || []).map((r: Row) => r.id).filter((sid: string) => sid !== contractRow.uploaded_by);
+      if (ids.length) {
+        await notifyStaff(ctx.admin, ids, {
+          title: "Contract ready for your signature",
+          message: `${companyName(ctx)} signed their contract for ${project.name}. Sign it for Leeward on the project's Accounts page.`,
+          type: "vendor_document",
+          link_url: `${STAFF_PORTAL_URL}/pages/project-accounts.html?id=${project.id}`,
+          link_label: "Sign contract",
+        });
+      }
+    } catch (error) { console.error("PM notify failed (non-fatal):", error); }
   }
   await notifyIfReady(ctx, project.id);
   return json({ ok: true });

@@ -18,7 +18,13 @@
    Utility Accounts — water, sewer, electric … (project_utility_accounts)
      with account #, phone, service address, meter #, status and dates.
 
-   Needs sql/supabase-project-accounts-vendors-setup.sql.
+   Contract Builder (2026-11-19, js/contract-builder.js): "Generate contract"
+     builds Leeward's subcontract from the project + vendor, sends it to the
+     Vendor Portal (vendor initials every page + signs), then the project's
+     Project Manager signs for Leeward here ("Sign for Leeward").
+
+   Needs sql/supabase-project-accounts-vendors-setup.sql and
+   sql/supabase-contract-builder-setup.sql.
    Views open in the portal (window.FilePreview), never a new tab.
 =========================================================== */
 (function () {
@@ -56,6 +62,7 @@
     let contractFiles = {};    // project_files rows by id (contract + signed copies)
     let utilityAccounts = [];
     let openVendorId = null;   // company_id shown in the vendor popup
+    let iAmProjectManager = false; // can sign generated contracts for Leeward
     let busy = false;
     let editingUtilityAccountId = null;
     let pendingDelete = null;
@@ -156,8 +163,12 @@
         if (isPending(v)) return { text: "Pending", tone: "na", meta: "Not awarded yet" };
         const c = contractFor(v);
         if (c?.not_needed) return { text: "Not needed", tone: "na", meta: "" };
+        if (c?.countersigned_file_id) return { text: "Signed", tone: "ok", meta: `Fully signed ${fmtDay(c.countersigned_at)}` };
+        if (c?.generated && c?.signed_file_id) return { text: "Waiting on PM", tone: "warn", meta: `Vendor signed ${fmtDay(c.signed_at)}` };
         if (c?.signed_file_id) return { text: "Signed", tone: "ok", meta: `Signed ${fmtDay(c.signed_at)}${c.signed_in_portal ? " in portal" : ""}` };
         if (c?.file_id) return { text: "Waiting on signature", tone: "warn", meta: `Sent ${fmtDay(c.updated_at || c.created_at)}` };
+        if (c?.builder_status === "not_completed") return { text: "Not completed", tone: "missing", meta: "Contract draft" };
+        if (c?.builder_status === "ready") return { text: "Ready to send", tone: "warn", meta: "Contract draft" };
         if (!needsPaperwork(v)) return { text: "Not needed", tone: "na", meta: "" };
         return { text: "Missing", tone: "missing", meta: "Upload contract" };
     }
@@ -199,13 +210,24 @@
         vendors = (vRes.data || []).map(v => ({ ...v, sources: v.sources || [] }));
         contracts = cRes.data || [];
 
-        const fileIds = [...new Set(contracts.flatMap(c => [c.file_id, c.signed_file_id]).filter(Boolean))];
+        const fileIds = [...new Set(contracts.flatMap(c => [c.file_id, c.signed_file_id, c.countersigned_file_id]).filter(Boolean))];
         contractFiles = {};
         if (fileIds.length) {
             const { data, error } = await db().from(PROJECT_FILES_TABLE).select("id, file_name, bucket, storage_path, created_at, uploaded_by_name").in("id", fileIds);
             if (error) console.error("Failed to load contract files:", error);
             (data || []).forEach(f => { contractFiles[f.id] = f; });
         }
+    }
+
+    // Only the project's Project Manager signs generated contracts for Leeward.
+    async function loadPmRole() {
+        try {
+            const { data: u } = await db().auth.getUser();
+            if (!u?.user) return;
+            const { data } = await db().from("project_members").select("user_id")
+                .eq("project_id", currentProject.id).eq("role", "project_manager").eq("user_id", u.user.id);
+            iAmProjectManager = Boolean(data && data.length);
+        } catch (err) { console.warn("Couldn't check the Project Manager role:", err); }
     }
 
     async function loadUtilities() {
@@ -321,6 +343,34 @@
         } else if (c?.not_needed) {
             body = `<p class="pav-note">Marked as not needed for this vendor.</p>
                 <div class="pav-btn-row"><button type="button" class="workbook-btn workbook-btn--preview" data-contract-action="needed">Contract is needed</button></div>`;
+        } else if (c?.generated && (original || signed)) {
+            // Contract Builder contract.
+            const full = c.countersigned_file_id ? contractFiles[c.countersigned_file_id] : null;
+            const signedOn = c.signed_at ? new Date(c.signed_at).toLocaleString("en-US") : "";
+            if (full) {
+                body += fileRow(full, full.file_name, viewBtns("file", full.id));
+                body += `<p class="pav-note">Signed by ${esc(c.signer_name || "the vendor")}${c.signer_title ? `, ${esc(c.signer_title)}` : ""} on ${esc(signedOn)}, and by ${esc(c.countersigner_name || "the Project Manager")} for Leeward on ${esc(new Date(c.countersigned_at).toLocaleString("en-US"))}.</p>`;
+            } else if (signed) {
+                body += fileRow(signed, signed.file_name, viewBtns("file", signed.id));
+                body += `<p class="pav-note">The vendor initialed every page and signed on ${esc(signedOn)}. Waiting on the Project Manager to sign for Leeward.</p>`;
+                body += iAmProjectManager
+                    ? `<div class="pav-btn-row"><button type="button" class="auth-button" data-contract-sign>Sign for Leeward</button></div>`
+                    : `<p class="pav-note">Only this project's Project Manager can sign it (Project Members).</p>`;
+            } else {
+                body += fileRow(original, original.file_name, viewBtns("file", original.id));
+                body += `<p class="pav-note">Sent. Waiting on the vendor to initial every page and sign it in the Vendor Portal. Their project stays locked until it's signed.</p>`;
+            }
+            if (!full) body += `<div class="pav-btn-row"><button type="button" class="workbook-btn workbook-btn--preview" data-contract-generate>Edit &amp; send a new version</button></div>`;
+        } else if (!original && !signed && window.ContractBuilder) {
+            // Nothing sent yet: build it (or upload one made elsewhere).
+            const draft = c?.builder_status;
+            const missingCount = (c?.builder_missing || []).length;
+            body += `<div class="cb-actions">
+                ${draft ? `<p class="pav-note">${draft === "ready" ? "Contract draft is ready to send." : `Contract draft — not completed (${missingCount} item${missingCount === 1 ? "" : "s"} missing).`}</p>` : `<p class="pav-note">Build the Leeward subcontract from this project and vendor, with Exhibits B–F attached.</p>`}
+                <button type="button" class="auth-button" data-contract-generate>${draft ? "Continue contract" : "Generate contract"}</button>
+                <button type="button" class="pav-link-btn" data-contract-upload-toggle>Upload a contract instead</button>
+            </div>`;
+            body += `<div class="hidden" id="contractUploadWrap">${uploadForm(false)}</div>`;
         } else {
             if (signed) {
                 body += fileRow(signed, signed.file_name, viewBtns("file", signed.id));
@@ -329,17 +379,8 @@
                 body += fileRow(original, original.file_name, viewBtns("file", original.id));
                 body += `<p class="pav-note">Waiting on the vendor to sign it in the Vendor Portal. Their project stays locked until it's signed.</p>`;
             }
-            body += `
-                <form class="pav-upload" id="contractUploadForm">
-                    <label class="auth-field pav-upload-field">${original || signed ? "Upload a new contract" : "Contract PDF"}
-                        <input type="file" name="file" accept="application/pdf,.pdf">
-                    </label>
-                    <label class="pav-check"><input type="checkbox" name="already_signed"> This copy is already signed</label>
-                    <div class="pav-btn-row">
-                        <button type="submit" class="auth-button" id="contractUploadBtn">Upload Contract</button>
-                        ${!original && !signed ? `<button type="button" class="workbook-btn workbook-btn--preview" data-contract-action="not_needed">Not needed</button>` : ""}
-                    </div>
-                </form>`;
+            body += uploadForm(Boolean(original || signed));
+            if (window.ContractBuilder && (original || signed)) body += `<div class="pav-btn-row"><button type="button" class="pav-link-btn" data-contract-generate>Generate a contract instead</button></div>`;
         }
         return `<div class="pav-doc">
             <div class="pav-doc-head">
@@ -348,6 +389,21 @@
             </div>
             ${body}
         </div>`;
+    }
+
+    // The upload form (a contract made outside the portal).
+    function uploadForm(hasFile) {
+        return `
+                <form class="pav-upload" id="contractUploadForm">
+                    <label class="auth-field pav-upload-field">${hasFile ? "Upload a new contract" : "Contract PDF"}
+                        <input type="file" name="file" accept="application/pdf,.pdf">
+                    </label>
+                    <label class="pav-check"><input type="checkbox" name="already_signed"> This copy is already signed</label>
+                    <div class="pav-btn-row">
+                        <button type="submit" class="auth-button" id="contractUploadBtn">Upload Contract</button>
+                        ${!hasFile ? `<button type="button" class="workbook-btn workbook-btn--preview" data-contract-action="not_needed">Not needed</button>` : ""}
+                    </div>
+                </form>`;
     }
 
     function w9Section(v) {
@@ -447,7 +503,11 @@
             if (fileError) throw fileError;
             contractFiles[fileRowData.id] = fileRowData;
 
-            const base = { file_id: fileRowData.id, not_needed: false, uploaded_by: getStaffId(), uploaded_by_name: getStaffName() };
+            // An uploaded contract replaces any generated one (Contract Builder).
+            const base = { file_id: fileRowData.id, not_needed: false, uploaded_by: getStaffId(), uploaded_by_name: getStaffName(),
+                generated: false, layout: null, builder_status: null, vendor_initials: null,
+                countersigned_file_id: null, countersigned_at: null, countersigner_name: null, countersigner_title: null,
+                countersigner_user_id: null, countersigner_ip: null, agreement_date: null };
             const patch = alreadySigned
                 ? { ...base, signed_file_id: fileRowData.id, signed_at: new Date().toISOString(), signed_in_portal: false,
                     signer_name: null, signer_title: null, signer_email: null, signer_vendor_user_id: null, signer_ip: null }
@@ -476,6 +536,30 @@
         } catch (err) {
             setPopupMessage(err?.message || "Couldn't save.", "error");
         } finally { busy = false; }
+    }
+
+    /* ---------- Contract Builder ---------- */
+
+    async function refreshAfterContract() {
+        await loadVendors();
+        renderVendors();
+        if (openVendorId) renderVendorPopup();
+    }
+
+    function openContractBuilder() {
+        const v = vendors.find(x => String(x.company_id) === String(openVendorId));
+        if (!v || !window.ContractBuilder) return;
+        window.ContractBuilder.open(currentProject.id, v, refreshAfterContract);
+    }
+
+    function openContractSign() {
+        const v = vendors.find(x => String(x.company_id) === String(openVendorId));
+        const c = v && contractFor(v);
+        if (!c?.signed_file_id || !window.ContractBuilder) return;
+        window.ContractBuilder.openSign(currentProject.id, v, refreshAfterContract, {
+            vendorNote: `${c.signer_name || ""}${c.signer_title ? `, ${c.signer_title}` : ""} · ${new Date(c.signed_at).toLocaleString("en-US")} · initialed every page`,
+            onViewVendorCopy: () => openDoc("file", c.signed_file_id, false)
+        });
     }
 
     /* ---------- request COI (bid-invites › request_coi) ---------- */
@@ -753,6 +837,13 @@
             const dl = e.target.closest("[data-doc-download]");
             if (dl) { openDoc(dl.dataset.docDownload, dl.dataset.docId, true); return; }
 
+            const gen = e.target.closest("[data-contract-generate]");
+            if (gen) { openContractBuilder(); return; }
+            const sg = e.target.closest("[data-contract-sign]");
+            if (sg) { openContractSign(); return; }
+            const ut = e.target.closest("[data-contract-upload-toggle]");
+            if (ut) { $("contractUploadWrap")?.classList.toggle("hidden"); return; }
+
             const ca = e.target.closest("[data-contract-action]");
             if (ca) { setContractNeeded(ca.dataset.contractAction === "needed"); return; }
             const rc = e.target.closest("[data-request-coi]");
@@ -793,7 +884,7 @@
         currentProject = project;
         wire();
         try { await window.Permissions?.initPermissions?.(); } catch { /* fails open */ }
-        await Promise.all([loadVendors(), loadUtilities()]);
+        await Promise.all([loadVendors(), loadUtilities(), loadPmRole()]);
         renderVendors();
         renderUtilities();
         $("accountsLoadingState").style.display = "none";
