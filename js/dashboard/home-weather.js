@@ -96,12 +96,63 @@
     return d.innerHTML;
   }
   const r = (n) => (n == null || Number.isNaN(n) ? "—" : Math.round(n));
-  // Night versions of the sunny icons (is_day = 0 from the forecast).
-  const NIGHT = { 0: "🌙", 1: "🌙", 2: "☁️", 51: "🌧️", 53: "🌧️", 61: "🌧️", 80: "🌧️" };
+  /* ---------- weather icons ----------
+     Drawn here as SVG (not emoji) so they look the same on every phone,
+     computer and browser. 32×32, colors fixed. */
+  const C = { sun: "#f5a524", moon: "#8ea6c9", cloud: "#b9c7d6", cloudDark: "#93a4b8", rain: "#2f7fc1", snow: "#7fb2e5", bolt: "#f5a524", fog: "#9aa6b2" };
+  const sunShape = (cx, cy, r, ray) => {
+    let rays = "";
+    for (let k = 0; k < 8; k++) {
+      const a = (k * Math.PI) / 4, c = Math.cos(a), s = Math.sin(a);
+      rays += `<line x1="${(cx + c * (r + 2.2)).toFixed(1)}" y1="${(cy + s * (r + 2.2)).toFixed(1)}" x2="${(cx + c * (r + 2.2 + ray)).toFixed(1)}" y2="${(cy + s * (r + 2.2 + ray)).toFixed(1)}"/>`;
+    }
+    return `<g stroke="${C.sun}" stroke-width="2" stroke-linecap="round">${rays}</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="${C.sun}"/>`;
+  };
+  const moonShape = (cx, cy, r) =>
+    `<path fill="${C.moon}" d="M${cx + r * 0.35} ${cy - r}a${r} ${r} 0 1 0 ${r * 0.65} ${r * 1.55}A${r * 0.8} ${r * 0.8} 0 0 1 ${cx + r * 0.35} ${cy - r}z"/>`;
+  const cloudShape = (dy = 0, fill = C.cloud) =>
+    `<g fill="${fill}" transform="translate(0 ${dy})"><circle cx="11" cy="20.5" r="4.5"/><circle cx="17" cy="17" r="6.5"/><circle cx="23" cy="21" r="4"/><rect x="11" y="20" width="12" height="5"/></g>`;
+  const drops = (n, kind) => {
+    const xs = n === 2 ? [12, 20] : [10.5, 16, 21.5];
+    return xs.map((x, i) => kind === "snow"
+      ? `<g stroke="${C.snow}" stroke-width="1.4" stroke-linecap="round" transform="translate(${x} ${27 + (i % 2) * 1.5})"><line x1="0" y1="-2.2" x2="0" y2="2.2"/><line x1="-1.9" y1="-1.1" x2="1.9" y2="1.1"/><line x1="-1.9" y1="1.1" x2="1.9" y2="-1.1"/></g>`
+      : kind === "drizzle"
+        ? `<circle cx="${x}" cy="${27.5 + (i % 2) * 1.5}" r="1.1" fill="${C.rain}"/>`
+        : `<line x1="${x + 1}" y1="25.5" x2="${x - 0.5}" y2="29.5" stroke="${C.rain}" stroke-width="2" stroke-linecap="round"/>`).join("");
+  };
+  const svg = (body) => `<svg class="wx-svg" viewBox="0 0 32 32" aria-hidden="true">${body}</svg>`;
+  const WX = {
+    sun: () => svg(sunShape(16, 16, 6, 3)),
+    moon: () => svg(moonShape(15, 16, 9)),
+    partlyDay: () => svg(sunShape(11.5, 11, 4.5, 2.2) + cloudShape(2)),
+    partlyNight: () => svg(moonShape(11, 11.5, 7.5) + cloudShape(3)),
+    cloud: () => svg(cloudShape(-5, C.cloudDark) + cloudShape(1)),
+    fog: () => svg(cloudShape(-5) + `<g stroke="${C.fog}" stroke-width="2" stroke-linecap="round"><line x1="6" y1="24" x2="26" y2="24"/><line x1="9" y1="28" x2="23" y2="28"/></g>`),
+    drizzle: () => svg(cloudShape(-4) + drops(3, "drizzle")),
+    rain: () => svg(cloudShape(-4) + drops(3, "rain")),
+    snow: () => svg(cloudShape(-4) + drops(3, "snow")),
+    sleet: () => svg(cloudShape(-4) + drops(2, "rain") + `<circle cx="16" cy="28" r="1.5" fill="${C.snow}"/>`),
+    thunder: () => svg(cloudShape(-4, C.cloudDark) + `<path d="M17.5 21l-4 6h3l-1.5 4.5 5-6.5h-3l1.5-4z" fill="${C.bolt}"/>`),
+    sunrise: () => svg(`<line x1="4" y1="24" x2="28" y2="24" stroke="${C.fog}" stroke-width="2" stroke-linecap="round"/><path d="M9 24a7 7 0 0 1 14 0z" fill="${C.sun}"/><path d="M16 6v8M12.5 9.5 16 6l3.5 3.5" fill="none" stroke="${C.sun}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`),
+    sunset: () => svg(`<line x1="4" y1="24" x2="28" y2="24" stroke="${C.fog}" stroke-width="2" stroke-linecap="round"/><path d="M9 24a7 7 0 0 1 14 0z" fill="${C.sun}"/><path d="M16 6v8M12.5 10.5 16 14l3.5-3.5" fill="none" stroke="${C.sun}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`),
+  };
+  window.HomeWeatherIcons = WX;
+  function kindOf(c, isDay) {
+    const night = isDay === 0;
+    if (c === 0) return night ? "moon" : "sun";
+    if (c === 1 || c === 2) return night ? "partlyNight" : "partlyDay";
+    if (c === 3) return "cloud";
+    if (c === 45 || c === 48) return "fog";
+    if (c >= 51 && c <= 55) return "drizzle";
+    if (c === 56 || c === 57 || c === 66 || c === 67) return "sleet";
+    if ((c >= 61 && c <= 65) || (c >= 80 && c <= 82)) return "rain";
+    if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "snow";
+    if (c >= 95) return "thunder";
+    return "cloud";
+  }
   function codeOf(c, isDay) {
-    const base = WMO_CODES[c] || { icon: "🌡️", label: "—" };
-    if (isDay === 0 && NIGHT[c]) return { icon: NIGHT[c], label: c === 0 ? "Clear" : base.label };
-    return base;
+    const base = WMO_CODES[c] || { label: "—" };
+    return { icon: WX[kindOf(c, isDay)](), label: isDay === 0 && c === 0 ? "Clear" : base.label };
   }
   // "2026-11-19T17:04" → "5:04p"
   function clock(t) {
@@ -163,7 +214,7 @@
     const desc = document.getElementById("weatherDesc");
     if (desc) desc.textContent = code.label;
     const icon = document.getElementById("weatherIcon");
-    if (icon) { icon.textContent = code.icon; icon.title = code.label; }
+    if (icon) { icon.innerHTML = code.icon; icon.title = code.label; }
   }
 
   /* ---------- forecast pop-up ---------- */
@@ -180,7 +231,7 @@
     const d = lastData.daily || {};
     const code = codeOf(c.weather_code, c.is_day);
     document.getElementById("wfPlace").textContent = placeText(currentLoc);
-    document.getElementById("wfIcon").textContent = code.icon;
+    document.getElementById("wfIcon").innerHTML = code.icon;
     document.getElementById("wfTemp").textContent = `${r(c.temperature_2m)}°`;
     document.getElementById("wfDesc").innerHTML = `${esc(code.label)} <span class="hm-nowrap">· H ${r(d.temperature_2m_max?.[0])}°  L ${r(d.temperature_2m_min?.[0])}°</span>`;
     document.getElementById("wfFeels").textContent = `${r(c.apparent_temperature)}°`;
@@ -188,6 +239,7 @@
     document.getElementById("wfHumidity").textContent = `${r(c.relative_humidity_2m)}%`;
     document.getElementById("wfRain").textContent = `${r(d.precipitation_probability_max?.[0])}%`;
     const sunEl = (id, t) => { const el = document.getElementById(id); if (el) el.textContent = t ? clock(t).replace(/([ap])$/, " $1M").toUpperCase() : "—"; };
+    document.querySelectorAll(".wx-dt[data-wx]").forEach(el => { if (!el.firstChild) el.innerHTML = WX[el.dataset.wx](); });
     sunEl("wfSunrise", d.sunrise?.[0]);
     sunEl("wfSunset", d.sunset?.[0]);
 
@@ -198,8 +250,8 @@
     let start = times.findIndex(t => t.slice(0, 13) >= nowHour);
     if (start < 0) start = 0;
     const sunEvents = [
-      ...(d.sunrise || []).map(t => ({ t, kind: "Sunrise", icon: "🌅" })),
-      ...(d.sunset || []).map(t => ({ t, kind: "Sunset", icon: "🌇" })),
+      ...(d.sunrise || []).map(t => ({ t, kind: "Sunrise", icon: WX.sunrise() })),
+      ...(d.sunset || []).map(t => ({ t, kind: "Sunset", icon: WX.sunset() })),
     ].filter(e => e.t).sort((a, b) => a.t.localeCompare(b.t));
     const cells = [];
     times.slice(start, start + 24).forEach((t, i) => {

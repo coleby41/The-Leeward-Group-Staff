@@ -15,7 +15,7 @@
     <meta name="theme-color" content="#ffffff">
     <title>Leeward Staff Portal | Dashboard</title>
 
-    <link rel="stylesheet" href="/css/styles.css?v=20261119b">
+    <link rel="stylesheet" href="/css/styles.css?v=20261119c">
     <script src="/js/splash.js"></script>
     <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
     <!-- Vercel Web Analytics -->
@@ -449,7 +449,7 @@
 
         <div class="hm-stat hm-weather">
             <button type="button" class="hm-weather-now" id="weatherOpenForecast" aria-haspopup="dialog" aria-label="Open the forecast">
-                <span class="hm-weather-icon" id="weatherIcon" aria-hidden="true">⛅</span>
+                <span class="hm-weather-icon" id="weatherIcon" aria-hidden="true"></span>
                 <span class="hm-stat-value"><span id="weatherBody" data-paint-cache="weather">—</span> <span class="hm-weather-desc" id="weatherDesc"></span></span>
                 <span class="hm-weather-more" aria-hidden="true">Forecast ›</span>
             </button>
@@ -568,8 +568,8 @@
                     <div><dt>Wind</dt><dd id="wfWind">—</dd></div>
                     <div><dt>Humidity</dt><dd id="wfHumidity">—</dd></div>
                     <div><dt>Rain today</dt><dd id="wfRain">—</dd></div>
-                    <div><dt>🌅 Sunrise</dt><dd id="wfSunrise">—</dd></div>
-                    <div><dt>🌇 Sunset</dt><dd id="wfSunset">—</dd></div>
+                    <div><dt><span class="wx-dt" data-wx="sunrise"></span>Sunrise</dt><dd id="wfSunrise">—</dd></div>
+                    <div><dt><span class="wx-dt" data-wx="sunset"></span>Sunset</dt><dd id="wfSunset">—</dd></div>
                 </dl>
             </section>
 

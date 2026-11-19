@@ -19946,3 +19946,11 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 .hm-fc-facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .hm-fc-hour--sun strong { font-size: 0.72rem; font-weight: 700; color: #b45309; }
 .hm-fc-hour--sun .hm-fc-hour-t { color: #b45309; }
+
+/* Weather icons are SVG now (same look on every device), 2026-11-19 */
+.wx-svg { display: block; width: 1em; height: 1em; overflow: visible; }
+.hm-weather-icon { display: inline-flex; font-size: 2.6rem; }
+.hm-fc-icon, .hm-forecast .hm-fc-icon { display: inline-flex; font-size: 3.6rem; }
+.hm-fc-hour-i { display: flex; justify-content: center; font-size: 1.7rem; margin: 2px 0; }
+.hm-fc-day-i { display: flex; justify-content: center; font-size: 1.55rem; }
+.wx-dt { display: inline-flex; vertical-align: -3px; margin-right: 4px; font-size: 1rem; }
