@@ -127,23 +127,11 @@
     if (old) location.replace(`/pages/calendar.html?event=${encodeURIComponent(old)}`);
   }
 
-  // Home: "+ Event" goes to the Calendar page.
+  // Home: the "Calender For You" title opens the Calendar page.
   document.addEventListener("DOMContentLoaded", () => {
+    // Home header is just the title + Rows / Calendar (2026-11-20). Adding events,
+    // linking calendars and settings all live on the Calendar page now.
     const tools = document.querySelector(".hm-today-tools");
-    if (tools && !document.getElementById("myEventAddLink")) {
-      const add = document.createElement("a");
-      add.href = "/pages/calendar.html?new=1"; add.id = "myEventAddLink"; add.textContent = "+ Event";
-      const open = document.createElement("a");
-      open.href = "/pages/calendar.html"; open.id = "openCalendarLink"; open.textContent = "Open calendar ›";
-      open.style.fontWeight = "700";
-      const toggle = tools.querySelector(".hm-view-toggle");
-      tools.insertBefore(open, toggle ? toggle.nextSibling : tools.firstChild);
-      tools.insertBefore(add, open);
-      add.addEventListener("click", (e) => {
-        const day = document.querySelector("#todayCalendar:not([hidden]) [aria-pressed='true'][data-day]")?.dataset.day;
-        if (day) { e.preventDefault(); location.href = `/pages/calendar.html?new=1&date=${day}`; }
-      });
-    }
     // "Calender For You" heading opens the Calendar page.
     const head = tools?.closest(".hm-section-head")?.querySelector("h2");
     if (head && !head.querySelector("a")) {

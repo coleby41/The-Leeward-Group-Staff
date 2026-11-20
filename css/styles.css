@@ -20097,3 +20097,9 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 /* Home: "Calender For You ›" opens the Staff Calendar (js/dashboard/my-calendar.js) — 2026-11-20 */
 .hm-cal-head-link { color: inherit; text-decoration: none; }
 .hm-cal-head-link:hover { color: #085c98; }
+
+/* Home "Calender For You": just the title + Rows / Calendar (2026-11-20).
+   Link calendar / Manage moved to the Calendar page's settings. */
+.hm-today-tools #linkCalendarLink,
+.hm-today-tools #manageCalendarLink { display: none !important; }
+.hm-section-head h2 .hm-cal-head-link { white-space: nowrap; }

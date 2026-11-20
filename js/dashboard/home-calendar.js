@@ -106,9 +106,9 @@
     const laterKey = `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, "0")}-${String(later.getDate()).padStart(2, "0")}`;
     const mine = window.MyCalendar ? (await window.MyCalendar.occurrences(todayKey, laterKey).catch(() => [])).filter(o => o.end > now) : [];
 
-    if (!conns.length && !mine.length) { listEl.innerHTML = '<p class="card-subtitle">Nothing on your calendar yet. Use "+ Event" to add one, or "Link calendar" to connect Outlook, Google or iCloud.</p>'; return; }
+    if (!conns.length && !mine.length) { listEl.innerHTML = '<p class="card-subtitle">Nothing on your calendar yet. <a href="/pages/calendar.html">Open your calendar</a> to add an event or link Google.</p>'; return; }
     const broken = conns.filter(c => c.status === "error");
-    const warn = broken.length ? `<p class="card-subtitle">${esc(broken.map(c => c.external_account_email || c.provider_label).join(", "))} needs attention. Open "Manage" to fix it.</p>` : "";
+    const warn = broken.length ? `<p class="card-subtitle">${esc(broken.map(c => c.external_account_email || c.provider_label).join(", "))} needs attention. Fix it in <a href="/pages/calendar-settings.html">calendar settings</a>.</p>` : "";
 
     const { data: syncedRows, error } = conns.length ? await DS.safeQuery("calendar rows", window.supabaseClient.from("calendar_events_cache")
       .select("id, title, start_time, end_time, location, all_day, account_id").gte("end_time", new Date().toISOString()).order("start_time").limit(MAX_ROWS)) : { data: [], error: null };
