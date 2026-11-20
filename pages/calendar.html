@@ -164,15 +164,13 @@
                     <button type="button" data-view="month">Month</button>
                     <button type="button" data-view="agenda">Agenda</button>
                 </span>
-                <button type="button" class="cal-icon-btn" id="calSettingsBtn" aria-label="Calendar settings" title="Settings">⚙</button>
+                <a href="/pages/calendar-settings.html" class="cal-icon-btn cal-icon-link" id="calSettingsBtn" aria-label="Calendar settings" title="Settings">⚙</a>
                 <button type="button" class="cal-icon-btn" id="calHelpBtn" aria-label="How to set up your calendar" title="Setting up your calendar">?</button>
             </div>
             <div class="cal-invites" id="calInvites" hidden></div>
             <div id="calBody" class="cal-body"><p class="cal-empty">Loading your calendar…</p></div>
         </section>
     </div>
-    <!-- Settings: its own full page (calendar.html?settings), filled in by js/calendar-page.js -->
-    <section id="calSettingsPage" class="cal-settings-page" hidden></section>
     <button type="button" class="cal-fab" data-create aria-label="New event">+</button>
 </main>
 

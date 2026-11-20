@@ -301,9 +301,7 @@
 }
 @media (min-width: 761px) { .cal-fab { display: none; } }
 
-/* ---------- Settings: its own full page (?settings) ---------- */
-body.cal-settings-open .cal-page > .nc-back-link,
-body.cal-settings-open .cal-fab { display: none; }
+/* ---------- Settings: its own page (pages/calendar-settings.html) ---------- */
 .cal-set-head { margin-bottom: 18px; }
 .cal-set-back { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; }
 .cal-set-head h1 { margin: 6px 0 0; font-size: 28px; font-weight: 800; color: #14263a; }
@@ -327,3 +325,5 @@ body.cal-settings-open .cal-fab { display: none; }
   .cal-set-head h1 { font-size: 22px; }
   .cal-set-card { padding: 16px; border-radius: 14px; }
 }
+
+.cal-icon-link { display: inline-grid; place-items: center; text-decoration: none; }
