@@ -310,14 +310,9 @@
 .cal-set-nav a { color: #14263a; text-decoration: none; font-weight: 700; font-size: 14px; padding: 8px 12px; border-radius: 8px; }
 .cal-set-nav a:hover { background: rgba(8, 92, 152, .08); color: #085c98; }
 .cal-set-nav .cal-text-btn { padding: 8px 12px; margin-top: 8px; }
-/* One light glass sheet; sections are split by the navy rule, not boxed (fewer cards). */
-.cal-set-body {
-  display: flex; flex-direction: column;
-  background: rgba(255, 255, 255, .72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(20, 38, 58, .08); border-radius: 18px; padding: 6px 26px 22px;
-  box-shadow: 0 10px 30px rgba(10, 24, 36, .06);
-}
-.cal-set-card { margin: 0; padding: 22px 0 6px; scroll-margin-top: 90px; }
+/* No cards: sections sit right on the page, split by the navy rule. */
+.cal-set-body { display: flex; flex-direction: column; }
+.cal-set-card { margin: 0; padding: 0 0 30px; scroll-margin-top: 90px; }
 .cal-set-card:last-child { border-bottom: 0; padding-bottom: 4px; }
 .cal-set-card > h3 { font-size: 16px; }
 .cal-set-card .cal-form { gap: 12px; }
@@ -347,8 +342,7 @@
   .cal-set-nav { position: static; flex-direction: row; overflow-x: auto; border-left: 0; padding: 0; gap: 6px; }
   .cal-set-nav a, .cal-set-nav .cal-text-btn { white-space: nowrap; background: rgba(20, 38, 58, .06); border-radius: 999px; margin: 0; }
   .cal-set-head h1 { font-size: 22px; }
-  .cal-set-body { padding: 2px 16px 16px; border-radius: 14px; }
-  .cal-set-card { padding: 18px 0; }
+  .cal-set-card { padding: 0 0 24px; }
   .cal-colors-name { min-width: 0; flex-basis: 100%; }
 }
 
