@@ -20056,7 +20056,7 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 
 /* ===========================================================
    My Calendar (js/dashboard/my-calendar.js) — 2026-11-20
-   Event popup + iPhone widget popup on Home. Phone: bottom sheets over
+   Event popup on Home. Phone: bottom sheets over
    a blurred page, closed by swiping down.
 =========================================================== */
 .popup.mycal-popup { width: min(94vw, 560px); max-height: 92vh; overflow-y: auto; }
@@ -20081,8 +20081,6 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 .mycal-chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
 .mycal-hint { margin: 6px 0 0; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; }
 .mycal-hint:empty { display: none; }
-.mycal-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; line-height: 1.45; }
-.mycal-script { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; resize: vertical; }
 .mycal-foot { justify-content: space-between; align-items: center; margin-top: 4px; }
 .mycal-foot-right { display: inline-flex; gap: 10px; flex-wrap: wrap; }
 .mycal-foot-right .auth-button { margin-top: 0; }

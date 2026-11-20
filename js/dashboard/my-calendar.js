@@ -9,8 +9,6 @@
        monthly / yearly, optional end date) and phone reminders (pick any).
      - Reminders are push notifications to your phone only (not the bell);
        sent by push-send every minute (sql/supabase-my-calendar-setup.sql).
-     - "iPhone widget" sets up the Scriptable widget: makes your private
-       widget link and the script to paste (my-calendar Edge Function).
      - Opening /pages/dashboard?event=<id> (tapping a reminder) opens it.
    Table: my_calendar_events (only your own rows, RLS).
 
@@ -145,40 +143,11 @@
       </div>
     </form>
   </div>
-</div>
-<div class="popup-overlay popup-overlay--blur hidden" id="myWidgetOverlay">
-  <div class="popup mycal-popup" role="dialog" aria-modal="true" aria-labelledby="myWidgetTitle">
-    <div class="mycal-head">
-      <h2 id="myWidgetTitle">iPhone widget</h2>
-      <button type="button" class="pav-close-btn" data-widget-close aria-label="Close">✕</button>
-    </div>
-    <div class="mycal-form">
-      <p class="mycal-hint" style="margin:0">Shows your next events on your Home Screen. It uses the free <strong>Scriptable</strong> app.</p>
-      <ol class="mycal-steps">
-        <li>Install <strong>Scriptable</strong> from the App Store.</li>
-        <li>Tap <strong>Make my widget</strong> below, then <strong>Copy script</strong>.</li>
-        <li>In Scriptable, tap <strong>+</strong>, paste, and name it <strong>Leeward Calendar</strong>.</li>
-        <li>On your Home Screen, press and hold › <strong>Edit</strong> › <strong>Add Widget</strong> › <strong>Scriptable</strong>, pick a size, add it.</li>
-        <li>Press and hold the new widget › <strong>Edit Widget</strong> › Script: <strong>Leeward Calendar</strong>.</li>
-      </ol>
-      <div id="myWidgetBody"></div>
-      <p class="auth-message" id="myWidgetMessage" role="status"></p>
-      <div class="popup-buttons mycal-foot">
-        <button type="button" class="mycal-delete" id="myWidgetOff">Turn off widget link</button>
-        <span class="mycal-foot-right">
-          <button type="button" class="auth-button auth-button--secondary sheet-close" data-widget-close>Close</button>
-          <button type="button" class="auth-button" id="myWidgetMake">Make my widget</button>
-        </span>
-      </div>
-    </div>
-  </div>
 </div>`;
     document.body.append(...wrap.children);
     const form = $("myEventForm");
     document.querySelectorAll("[data-mycal-close]").forEach(b => b.addEventListener("click", closeEvent));
-    document.querySelectorAll("[data-widget-close]").forEach(b => b.addEventListener("click", closeWidget));
     $("myEventOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeEvent(); });
-    $("myWidgetOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeWidget(); });
     form.addEventListener("submit", save);
     form.elements.all_day.addEventListener("change", syncForm);
     form.elements.repeat.addEventListener("change", syncForm);
@@ -195,12 +164,9 @@
       }
     });
     $("myEventDelete").addEventListener("click", remove);
-    $("myWidgetMake").addEventListener("click", makeWidget);
-    $("myWidgetOff").addEventListener("click", widgetOff);
     document.addEventListener("keydown", e => {
       if (e.key !== "Escape") return;
       if (!$("myEventOverlay").classList.contains("hidden")) closeEvent();
-      if (!$("myWidgetOverlay").classList.contains("hidden")) closeWidget();
     });
   }
 
@@ -333,130 +299,6 @@
     } finally { busy = false; }
   }
 
-  /* ---------- iPhone widget (Scriptable) ---------- */
-
-  async function callFn(action) {
-    const cfg = window.SUPABASE_CONFIG || {};
-    const { data: { session } } = await sb().auth.getSession();
-    const res = await fetch(`${cfg.url}/functions/v1/my-calendar`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", apikey: cfg.anonKey || "", Authorization: `Bearer ${session ? session.access_token : cfg.anonKey}` },
-      body: JSON.stringify({ action })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.ok === false) throw new Error(data.error || `The calendar service returned ${res.status}.`);
-    return data;
-  }
-
-  function script(token) {
-    const cfg = window.SUPABASE_CONFIG || {};
-    return `// Leeward — My Calendar widget (Scriptable). Made in the staff portal.
-// This link is private: don't share it. Make a new one on Home › iPhone widget.
-const FEED = "${cfg.url}/functions/v1/my-calendar?token=${token}";
-const PORTAL = "${location.origin}/pages/dashboard";
-const NAVY = new Color("#0b2236"), SOFT = new Color("#c8d6e2"), ACCENT = new Color("#7cc0ff");
-
-let data;
-try {
-  const req = new Request(FEED);
-  req.headers = { apikey: "${cfg.anonKey || ""}" };
-  data = await req.loadJSON();
-} catch (e) { data = { ok: false, error: "Can't reach the portal right now." }; }
-
-const family = config.widgetFamily || "medium";
-const max = family === "small" ? 2 : family === "large" ? 7 : 3;
-const w = new ListWidget();
-w.backgroundColor = NAVY;
-w.url = PORTAL;
-w.setPadding(14, 14, 12, 14);
-
-const head = w.addText("LEEWARD · MY CALENDAR");
-head.font = Font.boldSystemFont(10); head.textColor = ACCENT;
-w.addSpacer(8);
-
-function dayLabel(d) {
-  const t = new Date(); t.setHours(0, 0, 0, 0);
-  const x = new Date(d); x.setHours(0, 0, 0, 0);
-  const diff = Math.round((x - t) / 86400000);
-  if (diff <= 0) return "Today";
-  if (diff === 1) return "Tomorrow";
-  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-}
-
-if (!data || !data.ok) {
-  const t = w.addText((data && data.error) || "Couldn't load your calendar.");
-  t.font = Font.systemFont(12); t.textColor = Color.white();
-} else if (!data.events.length) {
-  const t = w.addText("Nothing in the next 2 weeks.");
-  t.font = Font.systemFont(13); t.textColor = Color.white();
-} else {
-  for (const ev of data.events.slice(0, max)) {
-    const s = new Date(ev.start);
-    const when = dayLabel(s) + " · " + (ev.all_day ? "All day" : s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
-    const a = w.addText(ev.title);
-    a.font = Font.semiboldSystemFont(family === "small" ? 12 : 14); a.textColor = Color.white(); a.lineLimit = 1;
-    const b = w.addText(when + (ev.location && family !== "small" ? " · " + ev.location : ""));
-    b.font = Font.systemFont(11); b.textColor = SOFT; b.lineLimit = 1;
-    w.addSpacer(6);
-  }
-}
-w.addSpacer();
-w.refreshAfterDate = new Date(Date.now() + 15 * 60000);
-if (config.runsInWidget) Script.setWidget(w); else await w.presentMedium();
-Script.complete();
-`;
-  }
-
-  async function openWidget() {
-    inject();
-    message("myWidgetMessage", "");
-    $("myWidgetBody").innerHTML = "";
-    $("myWidgetOff").hidden = true;
-    show("myWidgetOverlay");
-    try {
-      const st = await callFn("widget_status");
-      $("myWidgetOff").hidden = !st.on;
-      $("myWidgetMake").textContent = st.on ? "Make a new widget link" : "Make my widget";
-      if (st.on) $("myWidgetBody").innerHTML = `<p class="mycal-hint">Your widget link is on${st.last_used_at ? ` (last used ${esc(new Date(st.last_used_at).toLocaleString("en-US"))})` : ""}. Making a new one turns the old one off, so you'd paste the new script into Scriptable.</p>`;
-    } catch (err) { message("myWidgetMessage", err.message, "error"); }
-  }
-  function closeWidget() { if (!busy) hide("myWidgetOverlay"); }
-
-  async function makeWidget() {
-    if (busy) return;
-    busy = true;
-    $("myWidgetMake").disabled = true;
-    try {
-      const { token } = await callFn("widget_token");
-      const code = script(token);
-      $("myWidgetBody").innerHTML = `
-        <label class="auth-field">Script<textarea class="mycal-script" readonly rows="6">${esc(code)}</textarea></label>
-        <button type="button" class="auth-button" id="myWidgetCopy">Copy script</button>`;
-      $("myWidgetCopy").addEventListener("click", async () => {
-        try { await navigator.clipboard.writeText(code); window.showToast?.("Script copied. Paste it into Scriptable."); }
-        catch { const ta = document.querySelector(".mycal-script"); ta.focus(); ta.select(); document.execCommand?.("copy"); window.showToast?.("Script copied."); }
-      });
-      $("myWidgetOff").hidden = false;
-      $("myWidgetMake").textContent = "Make a new widget link";
-      message("myWidgetMessage", "Widget link made. Copy the script into Scriptable.", "success");
-    } catch (err) {
-      message("myWidgetMessage", err.message, "error");
-    } finally { busy = false; $("myWidgetMake").disabled = false; }
-  }
-
-  async function widgetOff() {
-    if (busy || !confirm("Turn off your widget link? The widget will stop showing events until you make a new one.")) return;
-    busy = true;
-    try {
-      await callFn("widget_off");
-      $("myWidgetBody").innerHTML = "";
-      $("myWidgetOff").hidden = true;
-      $("myWidgetMake").textContent = "Make my widget";
-      message("myWidgetMessage", "Widget link turned off.", "success");
-    } catch (err) { message("myWidgetMessage", err.message, "error"); }
-    finally { busy = false; }
-  }
-
   /* ---------- start ---------- */
 
   document.addEventListener("DOMContentLoaded", () => {
@@ -464,13 +306,9 @@ Script.complete();
     if (tools && !document.getElementById("myEventAddLink")) {
       const add = document.createElement("a");
       add.href = "#"; add.id = "myEventAddLink"; add.textContent = "+ Event";
-      const widget = document.createElement("a");
-      widget.href = "#"; widget.id = "myWidgetLink"; widget.textContent = "iPhone widget";
       const toggle = tools.querySelector(".hm-view-toggle");
-      tools.insertBefore(widget, toggle ? toggle.nextSibling : tools.firstChild);
-      tools.insertBefore(add, widget);
+      tools.insertBefore(add, toggle ? toggle.nextSibling : tools.firstChild);
       add.addEventListener("click", e => { e.preventDefault(); openEvent(null, document.querySelector("#todayCalendar:not([hidden]) [aria-pressed='true'][data-day]")?.dataset.day); });
-      widget.addEventListener("click", e => { e.preventDefault(); openWidget(); });
     }
     // Your events in the lists are links to "#my-event:<id>".
     document.addEventListener("click", e => {

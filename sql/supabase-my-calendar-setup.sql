@@ -11,13 +11,13 @@
 --   1. my_calendar_events         the events (wall-clock date/time + time zone,
 --                                 so repeats keep their local time across DST)
 --   2. my_calendar_reminders_sent one row per reminder sent (never twice)
---   3. my_calendar_widget_tokens  the private link the iPhone widget
---                                 (Scriptable) uses — only a hash is stored
---   4. pg_cron: every minute, push-send › reminders. Uses the Vault secret
+--   3. pg_cron: every minute, push-send › reminders. Uses the Vault secret
 --      'coi_reminders_service_role_key' (from the COI setup).
 --
 -- Needs supabase-push-notifications-setup.sql (push_subscriptions) first,
--- and push-send + my-calendar deployed. Safe to re-run.
+-- and push-send deployed. Safe to re-run.
+-- (2026-11-20: the iPhone widget was removed; this drops its table if an
+--  earlier run made it.)
 -- ============================================================================
 
 create extension if not exists pg_cron;
@@ -92,17 +92,9 @@ revoke all on public.my_calendar_reminders_sent from anon, authenticated;
 grant all on public.my_calendar_reminders_sent to service_role;
 
 
--- 3. Widget links (server only) ----------------------------------------------------
+-- 3. (Removed) iPhone widget links ------------------------------------------------
 
-create table if not exists public.my_calendar_widget_tokens (
-  staff_id uuid primary key references public.staff_users(id) on delete cascade,
-  token_hash text not null unique,
-  created_at timestamptz not null default now(),
-  last_used_at timestamptz
-);
-alter table public.my_calendar_widget_tokens enable row level security;
-revoke all on public.my_calendar_widget_tokens from anon, authenticated;
-grant all on public.my_calendar_widget_tokens to service_role;
+drop table if exists public.my_calendar_widget_tokens;
 
 
 -- 4. Every minute: send due reminders ----------------------------------------------

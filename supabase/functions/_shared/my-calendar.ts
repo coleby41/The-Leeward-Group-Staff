@@ -1,6 +1,5 @@
 // My Calendar (2026-11-20) — each staff member's own events, made in the
-// portal (no Google / Outlook). Shared by push-send (phone reminders) and
-// my-calendar (the Scriptable iPhone widget).
+// portal (no Google / Outlook). Used by push-send (phone reminders).
 //
 // Events are stored as wall-clock dates/times in their time zone
 // (start_date, start_time, end_date, end_time, tz), so repeats keep the same
