@@ -128,6 +128,22 @@ create table if not exists public.calendar_settings (
   google_busy boolean not null default true,             -- count Google events when people check if I'm busy
   updated_at timestamptz not null default now()
 );
+-- Your own colors per calendar: {"mine": "#085c98", "tasks": "#7a4fbf", "linked:<id>": "#e0702b", ...}
+alter table public.calendar_settings add column if not exists colors jsonb not null default '{}'::jsonb;
+-- View options
+alter table public.calendar_settings add column if not exists default_view text not null default 'last';       -- last | day | week | month | agenda
+alter table public.calendar_settings add column if not exists show_weekends boolean not null default true;
+alter table public.calendar_settings add column if not exists default_length integer not null default 60;      -- minutes for a new event
+-- Not done and past due: move to today? (per kind)
+alter table public.calendar_settings add column if not exists overdue_tasks boolean not null default true;
+alter table public.calendar_settings add column if not exists overdue_todos boolean not null default true;
+alter table public.calendar_settings add column if not exists overdue_deadlines boolean not null default true;
+-- COI heads-up N days before a vendor's COI expires (0 = only on the day)
+alter table public.calendar_settings add column if not exists coi_warn_days integer not null default 0;
+-- Morning summary on your phone
+alter table public.calendar_settings add column if not exists summary_on boolean not null default false;
+alter table public.calendar_settings add column if not exists summary_time time not null default '07:00';
+alter table public.calendar_settings add column if not exists tz text not null default 'America/New_York';
 alter table public.calendar_settings enable row level security;
 revoke all on public.calendar_settings from anon, authenticated;
 grant select, insert, update on public.calendar_settings to authenticated;
@@ -159,6 +175,42 @@ select cron.schedule(
      or exists (select 1 from public.calendar_event_people where reminders <> '{}' and response in ('pending', 'accepted'));
   $$
 );
+
+
+-- 7. Morning summary: once a day at each person's time -----------------------------------
+
+create table if not exists public.calendar_summary_sent (
+  staff_id uuid not null references public.staff_users(id) on delete cascade,
+  day date not null,
+  sent_at timestamptz not null default now(),
+  primary key (staff_id, day)
+);
+alter table public.calendar_summary_sent enable row level security;
+revoke all on public.calendar_summary_sent from anon, authenticated;
+grant all on public.calendar_summary_sent to service_role;
+
+select cron.unschedule('calendar-morning-summary')
+ where exists (select 1 from cron.job where jobname = 'calendar-morning-summary');
+select cron.schedule(
+  'calendar-morning-summary',
+  '*/5 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://ostaqjuawieqpwuhrvsm.supabase.co/functions/v1/push-send',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (select decrypted_secret from vault.decrypted_secrets where name = 'coi_reminders_service_role_key')
+    ),
+    body := '{"action":"summary"}'::jsonb
+  )
+  where exists (select 1 from public.calendar_settings where summary_on);
+  $$
+);
+-- Keep 60 days of "sent" rows.
+select cron.unschedule('calendar-summary-cleanup')
+ where exists (select 1 from cron.job where jobname = 'calendar-summary-cleanup');
+select cron.schedule('calendar-summary-cleanup', '17 4 * * *',
+  $$ delete from public.calendar_summary_sent where day < current_date - 60; $$);
 
 
 -- ============================================================================

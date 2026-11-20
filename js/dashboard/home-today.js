@@ -112,8 +112,10 @@
     const today = todayISO();
     const showsToday = from <= today && today <= to;
     const doneFrom = showsToday ? iso(new Date(Date.now() - 365 * 86400000)) : (from < today ? today : from);
-    const due = (date, item) => {
-      if (date >= today) return add(date, item);
+    // Calendar settings › Overdue: which kinds move to today.
+    const rolls = (kind) => { const cs = (window.MyCalendar && window.MyCalendar.settings) || {}; return cs[`overdue_${kind}s`] !== false; };
+    const due = (date, item, kind) => {
+      if (date >= today || !rolls(kind)) return add(date, item);
       const was = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
       add(today, { ...item, overdue: true, sub: `Overdue · was due ${was}${item.sub ? ` · ${item.sub}` : ""}` });
     };
@@ -127,12 +129,14 @@
       DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("id, provider_label, external_account_email").order("created_at"))
     ]);
     const colorOf = window.HomeCalendarColor || (() => "#12a08a");
-    calendars = (conn.data || []).map((c, i) => ({ id: c.id, name: c.external_account_email || c.provider_label || "Calendar", color: colorOf(i) }));
+    if (window.MyCalendar) await window.MyCalendar.load().catch(() => null);   // your colors (Calendar settings)
+    const pick = (key, def) => (window.MyCalendar && window.MyCalendar.colorFor) ? window.MyCalendar.colorFor(key, def) : def;
+    calendars = (conn.data || []).map((c, i) => ({ id: c.id, name: c.external_account_email || c.provider_label || "Calendar", color: pick(`linked:${c.id}`, colorOf(i)) }));
     const calById = new Map(calendars.map(c => [c.id, c]));
     if (iso(shown) !== monthKey) return; // moved on while loading
 
-    (tasks.data || []).forEach(t => due(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
-    (todos.data || []).forEach(t => due(t.due_date, { kind: "task", title: t.label, sub: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` }));
+    (tasks.data || []).forEach(t => due(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }, "task"));
+    (todos.data || []).forEach(t => due(t.due_date, { kind: "task", title: t.label, sub: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` }, "todo"));
     (events.data || []).forEach(e => {
       const s = new Date(e.start_time);
       const cal = calById.get(e.account_id);
@@ -161,7 +165,7 @@
       (data || []).forEach(t => due(t.end_date, {
         kind: "deadline", title: t.name, sub: `${names.get(t.project_id) || ""}${t.item_type === "milestone" ? " · Milestone" : ""}`,
         href: `/pages/project-timeline.html?id=${encodeURIComponent(t.project_id)}`
-      }));
+      }, "deadline"));
     }
   }
 

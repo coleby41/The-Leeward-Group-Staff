@@ -62,15 +62,19 @@
 
   /* ---------------- calendars (left panel) ---------------- */
 
+  // Colors can be changed per person in settings (calendar_settings.colors).
+  const PALETTE = ["#085c98", "#2f6db0", "#0e8fb0", "#127a68", "#3f8f3a", "#a5661e", "#e0702b", "#e11d2a", "#b8336a", "#7a4fbf", "#5b5fc7", "#8a96a3", "#14263a"];
   function calendarList() {
+    const own = (state.settings && state.settings.colors) || {};
+    const c = (key, def) => own[key] || def;
     const list = [
-      { key: "mine", name: "My events", color: COLORS.mine },
-      { key: "assigned", name: "Assigned to me", color: COLORS.assigned }
+      { key: "mine", name: "My events", color: c("mine", COLORS.mine), def: COLORS.mine },
+      { key: "assigned", name: "Assigned to me", color: c("assigned", COLORS.assigned), def: COLORS.assigned }
     ];
-    state.accounts.forEach((a, i) => list.push({ key: `linked:${a.id}`, name: a.external_account_email || a.provider_label || "Linked calendar", color: LINKED_EXTRA[i % LINKED_EXTRA.length], account: a }));
-    list.push({ key: "tasks", name: "Tasks", color: COLORS.tasks });
-    list.push({ key: "deadlines", name: "Project deadlines", color: COLORS.deadlines });
-    list.push({ key: "coi", name: "COI expirations", color: COLORS.coi });
+    state.accounts.forEach((a, i) => { const def = LINKED_EXTRA[i % LINKED_EXTRA.length]; list.push({ key: `linked:${a.id}`, name: a.external_account_email || a.provider_label || "Linked calendar", color: c(`linked:${a.id}`, def), def, account: a }); });
+    list.push({ key: "tasks", name: "Tasks", color: c("tasks", COLORS.tasks), def: COLORS.tasks });
+    list.push({ key: "deadlines", name: "Project deadlines", color: c("deadlines", COLORS.deadlines), def: COLORS.deadlines });
+    list.push({ key: "coi", name: "COI expirations", color: c("coi", COLORS.coi), def: COLORS.coi });
     return list;
   }
   const colorFor = (key) => (calendarList().find((c) => c.key === key) || {}).color || COLORS.mine;
@@ -125,22 +129,32 @@
     const todayKey = iso(new Date());
     const showsToday = f <= todayKey && todayKey <= t;
     const doneFrom = showsToday ? iso(addD(new Date(), -365)) : (f < todayKey ? todayKey : f);
+    const st = state.settings || {};
+    const rolls = { tasks: st.overdue_tasks !== false, todos: st.overdue_todos !== false, deadlines: st.overdue_deadlines !== false };
+    const fromFor = (kind) => (rolls[kind] ? doneFrom : f);
+    const coiDays = Number(st.coi_warn_days) || 0;
     const [portal, assignedByMe, linked, tasks, todos, projects, coi] = await Promise.all([
       window.MyCalendar.load(true).then(() => window.MyCalendar.occurrences(f, t)).catch(() => []),
       sb().from("my_calendar_events").select("*").eq("staff_id", me).eq("organizer_attends", false),
       sb().from("calendar_events_cache").select("id, title, start_time, end_time, location, all_day, account_id").eq("user_id", me).lt("start_time", endIso).gt("end_time", startIso).order("start_time").limit(1500),
-      sb().from("tasks").select("id, task_name, due_date").eq("user_id", me).eq("completed", false).gte("due_date", doneFrom).lte("due_date", t),
-      sb().from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", me).eq("completed", false).gte("due_date", doneFrom).lte("due_date", t),
+      sb().from("tasks").select("id, task_name, due_date").eq("user_id", me).eq("completed", false).gte("due_date", fromFor("tasks")).lte("due_date", t),
+      sb().from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", me).eq("completed", false).gte("due_date", fromFor("todos")).lte("due_date", t),
       sb().from("projects").select("id, name").eq("status", "active"),
-      sb().from("Companies").select("id, Name, COIExpiresOn, COIExempt").gte("COIExpiresOn", f).lte("COIExpiresOn", t)
+      sb().from("Companies").select("id, Name, COIExpiresOn, COIExempt").gte("COIExpiresOn", f).lte("COIExpiresOn", iso(addD(to, coiDays)))
     ]);
     if (seq !== state.loadSeq) return;
     const items = [];
-    // Portal events.
-    portal.forEach((o) => items.push({
-      key: `p:${o.id}:${o.date}`, cal: o.kind === "assign" ? "assigned" : "mine", eventId: o.id, date: o.date,
-      title: o.title, sub: o.location, start: o.start, end: o.end, allDay: o.all_day, pending: o.pending
-    }));
+    const raw = new Map(((await window.MyCalendar.load()).events || []).map((e) => [e.id, e]));
+    if (seq !== state.loadSeq) return;
+    // Portal events. Ones you made can be dragged to a new day / time.
+    portal.forEach((o) => {
+      const ev = raw.get(o.id);
+      items.push({
+        key: `p:${o.id}:${o.date}`, cal: o.kind === "assign" ? "assigned" : "mine", eventId: o.id, date: o.date,
+        title: o.title, sub: o.location, start: o.start, end: o.end, allDay: o.all_day, pending: o.pending,
+        drag: ev && ev.staff_id === me ? { type: "event", ev } : null
+      });
+    });
     // Events you only assigned to other people (you're not going): shown faded.
     (assignedByMe.data || []).forEach((ev) => {
       window.MyCalendar.occurrenceDates(ev, f, t).forEach((date) => {
@@ -148,7 +162,7 @@
         const endDate = window.MyCalendar.addDays(date, span);
         const start = new Date(`${date}T${ev.all_day ? "00:00" : String(ev.start_time).slice(0, 5)}`);
         const end = ev.all_day ? new Date(`${window.MyCalendar.addDays(endDate, 1)}T00:00`) : new Date(`${endDate}T${String(ev.end_time || ev.start_time).slice(0, 5)}`);
-        items.push({ key: `p:${ev.id}:${date}`, cal: "mine", eventId: ev.id, date, title: ev.title, sub: "You assigned this", start, end, allDay: ev.all_day, faded: true });
+        items.push({ key: `p:${ev.id}:${date}`, cal: "mine", eventId: ev.id, date, title: ev.title, sub: "You assigned this", start, end, allDay: ev.all_day, faded: true, drag: { type: "event", ev } });
       });
     });
     // Linked calendars.
@@ -158,24 +172,31 @@
     });
     const dayItem = (date, rest) => { const s = parseDay(date); return { ...rest, start: s, end: addD(s, 1), allDay: true }; };
     // A past due date that isn't done shows on today instead, marked overdue.
-    const dueItem = (date, rest) => {
-      if (date >= todayKey) return dayItem(date, rest);
+    const dueItem = (date, rest, kind) => {
+      if (date >= todayKey || !rolls[kind]) return dayItem(date, rest);
       const was = parseDay(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
       return dayItem(todayKey, { ...rest, overdue: true, sub: `Overdue · was due ${was}${rest.sub ? ` · ${rest.sub}` : ""}` });
     };
-    (tasks.data || []).forEach((x) => items.push(dueItem(x.due_date, { key: `t:${x.id}`, cal: "tasks", title: x.task_name, sub: "Personal task", href: "/pages/staff-todo.html" })));
-    (todos.data || []).forEach((x) => items.push(dueItem(x.due_date, { key: `td:${x.id}`, cal: "tasks", title: x.label, sub: x.projects?.name || "Project to-do", href: `/pages/project-todo.html?id=${encodeURIComponent(x.project_id)}` })));
+    (tasks.data || []).forEach((x) => items.push(dueItem(x.due_date, { key: `t:${x.id}`, cal: "tasks", title: x.task_name, sub: "Personal task", href: "/pages/staff-todo.html", drag: { type: "task", id: x.id } }, "tasks")));
+    (todos.data || []).forEach((x) => items.push(dueItem(x.due_date, { key: `td:${x.id}`, cal: "tasks", title: x.label, sub: x.projects?.name || "Project to-do", href: `/pages/project-todo.html?id=${encodeURIComponent(x.project_id)}`, drag: { type: "todo", id: x.id } }, "todos")));
     state.projects = projects.data || [];
     if (state.projects.length) {
       const names = new Map(state.projects.map((p) => [p.id, p.name]));
       const { data } = await sb().from("schedule_tasks").select("id, name, item_type, end_date, project_id")
-        .in("project_id", state.projects.map((p) => p.id)).neq("status", "complete").gte("end_date", doneFrom).lte("end_date", t);
+        .in("project_id", state.projects.map((p) => p.id)).neq("status", "complete").gte("end_date", fromFor("deadlines")).lte("end_date", t);
       if (seq !== state.loadSeq) return;
-      (data || []).forEach((x) => items.push(dueItem(x.end_date, { key: `d:${x.id}`, cal: "deadlines", title: x.name, sub: `${names.get(x.project_id) || "Project"}${x.item_type === "milestone" ? " · Milestone" : ""}`, href: `/pages/project-timeline.html?id=${encodeURIComponent(x.project_id)}` })));
+      (data || []).forEach((x) => items.push(dueItem(x.end_date, { key: `d:${x.id}`, cal: "deadlines", title: x.name, sub: `${names.get(x.project_id) || "Project"}${x.item_type === "milestone" ? " · Milestone" : ""}`, href: `/pages/project-timeline.html?id=${encodeURIComponent(x.project_id)}` }, "deadlines")));
     }
-    (coi.data || []).filter((c) => !c.COIExempt).forEach((c) => items.push(dayItem(c.COIExpiresOn, {
-      key: `c:${c.id}`, cal: "coi", title: `COI expires · ${c.Name || "Vendor"}`, sub: "Certificate of insurance", href: `/pages/vendor.html?id=${encodeURIComponent(c.id)}`
-    })));
+    (coi.data || []).filter((c) => !c.COIExempt).forEach((c) => {
+      const href = `/pages/vendor.html?id=${encodeURIComponent(c.id)}`;
+      if (c.COIExpiresOn <= t) items.push(dayItem(c.COIExpiresOn, { key: `c:${c.id}`, cal: "coi", title: `COI expires · ${c.Name || "Vendor"}`, sub: "Certificate of insurance", href }));
+      // Heads-up N days before (Calendar settings › COI heads-up).
+      if (coiDays) {
+        const warn = iso(addD(parseDay(c.COIExpiresOn), -coiDays));
+        const was = parseDay(c.COIExpiresOn).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+        if (warn >= f && warn <= t) items.push(dayItem(warn, { key: `cw:${c.id}`, cal: "coi", title: `COI expires in ${coiDays} days · ${c.Name || "Vendor"}`, sub: `Expires ${was}`, href, faded: true }));
+      }
+    });
     state.items = items.sort((a, b) => (a.start - b.start) || ((b.overdue ? 1 : 0) - (a.overdue ? 1 : 0)));
     render();
   }
@@ -228,7 +249,7 @@
     body.className = `cal-body cal-body--${state.view}`;
     if (state.view === "month") body.innerHTML = monthHtml();
     else if (state.view === "agenda") body.innerHTML = agendaHtml();
-    else body.innerHTML = gridHtml(state.view === "day" ? [state.cursor] : Array.from({ length: 7 }, (_, i) => addD(range()[0], i)));
+    else body.innerHTML = gridHtml(state.view === "day" ? [state.cursor] : Array.from({ length: 7 }, (_, i) => addD(range()[0], i)).filter(showDay));
     if (state.view === "day" || state.view === "week") {
       const scroller = $(".cal-grid-scroll", body);
       const ws = Number(String(state.settings?.work_start || "07:00").slice(0, 2));
@@ -236,6 +257,7 @@
       wireGridCreate(body);
     }
     body.querySelectorAll("[data-item]").forEach((el) => el.addEventListener("click", (e) => { e.stopPropagation(); openItem(el.dataset.item); }));
+    wireDrag(body);
     body.querySelectorAll("[data-goday]").forEach((el) => el.addEventListener("click", (e) => { e.stopPropagation(); state.cursor = parseDay(el.dataset.goday); setView("day"); }));
     renderMini();
   }
@@ -250,21 +272,24 @@
     return i.start < e && (i.end > s || (i.end.getTime() === i.start.getTime() && i.start >= s));
   }
 
+  // Calendar settings › Show weekends.
+  const showDay = (d) => state.settings?.show_weekends !== false || (d.getDay() !== 0 && d.getDay() !== 6);
+
   function monthHtml() {
     const [s] = range();
     const month = state.cursor.getMonth();
     const today = new Date();
     const items = visible();
-    const heads = Array.from({ length: 7 }, (_, i) => addD(s, i).toLocaleDateString("en-US", { weekday: "short" }));
-    const cells = Array.from({ length: 42 }, (_, n) => {
-      const d = addD(s, n);
+    const heads = Array.from({ length: 7 }, (_, i) => addD(s, i)).filter(showDay).map((d) => d.toLocaleDateString("en-US", { weekday: "short" }));
+    const cols = heads.length;
+    const cells = Array.from({ length: 42 }, (_, n) => addD(s, n)).filter(showDay).map((d) => {
       const list = items.filter((i) => onDay(i, d)).sort((a, b) => (b.allDay - a.allDay) || (a.start - b.start));
       const more = list.length > 3 ? `<button type="button" class="cal-more" data-goday="${iso(d)}">+${list.length - 3} more</button>` : "";
       return `<div class="cal-mcell ${d.getMonth() !== month ? "is-out" : ""} ${sameDay(d, today) ? "is-today" : ""}" data-newday="${iso(d)}">
         <button type="button" class="cal-mday" data-goday="${iso(d)}">${d.getDate()}</button>
         ${list.slice(0, 3).map((i) => chip(i)).join("")}${more}</div>`;
     }).join("");
-    return `<div class="cal-month"><div class="cal-mhead">${heads.map((h) => `<span>${h}</span>`).join("")}</div><div class="cal-mgrid">${cells}</div></div>`;
+    return `<div class="cal-month" style="--cols:${cols}"><div class="cal-mhead">${heads.map((h) => `<span>${h}</span>`).join("")}</div><div class="cal-mgrid">${cells}</div></div>`;
   }
 
   function agendaHtml() {
@@ -278,7 +303,7 @@
     }
     if (!days.length) return `<p class="cal-empty">Nothing in the next 60 days.</p>`;
     return `<div class="cal-agenda">${days.map(({ d, list }) => `
-      <section class="cal-aday ${sameDay(d, new Date()) ? "is-today" : ""}">
+      <section class="cal-aday ${sameDay(d, new Date()) ? "is-today" : ""}" data-newday="${iso(d)}">
         <h3>${esc(d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }))}</h3>
         <div>${list.map((i) => `
           <button type="button" class="cal-arow ${i.overdue ? "is-overdue" : ""} ${i.pending ? "is-pending" : ""} ${i.faded ? "is-faded" : ""}" style="--c:${colorFor(i.cal)}" data-item="${esc(i.key)}">
@@ -313,7 +338,7 @@
     const hours = Array.from({ length: 24 }, (_, h) => `<div class="cal-hour"><span>${h === 0 ? "" : new Date(2000, 0, 1, h).toLocaleTimeString("en-US", { hour: "numeric" })}</span></div>`).join("");
     const head = days.map((d) => `<button type="button" class="cal-dhead ${sameDay(d, now) ? "is-today" : ""}" data-goday="${iso(d)}">
       <small>${d.toLocaleDateString("en-US", { weekday: "short" })}</small><b>${d.getDate()}</b></button>`).join("");
-    const allDay = days.map((d) => `<div class="cal-allday-cell">${items.filter((i) => i.allDay && onDay(i, d)).map((i) => chip(i)).join("")}</div>`).join("");
+    const allDay = days.map((d) => `<div class="cal-allday-cell" data-newday="${iso(d)}">${items.filter((i) => i.allDay && onDay(i, d)).map((i) => chip(i)).join("")}</div>`).join("");
     const cols = days.map((d) => {
       const s = new Date(d.getFullYear(), d.getMonth(), d.getDate()), e = addD(s, 1);
       const timed = items.filter((i) => !i.allDay && i.start < e && i.end > s).sort((a, b) => a.start - b.start || b.end - a.end);
@@ -344,6 +369,152 @@
       const mins = Math.floor(((e.clientY - rect.top) / HOUR_PX) * 2) * 30;
       openEditor(null, { date: col.dataset.newday, time: `${pad(Math.floor(mins / 60))}:${pad(mins % 60)}` });
     }));
+  }
+
+
+  /* ---------------- drag and drop (2026-11-20) ----------------
+     Drag a task, to-do or an event you made onto another day (any view, or
+     a day in the mini month). In Day / Week, dropping an event in the grid
+     sets the time too (15-minute steps). Mouse: just drag. Phone: press and
+     hold, then drag. Repeating events open instead (they move as a series). */
+
+  let pressing = null;
+  let swallowClick = false;
+  document.addEventListener("click", (e) => {
+    if (!swallowClick) return;
+    swallowClick = false; e.preventDefault(); e.stopPropagation();
+  }, true);
+
+  function wireDrag(root) {
+    root.querySelectorAll("[data-item]").forEach((el) => {
+      const it = state.items.find((x) => x.key === el.dataset.item);
+      if (!it || !it.drag) return;
+      el.classList.add("is-draggable");
+      el.addEventListener("pointerdown", (e) => press(e, el, it));
+      el.addEventListener("contextmenu", (e) => { if (e.pointerType !== "mouse") e.preventDefault(); });
+    });
+  }
+
+  function press(e, el, it) {
+    if (e.button !== 0 || pressing) return;
+    const touch = e.pointerType !== "mouse";
+    const rect = el.getBoundingClientRect();
+    const p = { el, it, x: e.clientX, y: e.clientY, started: false, ghost: null, target: null, minutes: null,
+      grab: el.classList.contains("cal-block") ? ((e.clientY - rect.top) / HOUR_PX) * 60 : 0 };
+    pressing = p;
+    const timer = touch ? setTimeout(() => begin(p), 380) : null;
+    const move = (ev) => {
+      if (!p.started) {
+        const dist = Math.hypot(ev.clientX - p.x, ev.clientY - p.y);
+        if (touch) { if (dist > 10) stop(); return; }
+        if (dist < 6) return;
+        begin(p);
+      }
+      ev.preventDefault();
+      follow(p, ev.clientX, ev.clientY);
+    };
+    const block = (ev) => { if (p.started) ev.preventDefault(); };
+    const up = (ev) => {
+      const done = p.started;
+      if (done) follow(p, ev.clientX, ev.clientY);
+      stop();
+      if (done) { swallowClick = true; setTimeout(() => { swallowClick = false; }, 400); drop(p); }
+    };
+    const cancel = () => stop();
+    function stop() {
+      clearTimeout(timer);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", cancel);
+      document.removeEventListener("touchmove", block);
+      p.ghost?.remove();
+      p.el.classList.remove("is-dragging");
+      document.querySelectorAll(".is-drop").forEach((x) => x.classList.remove("is-drop"));
+      document.body.classList.remove("cal-dragging");
+      pressing = null;
+    }
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", cancel);
+    document.addEventListener("touchmove", block, { passive: false });
+  }
+
+  function begin(p) {
+    if (p.started) return;
+    p.started = true;
+    document.body.classList.add("cal-dragging");
+    p.el.classList.add("is-dragging");
+    const g = document.createElement("div");
+    g.className = "cal-drag-ghost";
+    g.style.setProperty("--c", colorFor(p.it.cal));
+    g.innerHTML = `<b>${esc(p.it.title)}</b><small></small>`;
+    document.body.appendChild(g);
+    p.ghost = g;
+    try { navigator.vibrate?.(12); } catch (_) { /* fine */ }
+    follow(p, p.x, p.y);
+  }
+
+  function follow(p, x, y) {
+    if (!p.ghost) return;
+    p.ghost.style.transform = `translate(${x + 12}px, ${y + 12}px)`;
+    const hit = document.elementFromPoint(x, y);
+    const target = hit && hit.closest("[data-newday], [data-mday]");
+    document.querySelectorAll(".is-drop").forEach((t) => { if (t !== target) t.classList.remove("is-drop"); });
+    p.target = target || null;
+    p.minutes = null;
+    let label = "";
+    if (target) {
+      target.classList.add("is-drop");
+      const day = target.dataset.newday || target.dataset.mday;
+      label = parseDay(day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      const timedEvent = p.it.drag.type === "event" && !p.it.allDay;
+      if (target.classList.contains("cal-col") && timedEvent) {
+        const r = target.getBoundingClientRect();
+        let m = Math.round((((y - r.top) / HOUR_PX) * 60 - p.grab) / 15) * 15;
+        m = Math.max(0, Math.min(m, 24 * 60 - 15));
+        p.minutes = m;
+        label += ` · ${timeOf(new Date(2000, 0, 1, Math.floor(m / 60), m % 60))}`;
+      }
+    }
+    p.ghost.querySelector("small").textContent = label ? `Move to ${label}` : "";
+  }
+
+  async function drop(p) {
+    if (!p.target) return;
+    const day = p.target.dataset.newday || p.target.dataset.mday;
+    try { await moveItem(p.it, day, p.minutes); }
+    catch (err) { toast(err.message || "Couldn't move that.", "error"); }
+  }
+
+  async function moveItem(it, day, minutes) {
+    const nice = parseDay(day).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    if (it.drag.type === "task" || it.drag.type === "todo") {
+      if (day === iso(it.start) && !it.overdue) return;
+      const table = it.drag.type === "task" ? "tasks" : "project_todo_subitems";
+      const { data, error } = await sb().from(table).update({ due_date: day }).eq("id", it.drag.id).select("id");
+      if (error || !data || !data.length) throw new Error(it.drag.type === "todo" ? "You can't change that to-do's due date." : "Couldn't move that task.");
+      toast(`Due ${nice}.`);
+      await loadItems();
+      return;
+    }
+    const ev = it.drag.ev;
+    if (ev.repeat && ev.repeat !== "none") { toast("This one repeats. Open it to change the whole series.", "info"); openEvent(ev.id, it.date); return; }
+    const A = window.MyCalendar;
+    const shift = A.daysBetween(it.date, day);
+    let next = { ...ev, start_date: A.addDays(ev.start_date, shift), end_date: A.addDays(ev.end_date || ev.start_date, shift), tz: ev.tz || TZ };
+    if (minutes !== null && !ev.all_day) {
+      const len = minutesOf(ev);
+      const s = new Date(parseDay(day).getTime()); s.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+      const e = new Date(s.getTime() + len * 60000);
+      next = { ...next, start_date: iso(s), start_time: hhmm(s), end_date: iso(e), end_time: hhmm(e) };
+    }
+    if (next.start_date === ev.start_date && String(next.start_time || "").slice(0, 5) === String(ev.start_time || "").slice(0, 5)) return;
+    const { data: people } = await sb().from("calendar_event_people").select("staff_id, role").eq("event_id", ev.id);
+    next.start_time = next.start_time ? String(next.start_time).slice(0, 5) : null;
+    next.end_time = next.end_time ? String(next.end_time).slice(0, 5) : null;
+    await cal({ action: "save", event: next, people: (people || []).map((x) => ({ staff_id: x.staff_id, role: x.role })) });
+    toast(people && people.length ? `Moved to ${nice}. Everyone was told.` : `Moved to ${nice}.`);
+    await afterChange();
   }
 
   /* ---------------- mini month ---------------- */
@@ -554,7 +725,8 @@
     const now = new Date();
     const startDate = ev?.start_date || preset?.date || iso(state.cursor || now);
     const startTime = ev?.start_time ? String(ev.start_time).slice(0, 5) : (preset?.time || `${pad(Math.min(now.getHours() + 1, 23))}:00`);
-    const endT = (() => { const [h, m] = startTime.split(":").map(Number); const t = h * 60 + m + 60; return t >= 24 * 60 ? "23:59" : `${pad(Math.floor(t / 60))}:${pad(t % 60)}`; })();
+    const newLen = Number(state.settings?.default_length) || 60;
+    const endT = (() => { const [h, m] = startTime.split(":").map(Number); const t = h * 60 + m + newLen; return t >= 24 * 60 ? "23:59" : `${pad(Math.floor(t / 60))}:${pad(t % 60)}`; })();
     const defaults = state.settings?.default_reminders || [15];
     const box = popup(`
       <h2>${ev ? "Edit event" : "New event"}</h2>
@@ -601,7 +773,7 @@
     f("start_date").addEventListener("change", () => { if (!f("end_date").value || f("end_date").value < f("start_date").value) f("end_date").value = f("start_date").value; checkBusy(); });
     f("start_time").addEventListener("change", () => {
       const [h, m] = f("start_time").value.split(":").map(Number);
-      const t = h * 60 + m + (ev ? minutesOf(ev) : 60);
+      const t = h * 60 + m + (ev ? minutesOf(ev) : newLen);
       if (f("end_date").value === f("start_date").value) f("end_time").value = t >= 1440 ? "23:59" : `${pad(Math.floor(t / 60))}:${pad(t % 60)}`;
       checkBusy();
     });
@@ -736,13 +908,16 @@
       <div class="cal-set-head">
         <a href="/pages/calendar.html" class="nc-back-link" id="setBack">← Back to calendar</a>
         <h1>Calendar settings</h1>
+        <p class="cal-soft cal-small" id="setSaved" aria-live="polite">Changes save on their own.</p>
       </div>
       <div class="cal-set-layout">
       <nav class="cal-set-nav" aria-label="Settings sections">
         <a href="#setLinked" data-jump="setLinked">Google calendar</a>
         <a href="#setShare" data-jump="setShare">Show in Google or Apple</a>
-        <a href="#setDefaults" data-jump="setDefaults">Defaults</a>
-        <a href="#setPhone" data-jump="setPhone">Phone notifications</a>
+        <a href="#setColors" data-jump="setColors">Colors</a>
+        <a href="#setView" data-jump="setView">Your calendar</a>
+        <a href="#setNotify" data-jump="setNotify">Notifications</a>
+        <a href="#setOverdue" data-jump="setOverdue">Overdue &amp; COI</a>
         <button type="button" class="cal-text-btn" id="setHelp">Setup guide ?</button>
       </nav>
       <div class="cal-set-body">
@@ -763,21 +938,44 @@
         <p class="cal-soft cal-small">Your portal events (yours, invites, assigned) show up in Google or Apple Calendar and keep updating. Google refreshes every few hours; Apple every 15–60 minutes.</p>
         <div id="setFeed"></div>
       </div>
-      <form class="cal-sec cal-form cal-set-card" id="setDefaults"><h3>Defaults</h3>
-        <div class="cal-row">
-          <label>Work day starts<input type="time" name="work_start" value="${esc(String(s.work_start || "07:00").slice(0, 5))}"></label>
-          <label>Ends<input type="time" name="work_end" value="${esc(String(s.work_end || "17:00").slice(0, 5))}"></label>
-          <label>Week starts on<select name="week_start"><option value="0" ${!s.week_start ? "selected" : ""}>Sunday</option><option value="1" ${s.week_start === 1 ? "selected" : ""}>Monday</option></select></label>
+      <div class="cal-sec cal-set-card" id="setColors"><h3>Colors</h3>
+        <p class="cal-soft cal-small">Pick a color for each calendar. It's used for its events, chips and tags — only on your screen.</p>
+        <ul class="cal-colors" id="setColorList"></ul>
+      </div>
+      <div class="cal-sec cal-set-card" id="setView"><h3>Your calendar</h3>
+        <div class="cal-set-rows">
+          <label class="cal-set-row"><span>Opens in</span>
+            <select data-set="default_view">${[["last", "The view I used last"], ["day", "Day"], ["week", "Week"], ["month", "Month"], ["agenda", "Agenda"]].map(([v, l]) => `<option value="${v}" ${(s.default_view || "last") === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          <label class="cal-set-row"><span>Week starts on</span>
+            <select data-set="week_start" data-type="int"><option value="0" ${!s.week_start ? "selected" : ""}>Sunday</option><option value="1" ${s.week_start === 1 ? "selected" : ""}>Monday</option></select></label>
+          <label class="cal-set-row"><span>Show weekends</span><input type="checkbox" class="cal-switch" data-set="show_weekends" ${s.show_weekends !== false ? "checked" : ""}></label>
+          <div class="cal-set-row"><span>Work day<small>Used to find times that work for everyone</small></span>
+            <span class="cal-set-pair"><input type="time" data-set="work_start" value="${esc(String(s.work_start || "07:00").slice(0, 5))}"> to <input type="time" data-set="work_end" value="${esc(String(s.work_end || "17:00").slice(0, 5))}"></span></div>
+          <label class="cal-set-row"><span>New events last</span>
+            <select data-set="default_length" data-type="int">${[[15, "15 minutes"], [30, "30 minutes"], [45, "45 minutes"], [60, "1 hour"], [90, "1½ hours"], [120, "2 hours"]].map(([v, l]) => `<option value="${v}" ${(s.default_length || 60) === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+          <label class="cal-set-row"><span>Count my Google events as busy<small>When someone invites me, they only see "Busy"</small></span><input type="checkbox" class="cal-switch" data-set="google_busy" ${s.google_busy !== false ? "checked" : ""}></label>
         </div>
-        <div><span class="cal-label">Reminders on new events</span><div class="cal-rem" id="setRem">${remPick(s.default_reminders || [15])}</div></div>
-        <label class="cal-inline"><input type="checkbox" name="google_busy" ${s.google_busy !== false ? "checked" : ""}> Count my Google events as busy when someone invites me (they only see "Busy")</label>
-        <p class="cal-msg" id="setMsg"></p>
-        <div class="cal-actions"><button type="submit" class="auth-button">Save defaults</button></div>
-      </form>
-      <div class="cal-sec cal-set-card" id="setPhone"><h3>Phone notifications</h3>
-        <p class="cal-soft cal-small">Invites, answers and reminders go to your phone when notifications are on for the portal app.
-          ${"Notification" in window && Notification.permission === "granted" ? "<b>They're on for this device.</b>" : "They're not on for this device yet."}</p>
-        <div class="cal-actions cal-actions--left"><a class="auth-button auth-button--secondary" href="/pages/notifications.html">Notification settings ›</a></div>
+      </div>
+      <div class="cal-sec cal-set-card" id="setNotify"><h3>Notifications</h3>
+        <div class="cal-set-rows">
+          <div class="cal-set-row"><span>This device<small>${"Notification" in window && Notification.permission === "granted" ? "Phone notifications are on." : "Phone notifications aren't on here yet."}</small></span>
+            <a class="cal-text-btn" href="/pages/notifications.html">Notification settings ›</a></div>
+          <label class="cal-set-row"><span>Morning summary<small>Today's events, tasks due and anything overdue, on your phone</small></span><input type="checkbox" class="cal-switch" data-set="summary_on" ${s.summary_on ? "checked" : ""}></label>
+          <label class="cal-set-row" id="setSummaryTime" ${s.summary_on ? "" : "hidden"}><span>Send it at</span><input type="time" data-set="summary_time" value="${esc(String(s.summary_time || "07:00").slice(0, 5))}"></label>
+          <div class="cal-set-row cal-set-row--stack"><span>Reminders on new events</span><div class="cal-rem" id="setRem">${remPick(s.default_reminders || [15])}</div></div>
+        </div>
+      </div>
+      <div class="cal-sec cal-set-card" id="setOverdue"><h3>Overdue &amp; COI</h3>
+        <div class="cal-set-rows">
+          <div class="cal-set-row cal-set-row--stack"><span>Move to today when past due and not done<small>Due dates don't change — they just show on today until they're done.</small></span>
+            <span class="cal-set-checks">
+              <label class="cal-inline"><input type="checkbox" data-set="overdue_tasks" ${s.overdue_tasks !== false ? "checked" : ""}> Tasks</label>
+              <label class="cal-inline"><input type="checkbox" data-set="overdue_todos" ${s.overdue_todos !== false ? "checked" : ""}> Project to-dos</label>
+              <label class="cal-inline"><input type="checkbox" data-set="overdue_deadlines" ${s.overdue_deadlines !== false ? "checked" : ""}> Project deadlines</label>
+            </span></div>
+          <label class="cal-set-row"><span>COI heads-up<small>A reminder on the calendar before a vendor's COI expires</small></span>
+            <select data-set="coi_warn_days" data-type="int">${[[0, "Only on the day it expires"], [7, "1 week before"], [14, "2 weeks before"], [30, "30 days before"], [60, "60 days before"]].map(([v, l]) => `<option value="${v}" ${(s.coi_warn_days || 0) === v ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        </div>
       </div>
       </div></div>`;
     // Back: step back to the calendar you came from (so its own "← Back" still
@@ -789,6 +987,7 @@
       else location.replace("/pages/calendar.html");
     });
     $("#setHelp", box).addEventListener("click", openHelp);
+    drawColors(box);
     box.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
       e.preventDefault();
       document.getElementById(a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -858,28 +1057,70 @@
     }
     drawFeed(status);
 
-    // Defaults.
-    box.querySelectorAll("#setRem [data-rem]").forEach((b) => b.addEventListener("click", () => b.classList.toggle("is-on")));
-    $("#setDefaults", box).addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const form = e.currentTarget;
-      const row = {
-        staff_id: state.me,
-        work_start: form.elements.work_start.value || "07:00", work_end: form.elements.work_end.value || "17:00",
-        week_start: Number(form.elements.week_start.value), google_busy: form.elements.google_busy.checked,
-        default_reminders: [...box.querySelectorAll("#setRem .is-on")].map((x) => Number(x.dataset.rem)),
-        updated_at: new Date().toISOString()
-      };
-      if (row.work_end <= row.work_start) { msg($("#setMsg", box), "The work day has to end after it starts.", "error"); return; }
-      const { data, error } = await sb().from("calendar_settings").upsert(row, { onConflict: "staff_id" }).select().single();
-      if (error) { msg($("#setMsg", box), "Couldn't save. Has the calendar SQL been run?", "error"); return; }
+    // Everything else saves as soon as it changes.
+    const saved = $("#setSaved", box);
+    const save = async (patch) => {
+      saved.textContent = "Saving…";
+      const { data, error } = await sb().from("calendar_settings")
+        .upsert({ staff_id: state.me, tz: TZ, ...patch, updated_at: new Date().toISOString() }, { onConflict: "staff_id" }).select().single();
+      if (error) { saved.textContent = "Couldn't save. Has the calendar SQL been run?"; saved.classList.add("cal-msg--error"); return false; }
+      saved.classList.remove("cal-msg--error");
       state.settings = data;
-      msg($("#setMsg", box), "Saved.", "ok");
-    });
+      saved.textContent = "Saved.";
+      return true;
+    };
+    box.querySelectorAll("[data-set]").forEach((el) => el.addEventListener("change", async () => {
+      const key = el.dataset.set;
+      let value = el.type === "checkbox" ? el.checked : el.value;
+      if (el.dataset.type === "int") value = Number(value);
+      if (key === "work_start" || key === "work_end") {
+        const ws = $('[data-set="work_start"]', box).value || "07:00", we = $('[data-set="work_end"]', box).value || "17:00";
+        if (we <= ws) { saved.textContent = "The work day has to end after it starts."; saved.classList.add("cal-msg--error"); return; }
+        return save({ work_start: ws, work_end: we });
+      }
+      if (key === "summary_on") {
+        $("#setSummaryTime", box).hidden = !value;
+        if (value && "Notification" in window && Notification.permission !== "granted") toast("Turn on phone notifications for the portal too (Notification settings).", "info");
+      }
+      if (key === "default_view" && value !== "last") { try { localStorage.setItem(VIEW_KEY, value); } catch (_) { /* fine */ } }
+      return save({ [key]: value });
+    }));
+    box.querySelectorAll("#setRem [data-rem]").forEach((b) => b.addEventListener("click", () => {
+      b.classList.toggle("is-on");
+      save({ default_reminders: [...box.querySelectorAll("#setRem .is-on")].map((x) => Number(x.dataset.rem)) });
+    }));
 
     focus = focus || (location.hash.startsWith("#set-") ? location.hash.slice(5) : null);
-    if (focus) $(focus === "share" ? "#setShare" : focus === "defaults" ? "#setDefaults" : "#setLinked", box)?.scrollIntoView({ block: "start" });
-    // Saving defaults: stay on the page.
+    if (focus) $({ share: "#setShare", defaults: "#setView", colors: "#setColors", notify: "#setNotify", overdue: "#setOverdue" }[focus] || "#setLinked", box)?.scrollIntoView({ block: "start" });
+  }
+
+  // Settings › Colors: tap a swatch, it saves right away.
+  function drawColors(box) {
+    const ul = $("#setColorList", box);
+    ul.innerHTML = calendarList().map((c) => `
+      <li data-key="${esc(c.key)}">
+        <span class="cal-colors-name"><i style="background:${c.color}"></i>${esc(c.name)}</span>
+        <span class="cal-swatches" role="radiogroup" aria-label="Color for ${esc(c.name)}">
+          ${PALETTE.map((p) => `<button type="button" role="radio" aria-checked="${p.toLowerCase() === c.color.toLowerCase()}" aria-label="${p}" data-color="${p}" style="--s:${p}"></button>`).join("")}
+          <label class="cal-swatch-custom" title="Any color"><input type="color" value="${c.color}" aria-label="Any color"></label>
+          ${c.color.toLowerCase() !== c.def.toLowerCase() ? `<button type="button" class="cal-text-btn" data-reset>Reset</button>` : ""}
+        </span>
+      </li>`).join("");
+    const setColor = async (key, color) => {
+      const colors = { ...((state.settings && state.settings.colors) || {}) };
+      const def = (calendarList().find((c) => c.key === key) || {}).def;
+      if (!color || (def && color.toLowerCase() === def.toLowerCase())) delete colors[key]; else colors[key] = color;
+      const { data, error } = await sb().from("calendar_settings").upsert({ staff_id: state.me, colors, updated_at: new Date().toISOString() }, { onConflict: "staff_id" }).select().single();
+      if (error) { toast("Couldn't save that color. Has the calendar SQL been run?", "error"); return; }
+      state.settings = data;
+      drawColors(box);
+    };
+    ul.querySelectorAll("li").forEach((li) => {
+      const key = li.dataset.key;
+      li.querySelectorAll("[data-color]").forEach((b) => b.addEventListener("click", () => setColor(key, b.dataset.color)));
+      li.querySelector('input[type="color"]').addEventListener("change", (e) => setColor(key, e.target.value));
+      li.querySelector("[data-reset]")?.addEventListener("click", () => setColor(key, null));
+    });
   }
 
   /* ---------------- help ("?") ---------------- */
@@ -945,6 +1186,8 @@
       sb().from("staff_users").select("id, full_name, username, workgroup, active").order("full_name")
     ]);
     state.settings = settings.data || null;
+    const dv = state.settings?.default_view;
+    if (dv && dv !== "last" && ["day", "week", "month", "agenda"].includes(dv)) state.view = dv;
     state.staff = (staff.data || []).filter((s) => s.active !== false);
 
     const params = new URLSearchParams(location.search);

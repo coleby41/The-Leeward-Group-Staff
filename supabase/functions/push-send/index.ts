@@ -11,6 +11,11 @@
 //       called every minute by pg_cron (sql/supabase-my-calendar-setup.sql):
 //       My Calendar reminders that are due go to that person's devices only
 //       (they are NOT added to the notification center).
+//   { action: "summary" }
+//       called every 5 minutes by pg_cron (sql/supabase-staff-calendar-setup.sql):
+//       the morning summary (Calendar settings › Morning summary) — today's
+//       events, tasks due and anything overdue — once a day at each person's
+//       chosen time, to their devices only.
 //   { action: "notify", notification_id }
 //       called by the notifications insert trigger
 //       (sql/supabase-push-notifications-setup.sql) with the service-role
@@ -28,7 +33,7 @@
 import webpush from "npm:web-push@3.6.7";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { CORS_HEADERS, SERVICE_ROLE_KEY, SUPABASE_URL, json, serviceClient } from "../_shared/bid-common.ts";
-import { occurrencesBetween, reminderAt, reminderLabel, timeLabel } from "../_shared/my-calendar.ts";
+import { addDays, occurrencesBetween, reminderAt, reminderLabel, timeLabel, zonedToUtc, zonedToday } from "../_shared/my-calendar.ts";
 
 // deno-lint-ignore no-explicit-any
 type Row = any;
@@ -199,6 +204,69 @@ async function reminders(admin: Row) {
   return json({ ok: true, due, sent });
 }
 
+
+/* ---------------- morning summary (Staff Calendar settings) ---------------- */
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+async function summary(admin: Row) {
+  const now = new Date();
+  const { data: people, error } = await admin.from("calendar_settings")
+    .select("staff_id, summary_time, tz, overdue_tasks, overdue_todos").eq("summary_on", true);
+  if (error) throw error;
+  let sent = 0, due = 0;
+  for (const p of people || []) {
+    const tz = p.tz || "America/New_York";
+    const today = zonedToday(tz, now);
+    const at = zonedToUtc(today, String(p.summary_time || "07:00").slice(0, 5), tz);
+    // Its time has come today (within the last 3 hours, so a late run still sends but not at night).
+    if (now < at || now.getTime() - at.getTime() > 3 * 3600000) continue;
+    const { data: claimed } = await admin.from("calendar_summary_sent")
+      .upsert({ staff_id: p.staff_id, day: today }, { onConflict: "staff_id,day", ignoreDuplicates: true }).select("staff_id");
+    if (!claimed?.length) continue;
+    due++;
+    const { data: subs } = await admin.from("push_subscriptions").select("*").eq("staff_id", p.staff_id);
+    if (!subs?.length) continue;
+
+    const dayStart = zonedToUtc(today, "00:00", tz), dayEnd = zonedToUtc(addDays(today, 1), "00:00", tz);
+    const yearAgo = addDays(today, -365);
+    const [own, invited, linked, tasks, todos] = await Promise.all([
+      admin.from("my_calendar_events").select("*").eq("staff_id", p.staff_id).eq("organizer_attends", true),
+      admin.from("calendar_event_people").select("response, my_calendar_events(*)").eq("staff_id", p.staff_id).in("response", ["pending", "accepted"]),
+      admin.from("calendar_events_cache").select("title, start_time, all_day").eq("user_id", p.staff_id)
+        .lt("start_time", dayEnd.toISOString()).gt("end_time", dayStart.toISOString()),
+      admin.from("tasks").select("due_date").eq("user_id", p.staff_id).eq("completed", false).gte("due_date", yearAgo).lte("due_date", today),
+      admin.from("project_todo_subitems").select("due_date").eq("assigned_to", p.staff_id).eq("completed", false).gte("due_date", yearAgo).lte("due_date", today),
+    ]);
+    const evs: Row[] = [...(own.data || [])];
+    (invited.data || []).forEach((r: Row) => { const e = Array.isArray(r.my_calendar_events) ? r.my_calendar_events[0] : r.my_calendar_events; if (e) evs.push(e); });
+    const timed: { title: string; start: Date; ev?: Row }[] = [];
+    let allDay = 0;
+    for (const o of occurrencesBetween(evs, dayStart, dayEnd)) {
+      if (o.event.all_day) allDay++; else timed.push({ title: o.event.title, start: o.start, ev: o.event });
+    }
+    (linked.data || []).forEach((r: Row) => { if (r.all_day) allDay++; else timed.push({ title: r.title || "Busy", start: new Date(r.start_time) }); });
+    timed.sort((a, b) => a.start.getTime() - b.start.getTime());
+    const events = timed.length + allDay;
+    const tRows = [...(tasks.data || []).map((t: Row) => ({ ...t, kind: "task" })), ...(todos.data || []).map((t: Row) => ({ ...t, kind: "todo" }))];
+    const dueToday = tRows.filter((t) => t.due_date === today).length;
+    const overdue = tRows.filter((t) => t.due_date < today && (t.kind === "task" ? p.overdue_tasks !== false : p.overdue_todos !== false)).length;
+
+    const parts = [plural(events, "event"), plural(dueToday, "task") + " due"];
+    if (overdue) parts.push(`${overdue} overdue`);
+    const first = timed.find((x) => x.start >= now) || timed[0];
+    const firstText = first ? ` First up: ${first.title}, ${first.start.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: tz })}.` : "";
+    const r = await sendAll(admin, subs, async () => ({
+      title: "Your day",
+      body: events || dueToday || overdue ? `${parts.join(" · ")}.${firstText}` : "Nothing on your calendar today.",
+      url: absolute("/pages/calendar.html"),
+      tag: `summary-${today}`,
+    }));
+    sent += r.sent;
+  }
+  return json({ ok: true, due, sent });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return fail("POST only", 405);
@@ -208,10 +276,11 @@ Deno.serve(async (req: Request) => {
   const action = String(body?.action || "");
   if (!PUBLIC_KEY || !PRIVATE_KEY) return fail("Push isn't set up yet (VAPID keys missing).", 503);
   try {
-    if (action === "notify" || action === "reminders") {
+    if (action === "notify" || action === "reminders" || action === "summary") {
       // Only the database (trigger / cron, service-role key) can fan out pushes.
       const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
       if (!(await isServiceKey(token))) return fail("Not allowed.", 403);
+      if (action === "summary") return await summary(admin);
       return action === "notify" ? await notify(admin, body) : await reminders(admin);
     }
     const auth = await requireStaff(req, admin);

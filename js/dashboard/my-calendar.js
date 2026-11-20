@@ -21,6 +21,8 @@
   const COLOR = "#085c98";
   const ASSIGNED_COLOR = "#127a68";
   let cache = null;        // { events, mine, me }
+  let colors = {};         // your colors from Calendar settings
+  let settings = {};       // your Calendar settings row (overdue_*, coi_warn_days, ...)
   let loading = null;
 
   const sb = () => window.supabaseClient;
@@ -73,10 +75,13 @@
       for (let i = 0; i < 50 && !sb(); i++) await new Promise(r => setTimeout(r, 100));
       if (!sb()) { loading = null; return { events: [], mine: new Map(), me: null }; }
       const me = await myStaffId();
-      const [ev, ppl] = await Promise.all([
+      const [ev, ppl, set] = await Promise.all([
         sb().from("my_calendar_events").select("*").order("start_date"),
-        me ? sb().from("calendar_event_people").select("event_id, role, response, reminders").eq("staff_id", me) : Promise.resolve({ data: [] })
+        me ? sb().from("calendar_event_people").select("event_id, role, response, reminders").eq("staff_id", me) : Promise.resolve({ data: [] }),
+        me ? sb().from("calendar_settings").select("*").eq("staff_id", me).maybeSingle() : Promise.resolve({ data: null })
       ]);
+      settings = (set && set.data) || {};
+      colors = settings.colors || {};
       if (ev.error) console.warn("Calendar: couldn't load events (have the calendar SQL files been run?)", ev.error);
       const mine = new Map((ppl.data || []).map(p => [p.event_id, p]));
       cache = { events: ev.data || [], mine, me };
@@ -112,7 +117,7 @@
         out.push({
           id: ev.id, title: ev.title, location: ev.location || "", all_day: ev.all_day, date, start, end,
           repeat: ev.repeat, kind: rel.kind, pending: rel.kind === "invite" && rel.person.response === "pending",
-          color: rel.kind === "assign" ? ASSIGNED_COLOR : COLOR,
+          color: rel.kind === "assign" ? (colors.assigned || ASSIGNED_COLOR) : (colors.mine || COLOR),
           href: `/pages/calendar.html?event=${ev.id}`,
           time: ev.all_day ? "All day" : timeText((ev.start_time || "").slice(0, 5))
         });
@@ -144,5 +149,11 @@
     }
   });
 
-  window.MyCalendar = { load, reload: () => load(true), occurrences, occurrenceDates, relation, addDays, daysBetween, timeText, color: COLOR, assignedColor: ASSIGNED_COLOR };
+  window.MyCalendar = {
+    load, reload: () => load(true), occurrences, occurrenceDates, relation, addDays, daysBetween, timeText,
+    get color() { return colors.mine || COLOR; },
+    get assignedColor() { return colors.assigned || ASSIGNED_COLOR; },
+    colorFor: (key, fallback) => colors[key] || fallback,
+    get settings() { return settings; }
+  };
 })();

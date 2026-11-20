@@ -118,7 +118,7 @@
       ...mine.map(o => ({ id: o.id, title: o.title, start_time: o.start.toISOString(), end_time: o.end.toISOString(), location: o.location, all_day: o.all_day, mine: o }))
     ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time)).slice(0, MAX_ROWS);
     if (!events.length) { listEl.innerHTML = warn + '<p class="card-subtitle">Nothing on your calendars in the next few weeks.</p>'; return; }
-    const byId = new Map(conns.map((c, i) => [c.id, { name: c.external_account_email || c.provider_label, color: window.HomeCalendarColor(i) }]));
+    const byId = new Map(conns.map((c, i) => [c.id, { name: c.external_account_email || c.provider_label, color: (window.MyCalendar && window.MyCalendar.colorFor) ? window.MyCalendar.colorFor(`linked:${c.id}`, window.HomeCalendarColor(i)) : window.HomeCalendarColor(i) }]));
     const showTags = conns.length + (mine.length ? 1 : 0) > 1;
     listEl.innerHTML = warn + events.map(ev => {
       const s = new Date(ev.start_time), en = new Date(ev.end_time || ev.start_time);
