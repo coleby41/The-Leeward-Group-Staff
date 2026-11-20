@@ -162,6 +162,7 @@
     function contractStatus(v) {
         if (isPending(v)) return { text: "Pending", tone: "na", meta: "Not awarded yet" };
         const c = contractFor(v);
+        if (v.contract_exempt && !c?.signed_file_id) return { text: "Exempt", tone: "na", meta: "Vendor record" };
         if (c?.not_needed) return { text: "Not needed", tone: "na", meta: "" };
         if (c?.countersigned_file_id) return { text: "Signed", tone: "ok", meta: `Fully signed ${fmtDay(c.countersigned_at)}` };
         if (c?.generated && c?.signed_file_id) return { text: "Waiting on PM", tone: "warn", meta: `Vendor signed ${fmtDay(c.signed_at)}` };
@@ -208,6 +209,14 @@
         }
         if (cRes.error) console.error("Failed to load contracts:", cRes.error);
         vendors = (vRes.data || []).map(v => ({ ...v, sources: v.sources || [] }));
+        // Vendor-wide contract exemption (vendor record, 2026-11-19).
+        const ids = vendors.map(v => v.company_id);
+        if (ids.length) {
+            const { data: ex, error: exError } = await db().from("Companies").select("id, ContractExempt").in("id", ids);
+            if (exError) console.warn("Couldn't load contract exemptions:", exError);
+            const exempt = new Set((ex || []).filter(r => r.ContractExempt).map(r => String(r.id)));
+            vendors.forEach(v => { v.contract_exempt = exempt.has(String(v.company_id)); });
+        }
         contracts = cRes.data || [];
 
         const fileIds = [...new Set(contracts.flatMap(c => [c.file_id, c.signed_file_id, c.countersigned_file_id]).filter(Boolean))];
@@ -265,7 +274,8 @@
 
     // "Cleared for Site" — worked out, never set by hand (Coleby, 2026-10-31).
     // Yes only when all three are done for this project:
-    //   Contract  signed, or marked "Not needed" on this vendor
+    //   Contract  signed, marked "Not needed" on this vendor, or the vendor is
+    //             contract exempt (vendor record)
     //   W-9       on the vendor record, or the vendor is W-9 exempt
     //   COI       this project's COI PDF received and the company COI date
     //             not expired, or the vendor is COI exempt
@@ -274,7 +284,7 @@
         const missing = [];
         if (isPending(v)) return { yes: false, missing: ["Not awarded yet"] };
         const c = contractFor(v);
-        if (!(c?.signed_file_id || c?.not_needed)) missing.push("Contract");
+        if (!(c?.signed_file_id || c?.not_needed || v.contract_exempt)) missing.push("Contract");
         if (!(v.w9_file_path || v.w9_exempt)) missing.push("W-9");
         const coiOk = v.coi_exempt || (v.coi_file_id && !(v.coi_expires_on && isPast(v.coi_expires_on)));
         if (!coiOk) missing.push("COI");
@@ -340,6 +350,8 @@
         let body = "";
         if (pending) {
             body = `<p class="pav-note">This vendor hasn't been awarded yet. Upload the contract once they're awarded.</p>`;
+        } else if (v.contract_exempt && !signed && !original) {
+            body = `<p class="pav-note">This vendor is contract exempt (set on the vendor record), so their contract counts as done on every project.</p>`;
         } else if (c?.not_needed) {
             body = `<p class="pav-note">Marked as not needed for this vendor.</p>
                 <div class="pav-btn-row"><button type="button" class="workbook-btn workbook-btn--preview" data-contract-action="needed">Contract is needed</button></div>`;

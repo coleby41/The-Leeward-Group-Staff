@@ -968,6 +968,8 @@ function openCompanyModal(company) {
     document.getElementById("companyCoiInput").value = "";
     document.getElementById("companyCoiExpiresInput").value = company?.COIExpiresOn ?? "";
     document.getElementById("companyCoiExemptInput").checked = Boolean(company?.COIExempt);
+    const contractExemptInput = document.getElementById("companyContractExemptInput");
+    if (contractExemptInput) contractExemptInput.checked = Boolean(company?.ContractExempt);
     const w9ExemptInput = document.getElementById("companyW9ExemptInput");
     if (w9ExemptInput) w9ExemptInput.checked = Boolean(company?.W9Exempt);
     updateCoiSectionVisibility();
@@ -1037,7 +1039,8 @@ async function handleCompanyFormSubmit(event) {
         "SSN/FID": document.getElementById("companySsnFidInput").value.trim() || null,
         COIExpiresOn: document.getElementById("companyCoiExpiresInput").value || null,
         COIExempt: document.getElementById("companyCoiExemptInput").checked,
-        W9Exempt: Boolean(document.getElementById("companyW9ExemptInput")?.checked)
+        W9Exempt: Boolean(document.getElementById("companyW9ExemptInput")?.checked),
+        ContractExempt: Boolean(document.getElementById("companyContractExemptInput")?.checked)
     };
 
     if (!payload.Name) {

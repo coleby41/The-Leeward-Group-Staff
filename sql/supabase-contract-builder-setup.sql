@@ -23,6 +23,10 @@
 --        countersigned_file_id / _at / countersigner_* / agreement_date
 --          the PM's signature for Leeward. signed_file_id stays the
 --          vendor-signed copy (that's what the paperwork review looks at).
+--   4. Companies."ContractExempt" (2026-11-19): a vendor-wide "Exempt from
+--      contract requirement" checkbox on the vendor record, like W-9 / COI
+--      Exempt. An exempt vendor's contract counts as done on every project
+--      (paperwork review, Vendor Portal checklist, Cleared for Site).
 --
 -- Run once in the Supabase SQL Editor. Needs
 -- supabase-project-accounts-vendors-setup.sql run first.
@@ -69,6 +73,11 @@ alter table public.project_vendor_contracts add constraint project_vendor_contra
   check (builder_status is null or builder_status in ('draft', 'not_completed', 'ready', 'sent'));
 
 
+-- 4. Companies: vendor-wide contract exemption -----------------------------------
+
+alter table public."Companies" add column if not exists "ContractExempt" boolean not null default false;
+
+
 -- ============================================================================
 -- Sanity checks -- run after the above:
 --   select column_name from information_schema.columns
@@ -76,4 +85,5 @@ alter table public.project_vendor_contracts add constraint project_vendor_contra
 --   select owner_entity, site_county, lender_name from public.projects_overview limit 1;                  -- works
 --   select column_name from information_schema.columns
 --     where table_name = 'project_vendor_contracts' and column_name like 'counter%';                       -- 5 rows
+--   select count(*) from public."Companies" where "ContractExempt";                                        -- 0
 -- ============================================================================

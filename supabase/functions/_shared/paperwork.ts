@@ -36,7 +36,7 @@ export interface PaperworkState {
 
 export function paperworkState(input: {
   contract: Row | null;      // project_vendor_contracts row
-  company: Row;              // Companies row (W9FilePath, W9Exempt, COIExempt)
+  company: Row;              // Companies row (W9FilePath, W9Exempt, COIExempt, ContractExempt)
   coiFileId: string | null;  // this vendor's project COI file
   review: Row | null;        // project_vendor_reviews row
 }): PaperworkState {
@@ -55,7 +55,9 @@ export function paperworkState(input: {
     };
   };
   const items = {
-    contract: item("contract", Boolean(k?.not_needed), k?.signed_file_id || null, r?.contract_returned_file_id || null, !k?.file_id),
+    // Contract exempt: marked Not needed on this project, or the vendor is
+    // contract exempt everywhere (vendor record, 2026-11-19).
+    contract: item("contract", Boolean(k?.not_needed || c?.ContractExempt), k?.signed_file_id || null, r?.contract_returned_file_id || null, !k?.file_id),
     w9: item("w9", Boolean(c?.W9Exempt), c?.W9FilePath || null, r?.w9_returned_path || null),
     coi: item("coi", Boolean(c?.COIExempt), coiFileId || null, r?.coi_returned_file_id || null),
   };

@@ -316,7 +316,7 @@ async function loadPaperwork(admin: any, projectId: string, onlyCompanyId?: numb
   const rows = [...invites, ...assigned.filter((a: Row) => !a.hidden)].filter((r: Row) => r.company_id != null && (!onlyCompanyId || Number(r.company_id) === onlyCompanyId));
   const companyIds = [...new Set(rows.map((r: Row) => Number(r.company_id)))];
   if (!companyIds.length) return [];
-  const companies = must(await admin.from("Companies").select("id, Name, FriendlyName, W9FilePath, W9Exempt, W9UpdatedAt, COIExempt").in("id", companyIds));
+  const companies = must(await admin.from("Companies").select("id, Name, FriendlyName, W9FilePath, W9Exempt, W9UpdatedAt, COIExempt, ContractExempt").in("id", companyIds));
   const contractBy = new Map<number, Row>(contracts.map((k: Row) => [Number(k.company_id), k]));
   const reviewBy = new Map<number, Row>(reviews.map((r: Row) => [Number(r.company_id), r]));
   const fileIds = [...new Set([...contracts.map((k: Row) => k.signed_file_id), ...rows.map((r: Row) => r.coi_file_id)].filter(Boolean))];

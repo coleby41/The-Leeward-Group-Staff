@@ -522,7 +522,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
     const pw = paperworkState({ contract: k, company: c, coiFileId, review: reviewByProject.get(p.id) || null });
     const contract = {
       // A returned contract goes back to "to_sign" so the vendor signs it again.
-      status: k?.not_needed ? "not_needed" : pw.items.contract.state === "returned" ? "to_sign" : k?.signed_file_id ? "signed" : k?.file_id ? "to_sign" : "waiting",
+      status: k?.not_needed || c.ContractExempt ? "not_needed" : pw.items.contract.state === "returned" ? "to_sign" : k?.signed_file_id ? "signed" : k?.file_id ? "to_sign" : "waiting",
       file: kFile(k?.file_id),
       signed_file: kFile(k?.signed_file_id),
       signed_at: k?.signed_at || null,
