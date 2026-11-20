@@ -204,7 +204,8 @@
     if (state.view === "week") {
       const [s, e] = range();
       const sameMonth = s.getMonth() === e.getMonth();
-      return `${s.toLocaleDateString("en-US", { month: "long", day: "numeric" })} – ${e.toLocaleDateString("en-US", sameMonth ? { day: "numeric", year: "numeric" } : { month: "long", day: "numeric", year: "numeric" })}`;
+      const md = (d) => d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+      return `${md(s)} – ${sameMonth ? e.getDate() : md(e)}, ${e.getFullYear()}`;
     }
     if (state.view === "agenda") return `From ${c.toLocaleDateString("en-US", { month: "long", day: "numeric" })}`;
     return c.toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -708,15 +709,45 @@
 
   const feedUrl = (token) => `${(window.SUPABASE_CONFIG || {}).url}/functions/v1/staff-calendar?feed=${token}`;
 
-  async function openSettings(focus) {
+  // Settings is its own full page (?settings), not a popup — 2026-11-20.
+  function showSettingsPage(on, push = true) {
+    document.body.classList.toggle("cal-settings-open", on);
+    $("#calSettingsPage").hidden = !on;
+    $(".cal-layout").hidden = on;
+    document.title = `Leeward Staff Portal | ${on ? "Calendar settings" : "Calendar"}`;
+    if (push) history.pushState({ settings: on }, "", on ? `${location.pathname}?settings` : location.pathname);
+    if (!on) refresh();
+    window.scrollTo(0, 0);
+  }
+  window.addEventListener("popstate", () => {
+    const on = new URLSearchParams(location.search).has("settings");
+    if (on) openSettings(null, false); else showSettingsPage(false, false);
+  });
+
+  async function openSettings(focus, push = true) {
+    closePopup();
+    if (!document.body.classList.contains("cal-settings-open")) showSettingsPage(true, push);
     const [{ data: providers }, status] = await Promise.all([
       sb().from("calendar_providers").select("id, label, auth_type").eq("is_active", true).eq("auth_type", "ics").order("sort_order"),
       cal({ action: "feed_status" }).catch(() => ({ on: false }))
     ]);
     const s = state.settings || {};
-    const box = popup(`
-      <h2>Calendar settings</h2>
-      <div class="cal-sec" id="setLinked"><h3>Bring in your Google calendar</h3>
+    const box = $("#calSettingsPage");
+    box.innerHTML = `
+      <div class="cal-set-head">
+        <button type="button" class="nc-back-link cal-set-back" id="setBack">← Back to calendar</button>
+        <h1>Calendar settings</h1>
+      </div>
+      <div class="cal-set-layout">
+      <nav class="cal-set-nav" aria-label="Settings sections">
+        <a href="#setLinked" data-jump="setLinked">Google calendar</a>
+        <a href="#setShare" data-jump="setShare">Show in Google or Apple</a>
+        <a href="#setDefaults" data-jump="setDefaults">Defaults</a>
+        <a href="#setPhone" data-jump="setPhone">Phone notifications</a>
+        <button type="button" class="cal-text-btn" id="setHelp">Setup guide ?</button>
+      </nav>
+      <div class="cal-set-body">
+      <div class="cal-sec cal-set-card" id="setLinked"><h3>Bring in your Google calendar</h3>
         <p class="cal-soft cal-small">Shows your Google (or Outlook / iCloud) events here, including past ones. Read-only — change them in Google.</p>
         <ul class="cal-linked">${state.accounts.map((a) => `<li><span><b>${esc(a.external_account_email || a.provider_label)}</b><small>${a.status === "error" ? "Needs attention" : a.last_synced_at ? `Synced ${esc(new Date(a.last_synced_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }))}` : "Connected"}</small></span>
           <button type="button" class="cal-text-btn" data-sync="${esc(a.id)}">Sync now</button><button type="button" class="cal-text-btn cal-danger" data-unlink="${esc(a.id)}">Remove</button></li>`).join("") || '<li class="cal-soft">Nothing linked yet.</li>'}</ul>
@@ -729,11 +760,11 @@
           <div class="cal-actions"><button type="submit" class="auth-button">Link calendar</button></div>
         </form>
       </div>
-      <div class="cal-sec" id="setShare"><h3>Show this calendar in Google or Apple</h3>
+      <div class="cal-sec cal-set-card" id="setShare"><h3>Show this calendar in Google or Apple</h3>
         <p class="cal-soft cal-small">Your portal events (yours, invites, assigned) show up in Google or Apple Calendar and keep updating. Google refreshes every few hours; Apple every 15–60 minutes.</p>
         <div id="setFeed"></div>
       </div>
-      <form class="cal-sec cal-form" id="setDefaults"><h3>Defaults</h3>
+      <form class="cal-sec cal-form cal-set-card" id="setDefaults"><h3>Defaults</h3>
         <div class="cal-row">
           <label>Work day starts<input type="time" name="work_start" value="${esc(String(s.work_start || "07:00").slice(0, 5))}"></label>
           <label>Ends<input type="time" name="work_end" value="${esc(String(s.work_end || "17:00").slice(0, 5))}"></label>
@@ -743,18 +774,32 @@
         <label class="cal-inline"><input type="checkbox" name="google_busy" ${s.google_busy !== false ? "checked" : ""}> Count my Google events as busy when someone invites me (they only see "Busy")</label>
         <p class="cal-msg" id="setMsg"></p>
         <div class="cal-actions"><button type="submit" class="auth-button">Save defaults</button></div>
-      </form>`, "cal-pop--settings");
+      </form>
+      <div class="cal-sec cal-set-card" id="setPhone"><h3>Phone notifications</h3>
+        <p class="cal-soft cal-small">Invites, answers and reminders go to your phone when notifications are on for the portal app.
+          ${"Notification" in window && Notification.permission === "granted" ? "<b>They're on for this device.</b>" : "They're not on for this device yet."}</p>
+        <div class="cal-actions cal-actions--left"><a class="auth-button auth-button--secondary" href="/pages/notifications.html">Notification settings ›</a></div>
+      </div>
+      </div></div>`;
+    $("#setBack", box).addEventListener("click", () => {
+      if (history.state && history.state.settings) history.back(); else showSettingsPage(false);
+    });
+    $("#setHelp", box).addEventListener("click", openHelp);
+    box.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
+      e.preventDefault();
+      document.getElementById(a.dataset.jump)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }));
 
     // Linked calendars.
     box.querySelectorAll("[data-sync]").forEach((b) => b.addEventListener("click", async () => {
       b.disabled = true; b.textContent = "Syncing…";
-      try { await callFn("calendar", { action: "sync", account_id: b.dataset.sync }); toast("Synced."); await loadAccounts(); openSettings(); refresh(); }
+      try { await callFn("calendar", { action: "sync", account_id: b.dataset.sync }); toast("Synced."); await loadAccounts(); openSettings(null, false); refresh(); }
       catch (err) { b.disabled = false; b.textContent = "Sync now"; toast(err.message, "error"); }
     }));
     box.querySelectorAll("[data-unlink]").forEach((b) => b.addEventListener("click", async () => {
       if (!b.dataset.sure) { b.dataset.sure = "1"; b.textContent = "Tap again to remove"; return; }
       b.disabled = true;
-      try { await callFn("calendar", { action: "disconnect", account_id: b.dataset.unlink }); toast("Removed."); await loadAccounts(); openSettings(); refresh(); }
+      try { await callFn("calendar", { action: "disconnect", account_id: b.dataset.unlink }); toast("Removed."); await loadAccounts(); openSettings(null, false); refresh(); }
       catch (err) { b.disabled = false; toast(err.message, "error"); }
     }));
     $("#setLinkForm", box).addEventListener("submit", async (e) => {
@@ -765,7 +810,7 @@
         const r = await callFn("calendar", { action: "ics_connect", provider: form.elements.provider.value, url: form.elements.url.value.trim() });
         if (r.status === "error") throw new Error(r.message || "Couldn't read that calendar.");
         toast(`Linked — ${r.count ?? r.found ?? 0} events brought in.`);
-        await loadAccounts(); openSettings(); refresh();
+        await loadAccounts(); openSettings(null, false); refresh();
       } catch (err) { btn.disabled = false; btn.textContent = "Link calendar"; toast(err.message, "error"); }
     });
 
@@ -830,6 +875,7 @@
     });
 
     if (focus) $(focus === "share" ? "#setShare" : focus === "defaults" ? "#setDefaults" : "#setLinked", box)?.scrollIntoView({ block: "start" });
+    // Saving defaults: stay on the page.
   }
 
   /* ---------------- help ("?") ---------------- */
@@ -906,7 +952,7 @@
     $("#calBody").addEventListener("dblclick", (e) => { const c = e.target.closest(".cal-mcell"); if (c && !e.target.closest("[data-item]")) openEditor(null, { date: c.dataset.newday }); });
     // Keyboard: t = today, j/k or arrows = move, n = new.
     document.addEventListener("keydown", (e) => {
-      if (e.target.closest("input, textarea, select, [contenteditable]") || document.querySelector(".cal-pop-overlay") || e.metaKey || e.ctrlKey) return;
+      if (e.target.closest("input, textarea, select, [contenteditable]") || document.querySelector(".cal-pop-overlay") || document.body.classList.contains("cal-settings-open") || e.metaKey || e.ctrlKey) return;
       if (e.key === "t") { state.cursor = new Date(); refresh(); }
       else if (e.key === "ArrowLeft" || e.key === "k") step(-1);
       else if (e.key === "ArrowRight" || e.key === "j") step(1);
@@ -919,6 +965,7 @@
     loadInvites().catch(() => {});
 
     // Deep links: ?event=<id> (notifications, reminders) and ?new=1.
+    if (params.has("settings")) { history.replaceState({ settings: true }, "", location.href); openSettings(params.get("settings") || null, false); }
     const id = params.get("event");
     if (id && /^[0-9a-f-]{36}$/i.test(id)) {
       const { ev } = await fetchEvent(id);
@@ -930,7 +977,7 @@
     }
     // Calendar first time: show the setup guide once.
     try {
-      if (!localStorage.getItem("staffCalendar.helped") && !id && !params.get("new")) { localStorage.setItem("staffCalendar.helped", "1"); openHelp(); }
+      if (!localStorage.getItem("staffCalendar.helped") && !id && !params.get("new") && !params.has("settings")) { localStorage.setItem("staffCalendar.helped", "1"); openHelp(); }
     } catch (_) { /* fine */ }
     // Back to the page after a while: catch new invites / changes.
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") afterChange().catch(() => {}); });
