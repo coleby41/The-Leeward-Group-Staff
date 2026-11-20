@@ -305,7 +305,9 @@
 .cal-set-head { margin-bottom: 18px; }
 .cal-set-back { border: 0; background: none; padding: 0; cursor: pointer; font: inherit; }
 .cal-set-head h1 { margin: 6px 0 0; font-size: 28px; font-weight: 800; color: #14263a; }
-.cal-set-layout { display: grid; grid-template-columns: 220px minmax(0, 760px); gap: 28px; align-items: start; }
+/* Centered on the page (not hugging the left), 2026-11-20. */
+.cal-settings-page { max-width: 1080px; margin: 0 auto; }
+.cal-set-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 48px; align-items: start; }
 .cal-set-nav { position: sticky; top: 84px; display: flex; flex-direction: column; gap: 2px; border-left: 2px solid #14263a; padding-left: 4px; }
 .cal-set-nav a { color: #14263a; text-decoration: none; font-weight: 700; font-size: 14px; padding: 8px 12px; border-radius: 8px; }
 .cal-set-nav a:hover { background: rgba(8, 92, 152, .08); color: #085c98; }
