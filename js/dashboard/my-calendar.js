@@ -1,37 +1,30 @@
 /* ============================================================================
-   my-calendar.js — My Calendar on Home › "Calender For You" (2026-11-20)
+   my-calendar.js — shared portal-calendar data (2026-11-20)
 
-   Your own events, made right in the portal (no Google / Outlook). Private:
-   only you see them. They show in Rows and the month Calendar next to linked
-   calendars, in Leeward blue.
-     - "+ Event" (or tap one of your events) opens the event popup: title,
-       all day, start / end, location, notes, repeat (daily / weekly /
-       monthly / yearly, optional end date) and phone reminders (pick any).
-     - Reminders are push notifications to your phone only (not the bell);
-       sent by push-send every minute (sql/supabase-my-calendar-setup.sql).
-     - Opening /pages/dashboard?event=<id> (tapping a reminder) opens it.
-   Table: my_calendar_events (only your own rows, RLS).
+   Your portal events (made in the portal, no Google / Outlook): the ones you
+   made, plus the ones you're invited to or assigned (calendar_event_people).
+   Used by:
+     - Home › "Calender For You" (home-today.js month view, home-calendar.js
+       Rows) — "+ Event" and tapping an event open the Calendar page
+     - the Calendar page (js/calendar-page.js)
+   Declined invites, and events you only assigned to others, are left out of
+   *your* calendar.
 
-   window.MyCalendar.occurrences(fromISO, toISO) -> your events in that date
-   range (repeats expanded), used by home-today.js and home-calendar.js.
+   window.MyCalendar
+     .load(force)                -> { events, mine: Map(eventId -> your people row) }
+     .occurrenceDates(ev, from, to)
+     .occurrences(fromISO, toISO) -> your events in that date range, repeats expanded
+     .color                      -> Leeward blue
 ============================================================================ */
 (function () {
   "use strict";
   const COLOR = "#085c98";
-  const REMINDERS = [
-    { m: 0, label: "At start" }, { m: 5, label: "5 min" }, { m: 15, label: "15 min" }, { m: 30, label: "30 min" },
-    { m: 60, label: "1 hour" }, { m: 1440, label: "1 day" }, { m: 10080, label: "1 week" }
-  ];
-  const REPEATS = [["none", "Doesn't repeat"], ["daily", "Every day"], ["weekly", "Every week"], ["monthly", "Every month"], ["yearly", "Every year"]];
-  let events = null;       // my_calendar_events rows (cached)
-  let editing = null;      // row being edited, or {} for new
-  let busy = false;
+  const ASSIGNED_COLOR = "#127a68";
+  let cache = null;        // { events, mine, me }
+  let loading = null;
 
   const sb = () => window.supabaseClient;
-  const esc = (s) => { const d = document.createElement("div"); d.textContent = s ?? ""; return d.innerHTML; };
-  const $ = (id) => document.getElementById(id);
   const pad = (n) => String(n).padStart(2, "0");
-  const isoDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   const DAY = 86400000;
   const utcDay = (s) => { const [y, m, d] = s.split("-").map(Number); return Date.UTC(y, m - 1, d); };
   const addDays = (s, n) => new Date(utcDay(s) + n * DAY).toISOString().slice(0, 10);
@@ -67,20 +60,50 @@
     return new Date(2000, 0, 1, h, m).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
 
+  async function myStaffId() {
+    try { await window.supabaseInitialProfilePromise; } catch (_) { /* fall through */ }
+    const p = window.currentSupabaseProfile || (() => { try { return JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch { return null; } })();
+    return p?.id || null;
+  }
+
   async function load(force) {
-    if (events && !force) return events;
-    if (!sb()) return [];
-    const { data, error } = await sb().from("my_calendar_events").select("*").order("start_date");
-    if (error) { console.warn("My Calendar: couldn't load events (has sql/supabase-my-calendar-setup.sql been run?)", error); events = []; return events; }
-    events = data || [];
-    return events;
+    if (cache && !force) return cache;
+    if (loading && !force) return loading;
+    loading = (async () => {
+      for (let i = 0; i < 50 && !sb(); i++) await new Promise(r => setTimeout(r, 100));
+      if (!sb()) { loading = null; return { events: [], mine: new Map(), me: null }; }
+      const me = await myStaffId();
+      const [ev, ppl] = await Promise.all([
+        sb().from("my_calendar_events").select("*").order("start_date"),
+        me ? sb().from("calendar_event_people").select("event_id, role, response, reminders").eq("staff_id", me) : Promise.resolve({ data: [] })
+      ]);
+      if (ev.error) console.warn("Calendar: couldn't load events (have the calendar SQL files been run?)", ev.error);
+      const mine = new Map((ppl.data || []).map(p => [p.event_id, p]));
+      cache = { events: ev.data || [], mine, me };
+      loading = null;
+      return cache;
+    })();
+    return loading;
+  }
+
+  // Is this event on *my* calendar, and how? -> null | {kind: "own"|"invite"|"assign", person}
+  function relation(ev, data) {
+    const p = data.mine.get(ev.id);
+    if (p) {
+      if (p.response === "declined" || p.response === "conflict") return null;
+      return { kind: p.role === "assign" ? "assign" : "invite", person: p };
+    }
+    if (ev.staff_id === data.me) return ev.organizer_attends === false ? null : { kind: "own", person: null };
+    return null;
   }
 
   // Your events in [from, to] (YYYY-MM-DD), one entry per occurrence.
   async function occurrences(from, to) {
-    const list = await load();
+    const data = await load();
     const out = [];
-    for (const ev of list) {
+    for (const ev of data.events) {
+      const rel = relation(ev, data);
+      if (!rel) continue;
       for (const date of occurrenceDates(ev, from, to)) {
         const span = Math.max(0, daysBetween(ev.start_date, ev.end_date || ev.start_date));
         const start = new Date(`${date}T${ev.all_day ? "00:00" : (ev.start_time || "00:00").slice(0, 5)}`);
@@ -88,7 +111,9 @@
         const end = ev.all_day ? new Date(`${addDays(endDate, 1)}T00:00`) : new Date(`${endDate}T${(ev.end_time || ev.start_time || "00:00").slice(0, 5)}`);
         out.push({
           id: ev.id, title: ev.title, location: ev.location || "", all_day: ev.all_day, date, start, end,
-          repeat: ev.repeat, color: COLOR, href: `#my-event:${ev.id}`,
+          repeat: ev.repeat, kind: rel.kind, pending: rel.kind === "invite" && rel.person.response === "pending",
+          color: rel.kind === "assign" ? ASSIGNED_COLOR : COLOR,
+          href: `/pages/calendar.html?event=${ev.id}`,
           time: ev.all_day ? "All day" : timeText((ev.start_time || "").slice(0, 5))
         });
       }
@@ -96,235 +121,40 @@
     return out.sort((a, b) => a.start - b.start);
   }
 
-  function changed() {
-    window.dispatchEvent(new CustomEvent("mycalendar:changed"));
-    window.dispatchEvent(new CustomEvent("calendar:synced"));   // home-today.js reloads the month
+  // Old phone reminders opened /pages/dashboard?event=<id>; send them on.
+  if (/\/dashboard(\.html)?$/.test(location.pathname)) {
+    const old = new URLSearchParams(location.search).get("event");
+    if (old) location.replace(`/pages/calendar.html?event=${encodeURIComponent(old)}`);
   }
 
-  /* ---------- popups ---------- */
-
-  function inject() {
-    if ($("myEventOverlay")) return;
-    const wrap = document.createElement("div");
-    wrap.innerHTML = `
-<div class="popup-overlay popup-overlay--blur hidden" id="myEventOverlay">
-  <div class="popup mycal-popup" role="dialog" aria-modal="true" aria-labelledby="myEventTitle">
-    <div class="mycal-head">
-      <h2 id="myEventTitle">New event</h2>
-      <button type="button" class="pav-close-btn" data-mycal-close aria-label="Close">✕</button>
-    </div>
-    <form id="myEventForm" class="mycal-form" novalidate>
-      <label class="auth-field">Title<input type="text" name="title" maxlength="200" required autocomplete="off"></label>
-      <label class="mycal-check"><input type="checkbox" name="all_day"> All day</label>
-      <div class="mycal-grid">
-        <label class="auth-field">Starts<input type="date" name="start_date" required></label>
-        <label class="auth-field" data-time>Time<input type="time" name="start_time" step="300"></label>
-        <label class="auth-field">Ends<input type="date" name="end_date" required></label>
-        <label class="auth-field" data-time>Time<input type="time" name="end_time" step="300"></label>
-      </div>
-      <div class="mycal-grid">
-        <label class="auth-field">Repeat<select name="repeat">${REPEATS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("")}</select></label>
-        <label class="auth-field" data-until>Until (optional)<input type="date" name="repeat_until"></label>
-      </div>
-      <fieldset class="mycal-reminders">
-        <legend>Phone reminders <span>— to your phone only, before it starts</span></legend>
-        <div class="mycal-chips">${REMINDERS.map(r => `<label class="mycal-chip"><input type="checkbox" name="reminder" value="${r.m}"><span>${r.label}</span></label>`).join("")}</div>
-        <p class="mycal-hint" id="myEventPushHint"></p>
-      </fieldset>
-      <label class="auth-field">Location (optional)<input type="text" name="location" maxlength="200" autocomplete="off"></label>
-      <label class="auth-field">Notes (optional)<textarea name="notes" rows="2" maxlength="2000"></textarea></label>
-      <p class="auth-message" id="myEventMessage" role="status"></p>
-      <div class="popup-buttons mycal-foot">
-        <button type="button" class="mycal-delete" id="myEventDelete">Delete</button>
-        <span class="mycal-foot-right">
-          <button type="button" class="auth-button auth-button--secondary sheet-close" data-mycal-close>Cancel</button>
-          <button type="submit" class="auth-button" id="myEventSave">Save</button>
-        </span>
-      </div>
-    </form>
-  </div>
-</div>`;
-    document.body.append(...wrap.children);
-    const form = $("myEventForm");
-    document.querySelectorAll("[data-mycal-close]").forEach(b => b.addEventListener("click", closeEvent));
-    $("myEventOverlay").addEventListener("click", e => { if (e.target === e.currentTarget) closeEvent(); });
-    form.addEventListener("submit", save);
-    form.elements.all_day.addEventListener("change", syncForm);
-    form.elements.repeat.addEventListener("change", syncForm);
-    form.elements.start_date.addEventListener("change", () => {
-      // Keep the end on/after the start.
-      if (!form.elements.end_date.value || form.elements.end_date.value < form.elements.start_date.value) form.elements.end_date.value = form.elements.start_date.value;
-    });
-    form.elements.start_time.addEventListener("change", () => {
-      const s = form.elements.start_time.value, e = form.elements.end_time.value;
-      if (s && (!e || (form.elements.end_date.value === form.elements.start_date.value && e <= s))) {
-        const [h, m] = s.split(":").map(Number);
-        const t = new Date(2000, 0, 1, h + 1, m);
-        form.elements.end_time.value = t.getDate() === 1 ? `${pad(t.getHours())}:${pad(t.getMinutes())}` : "23:55";
-      }
-    });
-    $("myEventDelete").addEventListener("click", remove);
-    document.addEventListener("keydown", e => {
-      if (e.key !== "Escape") return;
-      if (!$("myEventOverlay").classList.contains("hidden")) closeEvent();
-    });
-  }
-
-  function syncForm() {
-    const form = $("myEventForm");
-    const allDay = form.elements.all_day.checked;
-    form.querySelectorAll("[data-time]").forEach(el => { el.hidden = allDay; });
-    form.querySelector("[data-until]").hidden = form.elements.repeat.value === "none";
-  }
-
-  function show(id) { $(id).classList.remove("hidden"); document.body.classList.add("popup-active"); }
-  function hide(id) {
-    $(id).classList.add("hidden");
-    if (!document.querySelector(".popup-overlay:not(.hidden)")) document.body.classList.remove("popup-active");
-  }
-
-  async function pushHint() {
-    const el = $("myEventPushHint");
-    el.textContent = "";
-    try {
-      const s = await window.PushNotifications?.state?.();
-      if (s && s !== "on") el.innerHTML = `Phone notifications aren't on for this device. Turn them on on your phone from the <a href="/pages/notifications.html">Notifications</a> page.`;
-    } catch { /* ignore */ }
-  }
-
-  async function openEvent(id, date) {
-    inject();
-    await load();
-    const form = $("myEventForm");
-    form.reset();
-    $("myEventMessage").textContent = "";
-    const ev = id ? (events || []).find(e => e.id === id) : null;
-    if (id && !ev) { window.showToast?.("That event isn't on your calendar anymore."); return; }
-    editing = ev || {};
-    $("myEventTitle").textContent = ev ? "Edit event" : "New event";
-    $("myEventDelete").hidden = !ev;
-    const day = date || isoDay(new Date());
-    if (ev) {
-      form.elements.title.value = ev.title || "";
-      form.elements.all_day.checked = ev.all_day;
-      form.elements.start_date.value = ev.start_date;
-      form.elements.end_date.value = ev.end_date;
-      form.elements.start_time.value = (ev.start_time || "").slice(0, 5);
-      form.elements.end_time.value = (ev.end_time || "").slice(0, 5);
-      form.elements.repeat.value = ev.repeat || "none";
-      form.elements.repeat_until.value = ev.repeat_until || "";
-      form.elements.location.value = ev.location || "";
-      form.elements.notes.value = ev.notes || "";
-      form.querySelectorAll('[name="reminder"]').forEach(c => { c.checked = (ev.reminders || []).includes(Number(c.value)); });
-    } else {
-      const now = new Date();
-      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0);
-      form.elements.start_date.value = day;
-      form.elements.end_date.value = day;
-      form.elements.start_time.value = `${pad(next.getHours())}:00`;
-      form.elements.end_time.value = `${pad((next.getHours() + 1) % 24)}:00`;
-      form.querySelector('[name="reminder"][value="15"]').checked = true;
-    }
-    syncForm();
-    show("myEventOverlay");
-    pushHint();
-    setTimeout(() => form.elements.title.focus(), 50);
-  }
-
-  function closeEvent() { if (!busy) { hide("myEventOverlay"); editing = null; } }
-
-  function message(id, text, type) { const el = $(id); el.textContent = text || ""; el.className = `auth-message ${type || ""}`.trim(); }
-
-  async function save(e) {
-    e.preventDefault();
-    if (busy || !editing) return;
-    const f = $("myEventForm").elements;
-    const allDay = f.all_day.checked;
-    const row = {
-      title: f.title.value.trim(), all_day: allDay,
-      start_date: f.start_date.value, end_date: f.end_date.value || f.start_date.value,
-      start_time: allDay ? null : f.start_time.value || null, end_time: allDay ? null : (f.end_time.value || f.start_time.value || null),
-      repeat: f.repeat.value, repeat_until: f.repeat.value === "none" ? null : (f.repeat_until.value || null),
-      location: f.location.value.trim() || null, notes: f.notes.value.trim() || null,
-      reminders: Array.from(document.querySelectorAll('#myEventForm [name="reminder"]:checked')).map(c => Number(c.value)),
-      tz: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/New_York"
-    };
-    const problems = [];
-    if (!row.title) problems.push("a title");
-    if (!row.start_date) problems.push("a start date");
-    if (!allDay && !row.start_time) problems.push("a start time");
-    if (problems.length) { message("myEventMessage", `Please add ${problems.join(" and ")}.`, "error"); return; }
-    if (row.end_date < row.start_date || (!allDay && row.end_date === row.start_date && row.end_time < row.start_time)) {
-      message("myEventMessage", "The end has to be after the start.", "error"); return;
-    }
-    if (row.repeat_until && row.repeat_until < row.start_date) { message("myEventMessage", "\"Until\" has to be after the start date.", "error"); return; }
-
-    busy = true;
-    $("myEventSave").disabled = true;
-    try {
-      // staff_id fills itself in (current_staff_id()) on a new event.
-      const q = editing.id
-        ? sb().from("my_calendar_events").update(row).eq("id", editing.id).select().single()
-        : sb().from("my_calendar_events").insert(row).select().single();
-      const { error } = await q;
-      if (error) throw error;
-      await load(true);
-      busy = false;
-      closeEvent();
-      window.showToast?.(row.reminders.length ? "Event saved. You'll get a reminder on your phone." : "Event saved.");
-      changed();
-    } catch (err) {
-      console.error("My Calendar save failed:", err);
-      message("myEventMessage", err?.message || "Couldn't save the event.", "error");
-    } finally {
-      busy = false;
-      $("myEventSave").disabled = false;
-    }
-  }
-
-  async function remove() {
-    if (busy || !editing?.id) return;
-    if (!confirm(editing.repeat && editing.repeat !== "none" ? "Delete this event and all of its repeats?" : "Delete this event?")) return;
-    busy = true;
-    try {
-      const { error } = await sb().from("my_calendar_events").delete().eq("id", editing.id);
-      if (error) throw error;
-      await load(true);
-      busy = false;
-      closeEvent();
-      window.showToast?.("Event deleted.");
-      changed();
-    } catch (err) {
-      message("myEventMessage", err?.message || "Couldn't delete the event.", "error");
-    } finally { busy = false; }
-  }
-
-  /* ---------- start ---------- */
-
+  // Home: "+ Event" goes to the Calendar page.
   document.addEventListener("DOMContentLoaded", () => {
     const tools = document.querySelector(".hm-today-tools");
     if (tools && !document.getElementById("myEventAddLink")) {
       const add = document.createElement("a");
-      add.href = "#"; add.id = "myEventAddLink"; add.textContent = "+ Event";
+      add.href = "/pages/calendar.html?new=1"; add.id = "myEventAddLink"; add.textContent = "+ Event";
+      const open = document.createElement("a");
+      open.href = "/pages/calendar.html"; open.id = "openCalendarLink"; open.textContent = "Open calendar ›";
+      open.style.fontWeight = "700";
       const toggle = tools.querySelector(".hm-view-toggle");
-      tools.insertBefore(add, toggle ? toggle.nextSibling : tools.firstChild);
-      add.addEventListener("click", e => { e.preventDefault(); openEvent(null, document.querySelector("#todayCalendar:not([hidden]) [aria-pressed='true'][data-day]")?.dataset.day); });
+      tools.insertBefore(open, toggle ? toggle.nextSibling : tools.firstChild);
+      tools.insertBefore(add, open);
+      add.addEventListener("click", (e) => {
+        const day = document.querySelector("#todayCalendar:not([hidden]) [aria-pressed='true'][data-day]")?.dataset.day;
+        if (day) { e.preventDefault(); location.href = `/pages/calendar.html?new=1&date=${day}`; }
+      });
     }
-    // Your events in the lists are links to "#my-event:<id>".
-    document.addEventListener("click", e => {
-      const a = e.target.closest('a[href^="#my-event:"]');
-      if (!a) return;
-      e.preventDefault();
-      openEvent(a.getAttribute("href").slice("#my-event:".length));
-    });
-    // Tapped a phone reminder: /pages/dashboard?event=<id>
-    const id = new URLSearchParams(location.search).get("event");
-    if (id) {
-      const tryOpen = (n) => { if (sb()) openEvent(id); else if (n < 50) setTimeout(() => tryOpen(n + 1), 200); };
-      tryOpen(0);
-      history.replaceState(null, "", location.pathname);
+    // "Calender For You" heading opens the Calendar page.
+    const head = tools?.closest(".hm-section-head")?.querySelector("h2");
+    if (head && !head.querySelector("a")) {
+      const a = document.createElement("a");
+      a.href = "/pages/calendar.html";
+      a.className = "hm-cal-head-link";
+      a.innerHTML = `${head.innerHTML} <span aria-hidden="true">›</span>`;
+      head.innerHTML = "";
+      head.appendChild(a);
     }
   });
 
-  window.MyCalendar = { occurrences, open: openEvent, reload: () => load(true), color: COLOR };
+  window.MyCalendar = { load, reload: () => load(true), occurrences, occurrenceDates, relation, addDays, daysBetween, timeText, color: COLOR, assignedColor: ASSIGNED_COLOR };
 })();

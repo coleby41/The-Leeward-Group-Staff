@@ -20093,3 +20093,7 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
   .mycal-foot-right > * { min-height: 44px; width: 100%; }
   .mycal-chip span { min-height: 44px; }
 }
+
+/* Home: "Calender For You ›" opens the Staff Calendar (js/dashboard/my-calendar.js) — 2026-11-20 */
+.hm-cal-head-link { color: inherit; text-decoration: none; }
+.hm-cal-head-link:hover { color: #085c98; }

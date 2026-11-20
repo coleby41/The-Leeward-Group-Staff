@@ -147,38 +147,53 @@ const LOOKBACK_MS = 15 * 60000;
 const MAX_REMINDER_MS = 7 * 86400000;
 async function reminders(admin: Row) {
   const now = new Date();
-  const { data: events, error } = await admin.from("my_calendar_events").select("*").neq("reminders", "{}");
-  if (error) throw error;
-  if (!events?.length) return json({ ok: true, sent: 0 });
-  const occs = occurrencesBetween(events, new Date(now.getTime() - 86400000), new Date(now.getTime() + MAX_REMINDER_MS + 86400000));
+  // Who gets reminded about what: the organizer (their own reminders, when
+  // they're attending) and everyone on the event who hasn't declined
+  // (their own reminders) — Staff Calendar, 2026-11-20.
+  const [own, people] = await Promise.all([
+    admin.from("my_calendar_events").select("*").neq("reminders", "{}"),
+    admin.from("calendar_event_people").select("staff_id, reminders, response, my_calendar_events(*)").neq("reminders", "{}").in("response", ["pending", "accepted"]),
+  ]);
+  if (own.error) throw own.error;
+  const targets: { staffId: string; ev: Row; reminders: number[] }[] = [];
+  (own.data || []).forEach((ev: Row) => { if (ev.organizer_attends !== false) targets.push({ staffId: ev.staff_id, ev, reminders: ev.reminders || [] }); });
+  if (!people.error) {
+    (people.data || []).forEach((p: Row) => {
+      const ev = Array.isArray(p.my_calendar_events) ? p.my_calendar_events[0] : p.my_calendar_events;
+      if (ev) targets.push({ staffId: p.staff_id, ev, reminders: p.reminders || [] });
+    });
+  }
+  if (!targets.length) return json({ ok: true, sent: 0 });
   let due = 0, sent = 0;
   const subsByStaff = new Map<string, Row[]>();
-  for (const occ of occs) {
-    for (const m of (occ.event.reminders || []) as number[]) {
-      const at = reminderAt(occ.event, occ.date, Number(m));
-      if (at > now || at.getTime() <= now.getTime() - LOOKBACK_MS) continue;
-      // Claim it (only one run sends each reminder).
-      const { data: claimed, error: claimError } = await admin.from("my_calendar_reminders_sent")
-        .upsert({ event_id: occ.event.id, occurrence_date: occ.date, minutes: Number(m) }, { onConflict: "event_id,occurrence_date,minutes", ignoreDuplicates: true })
-        .select("event_id");
-      if (claimError) { console.error("reminder claim failed:", claimError); continue; }
-      if (!claimed?.length) continue;
-      due++;
-      const staffId = occ.event.staff_id;
-      if (!subsByStaff.has(staffId)) {
-        const { data } = await admin.from("push_subscriptions").select("*").eq("staff_id", staffId);
-        subsByStaff.set(staffId, data || []);
+  const windowFrom = new Date(now.getTime() - 86400000), windowTo = new Date(now.getTime() + MAX_REMINDER_MS + 86400000);
+  for (const t of targets) {
+    for (const occ of occurrencesBetween([t.ev], windowFrom, windowTo)) {
+      for (const m of t.reminders) {
+        const at = reminderAt(t.ev, occ.date, Number(m));
+        if (at > now || at.getTime() <= now.getTime() - LOOKBACK_MS) continue;
+        // Claim it (only one run sends each reminder to each person).
+        const { data: claimed, error: claimError } = await admin.from("my_calendar_reminders_sent")
+          .upsert({ event_id: t.ev.id, occurrence_date: occ.date, minutes: Number(m), staff_id: t.staffId }, { onConflict: "event_id,occurrence_date,minutes,staff_id", ignoreDuplicates: true })
+          .select("event_id");
+        if (claimError) { console.error("reminder claim failed:", claimError); continue; }
+        if (!claimed?.length) continue;
+        due++;
+        if (!subsByStaff.has(t.staffId)) {
+          const { data } = await admin.from("push_subscriptions").select("*").eq("staff_id", t.staffId);
+          subsByStaff.set(t.staffId, data || []);
+        }
+        const subs = subsByStaff.get(t.staffId)!;
+        if (!subs.length) continue;
+        const ev = t.ev;
+        const r = await sendAll(admin, subs, async () => ({
+          title: ev.title || "Event",
+          body: [reminderLabel(Number(m)), timeLabel(ev, occ.start), ev.location || ""].filter(Boolean).join(" · "),
+          url: absolute(`/pages/calendar.html?event=${ev.id}`),
+          tag: `cal-${ev.id}-${occ.date}-${m}`,
+        }));
+        sent += r.sent;
       }
-      const subs = subsByStaff.get(staffId)!;
-      if (!subs.length) continue;
-      const ev = occ.event;
-      const r = await sendAll(admin, subs, async () => ({
-        title: ev.title || "Event",
-        body: [reminderLabel(Number(m)), timeLabel(ev, occ.start), ev.location || ""].filter(Boolean).join(" · "),
-        url: absolute(`/pages/dashboard?event=${ev.id}`),
-        tag: `cal-${ev.id}-${occ.date}-${m}`,
-      }));
-      sent += r.sent;
     }
   }
   return json({ ok: true, due, sent });

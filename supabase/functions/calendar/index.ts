@@ -156,10 +156,12 @@ function zoned(y: number, m: number, d: number, h: number, mi: number, s: number
     return new Date(guess);                   // unknown zone: treat as UTC
   }
 }
+// Staff Calendar (2026-11-20): "import all of that calendar" — the past
+// 5 years through the next 2 years (was last month → next 4 months).
 function windowRange() {
   const now = new Date();
-  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 4, 1));
+  const from = new Date(Date.UTC(now.getUTCFullYear() - 5, now.getUTCMonth(), 1));
+  const to = new Date(Date.UTC(now.getUTCFullYear() + 2, now.getUTCMonth(), 1));
   return { from, to };
 }
 
