@@ -107,12 +107,22 @@
     const end = new Date(shown.getFullYear(), shown.getMonth() + 1, 1);
     const to = iso(new Date(end.getFullYear(), end.getMonth(), 0));
     const monthKey = from;
+    // Not done yet? Tasks, to-dos and deadlines from past days move to today
+    // (same as the Calendar page). Due dates themselves don't change.
+    const today = todayISO();
+    const showsToday = from <= today && today <= to;
+    const doneFrom = showsToday ? iso(new Date(Date.now() - 365 * 86400000)) : (from < today ? today : from);
+    const due = (date, item) => {
+      if (date >= today) return add(date, item);
+      const was = new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      add(today, { ...item, overdue: true, sub: `Overdue · was due ${was}${item.sub ? ` · ${item.sub}` : ""}` });
+    };
 
     const [events, tasks, todos, projects, conn] = await Promise.all([
       DS.safeQuery("month events", sb.from("calendar_events_cache").select("id, title, start_time, end_time, location, account_id")
         .eq("user_id", staffId).gte("start_time", new Date(shown).toISOString()).lt("start_time", end.toISOString()).order("start_time")),
-      DS.safeQuery("month tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
-      DS.safeQuery("month to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).gte("due_date", from).lte("due_date", to)),
+      DS.safeQuery("month tasks", sb.from("tasks").select("id, task_name, due_date").eq("user_id", staffId).eq("completed", false).gte("due_date", doneFrom).lte("due_date", to)),
+      DS.safeQuery("month to-dos", sb.from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", staffId).eq("completed", false).gte("due_date", doneFrom).lte("due_date", to)),
       DS.safeQuery("month projects", sb.from("projects").select("id, name").eq("status", "active")),
       DS.safeQuery("month calendar", sb.from("calendar_connections_status").select("id, provider_label, external_account_email").order("created_at"))
     ]);
@@ -121,8 +131,8 @@
     const calById = new Map(calendars.map(c => [c.id, c]));
     if (iso(shown) !== monthKey) return; // moved on while loading
 
-    (tasks.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
-    (todos.data || []).forEach(t => add(t.due_date, { kind: "task", title: t.label, sub: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` }));
+    (tasks.data || []).forEach(t => due(t.due_date, { kind: "task", title: t.task_name, sub: "Personal", href: "/pages/staff-todo.html" }));
+    (todos.data || []).forEach(t => due(t.due_date, { kind: "task", title: t.label, sub: (t.projects && t.projects.name) || "Project", href: `/pages/project-todo.html?id=${encodeURIComponent(t.project_id)}` }));
     (events.data || []).forEach(e => {
       const s = new Date(e.start_time);
       const cal = calById.get(e.account_id);
@@ -147,8 +157,8 @@
     if (active.length) {
       const names = new Map(active.map(p => [p.id, p.name]));
       const { data } = await DS.safeQuery("month timeline", sb.from("schedule_tasks").select("id, name, item_type, end_date, project_id")
-        .in("project_id", active.map(p => p.id)).neq("status", "complete").gte("end_date", from).lte("end_date", to));
-      (data || []).forEach(t => add(t.end_date, {
+        .in("project_id", active.map(p => p.id)).neq("status", "complete").gte("end_date", doneFrom).lte("end_date", to));
+      (data || []).forEach(t => due(t.end_date, {
         kind: "deadline", title: t.name, sub: `${names.get(t.project_id) || ""}${t.item_type === "milestone" ? " · Milestone" : ""}`,
         href: `/pages/project-timeline.html?id=${encodeURIComponent(t.project_id)}`
       }));
@@ -179,13 +189,13 @@
         </button>`);
     }
 
-    const dayItems = (items.get(selected) || []).slice().sort((a, b) => (a.kind === "event" ? 0 : 1) - (b.kind === "event" ? 0 : 1) || (a.sort || 0) - (b.sort || 0));
+    const dayItems = (items.get(selected) || []).slice().sort((a, b) => (b.overdue ? 1 : 0) - (a.overdue ? 1 : 0) || (a.kind === "event" ? 0 : 1) - (b.kind === "event" ? 0 : 1) || (a.sort || 0) - (b.sort || 0));
     const selDate = new Date(`${selected}T00:00:00`);
     const selTitle = selected === today ? "Today" : selDate.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
     const agenda = loading ? '<p class="hm-mc-none">Loading…</p>'
       : dayItems.length ? dayItems.map(x => {
           const lead = x.kind === "event" ? `<span class="hm-mc-time"${x.color ? ` style="border-left:3px solid ${x.color};padding-left:6px"` : ""}>${esc(x.time)}</span>` : `<i class="hm-mc-dot hm-mc-dot--${x.kind}"></i>`;
-          const inner = `${lead}<span class="hm-mc-item-text"><strong>${esc(x.title)}</strong>${x.sub ? `<small>${esc(x.sub)}</small>` : ""}</span>`;
+          const inner = `${lead}<span class="hm-mc-item-text"><strong>${esc(x.title)}</strong>${x.sub ? `<small${x.overdue ? ' style="color:#e11d2a;font-weight:700"' : ""}>${esc(x.sub)}</small>` : ""}</span>`;
           return x.href ? `<a class="hm-mc-item" href="${x.href}">${inner}</a>` : `<div class="hm-mc-item">${inner}</div>`;
         }).join("")
       : '<p class="hm-mc-none">Nothing on this day.</p>';

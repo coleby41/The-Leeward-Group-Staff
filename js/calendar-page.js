@@ -121,12 +121,16 @@
     const startIso = new Date(from.getFullYear(), from.getMonth(), from.getDate()).toISOString();
     const endIso = addD(to, 1).toISOString();
     const me = state.me;
+    // Not done yet? Tasks, to-dos and deadlines from past days move to today.
+    const todayKey = iso(new Date());
+    const showsToday = f <= todayKey && todayKey <= t;
+    const doneFrom = showsToday ? iso(addD(new Date(), -365)) : (f < todayKey ? todayKey : f);
     const [portal, assignedByMe, linked, tasks, todos, projects, coi] = await Promise.all([
       window.MyCalendar.load(true).then(() => window.MyCalendar.occurrences(f, t)).catch(() => []),
       sb().from("my_calendar_events").select("*").eq("staff_id", me).eq("organizer_attends", false),
       sb().from("calendar_events_cache").select("id, title, start_time, end_time, location, all_day, account_id").eq("user_id", me).lt("start_time", endIso).gt("end_time", startIso).order("start_time").limit(1500),
-      sb().from("tasks").select("id, task_name, due_date").eq("user_id", me).eq("completed", false).gte("due_date", f).lte("due_date", t),
-      sb().from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", me).eq("completed", false).gte("due_date", f).lte("due_date", t),
+      sb().from("tasks").select("id, task_name, due_date").eq("user_id", me).eq("completed", false).gte("due_date", doneFrom).lte("due_date", t),
+      sb().from("project_todo_subitems").select("id, label, due_date, project_id, projects(name)").eq("assigned_to", me).eq("completed", false).gte("due_date", doneFrom).lte("due_date", t),
       sb().from("projects").select("id, name").eq("status", "active"),
       sb().from("Companies").select("id, Name, COIExpiresOn, COIExempt").gte("COIExpiresOn", f).lte("COIExpiresOn", t)
     ]);
@@ -153,20 +157,26 @@
       items.push({ key: `l:${e.id}`, cal: `linked:${e.account_id}`, title: e.title || "Busy", sub: e.location || "", start: s, end: en, allDay: !!e.all_day, readOnly: true });
     });
     const dayItem = (date, rest) => { const s = parseDay(date); return { ...rest, start: s, end: addD(s, 1), allDay: true }; };
-    (tasks.data || []).forEach((x) => items.push(dayItem(x.due_date, { key: `t:${x.id}`, cal: "tasks", title: x.task_name, sub: "Personal task", href: "/pages/staff-todo.html" })));
-    (todos.data || []).forEach((x) => items.push(dayItem(x.due_date, { key: `td:${x.id}`, cal: "tasks", title: x.label, sub: x.projects?.name || "Project to-do", href: `/pages/project-todo.html?id=${encodeURIComponent(x.project_id)}` })));
+    // A past due date that isn't done shows on today instead, marked overdue.
+    const dueItem = (date, rest) => {
+      if (date >= todayKey) return dayItem(date, rest);
+      const was = parseDay(date).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      return dayItem(todayKey, { ...rest, overdue: true, sub: `Overdue · was due ${was}${rest.sub ? ` · ${rest.sub}` : ""}` });
+    };
+    (tasks.data || []).forEach((x) => items.push(dueItem(x.due_date, { key: `t:${x.id}`, cal: "tasks", title: x.task_name, sub: "Personal task", href: "/pages/staff-todo.html" })));
+    (todos.data || []).forEach((x) => items.push(dueItem(x.due_date, { key: `td:${x.id}`, cal: "tasks", title: x.label, sub: x.projects?.name || "Project to-do", href: `/pages/project-todo.html?id=${encodeURIComponent(x.project_id)}` })));
     state.projects = projects.data || [];
     if (state.projects.length) {
       const names = new Map(state.projects.map((p) => [p.id, p.name]));
       const { data } = await sb().from("schedule_tasks").select("id, name, item_type, end_date, project_id")
-        .in("project_id", state.projects.map((p) => p.id)).neq("status", "complete").gte("end_date", f).lte("end_date", t);
+        .in("project_id", state.projects.map((p) => p.id)).neq("status", "complete").gte("end_date", doneFrom).lte("end_date", t);
       if (seq !== state.loadSeq) return;
-      (data || []).forEach((x) => items.push(dayItem(x.end_date, { key: `d:${x.id}`, cal: "deadlines", title: x.name, sub: `${names.get(x.project_id) || "Project"}${x.item_type === "milestone" ? " · Milestone" : ""}`, href: `/pages/project-timeline.html?id=${encodeURIComponent(x.project_id)}` })));
+      (data || []).forEach((x) => items.push(dueItem(x.end_date, { key: `d:${x.id}`, cal: "deadlines", title: x.name, sub: `${names.get(x.project_id) || "Project"}${x.item_type === "milestone" ? " · Milestone" : ""}`, href: `/pages/project-timeline.html?id=${encodeURIComponent(x.project_id)}` })));
     }
     (coi.data || []).filter((c) => !c.COIExempt).forEach((c) => items.push(dayItem(c.COIExpiresOn, {
       key: `c:${c.id}`, cal: "coi", title: `COI expires · ${c.Name || "Vendor"}`, sub: "Certificate of insurance", href: `/pages/vendor.html?id=${encodeURIComponent(c.id)}`
     })));
-    state.items = items.sort((a, b) => a.start - b.start);
+    state.items = items.sort((a, b) => (a.start - b.start) || ((b.overdue ? 1 : 0) - (a.overdue ? 1 : 0)));
     render();
   }
 
@@ -232,7 +242,7 @@
 
   function chip(i, extra = "") {
     const time = i.allDay ? "" : `<b>${esc(timeOf(i.start))}</b> `;
-    return `<button type="button" class="cal-chip ${i.pending ? "is-pending" : ""} ${i.faded ? "is-faded" : ""} ${extra}" style="--c:${colorFor(i.cal)}" data-item="${esc(i.key)}" title="${esc(i.title)}">${time}${esc(i.title)}</button>`;
+    return `<button type="button" class="cal-chip ${i.overdue ? "is-overdue" : ""} ${i.pending ? "is-pending" : ""} ${i.faded ? "is-faded" : ""} ${extra}" style="--c:${colorFor(i.cal)}" data-item="${esc(i.key)}" title="${esc(i.title)}${i.overdue ? ` (${esc(i.sub)})` : ""}">${i.overdue ? "<b>Overdue</b> " : ""}${time}${esc(i.title)}</button>`;
   }
 
   function onDay(i, d) {
@@ -271,7 +281,7 @@
       <section class="cal-aday ${sameDay(d, new Date()) ? "is-today" : ""}">
         <h3>${esc(d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }))}</h3>
         <div>${list.map((i) => `
-          <button type="button" class="cal-arow ${i.pending ? "is-pending" : ""} ${i.faded ? "is-faded" : ""}" style="--c:${colorFor(i.cal)}" data-item="${esc(i.key)}">
+          <button type="button" class="cal-arow ${i.overdue ? "is-overdue" : ""} ${i.pending ? "is-pending" : ""} ${i.faded ? "is-faded" : ""}" style="--c:${colorFor(i.cal)}" data-item="${esc(i.key)}">
             <i aria-hidden="true"></i>
             <span class="cal-arow-time">${i.allDay ? "All day" : `${esc(timeOf(i.start))} – ${esc(timeOf(i.end))}`}</span>
             <span class="cal-arow-title">${esc(i.title)}${i.pending ? ' <em>Invite</em>' : ""}${i.sub ? `<small>${esc(i.sub)}</small>` : ""}</span>

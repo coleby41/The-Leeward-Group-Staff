@@ -325,3 +325,10 @@
   .cal-set-head h1 { font-size: 22px; }
   .cal-set-card { padding: 16px; border-radius: 14px; }
 }
+
+.cal-icon-link { display: inline-grid; place-items: center; text-decoration: none; }
+
+/* Not done and past due: shown on today (js/calendar-page.js dueItem) */
+.cal-chip.is-overdue { box-shadow: inset 3px 0 0 #e11d2a; }
+.cal-chip.is-overdue b:first-child { font-weight: 800; }
+.cal-arow.is-overdue .cal-arow-title small { color: #e11d2a; font-weight: 700; }
