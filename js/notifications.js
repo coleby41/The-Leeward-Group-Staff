@@ -325,3 +325,13 @@ if (document.readyState === "loading") {
 } else {
     startNotifications();
 }
+
+// Phone push notifications (2026-11-20): every page with the bell also loads
+// js/push-notifications.js (service worker, "Turn on" button, app badge).
+(function loadPushNotifications() {
+    if (document.querySelector('script[src="/js/push-notifications.js"]')) return;
+    const s = document.createElement("script");
+    s.src = "/js/push-notifications.js";
+    s.defer = true;
+    document.head.appendChild(s);
+})();
