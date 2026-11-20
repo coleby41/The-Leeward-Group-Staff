@@ -20053,3 +20053,45 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
   .push-panel-actions { width: 100%; }
   .push-panel-actions > * { flex: 1 1 0; min-height: 44px; }
 }
+
+/* ===========================================================
+   My Calendar (js/dashboard/my-calendar.js) — 2026-11-20
+   Event popup + iPhone widget popup on Home. Phone: bottom sheets over
+   a blurred page, closed by swiping down.
+=========================================================== */
+.popup.mycal-popup { width: min(94vw, 560px); max-height: 92vh; overflow-y: auto; }
+.mycal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.mycal-head h2 { margin: 0; }
+.mycal-form { display: flex; flex-direction: column; gap: 12px; }
+.mycal-form .auth-field { margin: 0; }
+.mycal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+.mycal-grid [hidden] { display: none; }
+.mycal-check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; font-weight: 600; }
+.mycal-reminders { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px 12px; margin: 0; }
+.mycal-reminders legend { font-size: 0.85rem; font-weight: 700; padding: 0 4px; }
+.mycal-reminders legend span { font-weight: 500; color: var(--text-soft); }
+.mycal-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.mycal-chip { position: relative; }
+.mycal-chip input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.mycal-chip span {
+  display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); font-size: 0.84rem; font-weight: 600; color: var(--text-soft);
+}
+.mycal-chip input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+.mycal-chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mycal-hint { margin: 6px 0 0; font-size: 0.8rem; color: var(--text-soft); line-height: 1.5; }
+.mycal-hint:empty { display: none; }
+.mycal-steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 0.88rem; line-height: 1.45; }
+.mycal-script { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.72rem; resize: vertical; }
+.mycal-foot { justify-content: space-between; align-items: center; margin-top: 4px; }
+.mycal-foot-right { display: inline-flex; gap: 10px; flex-wrap: wrap; }
+.mycal-foot-right .auth-button { margin-top: 0; }
+.mycal-delete { border: 0; background: none; color: var(--danger); font: inherit; font-weight: 700; font-size: 0.88rem; cursor: pointer; padding: 6px 0; }
+.mycal-delete[hidden] { display: none; }
+@media (max-width: 768px) {
+  .popup.mycal-popup { max-height: 92dvh; }
+  .mycal-foot { flex-direction: column-reverse; align-items: stretch; gap: 10px; }
+  .mycal-foot-right { flex-direction: column; }
+  .mycal-foot-right > * { min-height: 44px; width: 100%; }
+  .mycal-chip span { min-height: 44px; }
+}

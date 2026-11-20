@@ -6,6 +6,8 @@
      - each day shows up to 3 dots: blue = your tasks / project to-dos,
        purple = project deadlines & milestones (active projects' timelines),
        gray = synced calendar events (calendar_events_cache)
+       blue = your own events (My Calendar, js/dashboard/my-calendar.js) —
+              tap one to edit it
      - tap a day to list what's on it underneath (today is picked to start)
      - ‹ › move between months; "Today" jumps back
    The Rows / Calendar choice is remembered per person in this browser.
@@ -69,6 +71,7 @@
 
     // New events after a sync / connect / disconnect (home-calendar.js).
     window.addEventListener("calendar:synced", () => { if (started && shown) goTo(shown); });
+    window.addEventListener("mycalendar:changed", () => { if (started && shown) goTo(shown); });
 
     const profile = await DS.getStaffProfile();
     staffId = DS.getUserId(profile);
@@ -126,6 +129,20 @@
       add(iso(s), { kind: "event", title: e.title || "Event", sub: [calendars.length > 1 && cal ? cal.name : "", e.location || ""].filter(Boolean).join(" · "),
         color: cal ? cal.color : "", cal: cal ? cal.id : "", time: s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), sort: s.getTime() });
     });
+    // Your own events (My Calendar), repeats expanded.
+    if (window.MyCalendar) {
+      const mine = await window.MyCalendar.occurrences(from, to).catch(() => []);
+      if (iso(shown) !== monthKey) return;
+      if (mine.length) calendars.push({ id: "mine", name: "My events", color: window.MyCalendar.color });
+      mine.forEach(o => {
+        // A multi-day event shows on each of its days.
+        const last = new Date(o.end.getTime() - (o.all_day ? 1 : 0));
+        for (let d = new Date(o.start.getFullYear(), o.start.getMonth(), o.start.getDate()); d <= last; d.setDate(d.getDate() + 1)) {
+          add(iso(d), { kind: "event", title: o.title, sub: [o.repeat && o.repeat !== "none" ? "Repeats" : "", o.location].filter(Boolean).join(" · "),
+            color: window.MyCalendar.color, cal: "mine", time: o.time, sort: o.start.getTime(), href: o.href });
+        }
+      });
+    }
     const active = projects.data || [];
     if (active.length) {
       const names = new Map(active.map(p => [p.id, p.name]));

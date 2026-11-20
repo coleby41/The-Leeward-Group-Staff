@@ -7,6 +7,10 @@
 //   { action: "public_key" }            staff — the VAPID public key the
 //                                       browser needs to subscribe
 //   { action: "test" }                  staff — sends a test to your own devices
+//   { action: "reminders" }
+//       called every minute by pg_cron (sql/supabase-my-calendar-setup.sql):
+//       My Calendar reminders that are due go to that person's devices only
+//       (they are NOT added to the notification center).
 //   { action: "notify", notification_id }
 //       called by the notifications insert trigger
 //       (sql/supabase-push-notifications-setup.sql) with the service-role
@@ -18,10 +22,13 @@
 //   VAPID_SUBJECT                          e.g. mailto:you@example.com
 //   STAFF_PORTAL_URL                       (already set) — makes relative links absolute
 //
-// Deploy:  supabase functions deploy push-send
+// Deploy:  supabase functions deploy push-send --no-verify-jwt
+// (checks the staff session / service-role key itself, like vendor-api)
 
 import webpush from "npm:web-push@3.6.7";
-import { CORS_HEADERS, SERVICE_ROLE_KEY, json, serviceClient } from "../_shared/bid-common.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { CORS_HEADERS, SERVICE_ROLE_KEY, SUPABASE_URL, json, serviceClient } from "../_shared/bid-common.ts";
+import { occurrencesBetween, reminderAt, reminderLabel, timeLabel } from "../_shared/my-calendar.ts";
 
 // deno-lint-ignore no-explicit-any
 type Row = any;
@@ -33,13 +40,16 @@ const PORTAL = (Deno.env.get("STAFF_PORTAL_URL") || "").replace(/\/+$/, "");
 
 const fail = (error: string, status = 400) => json({ ok: false, error }, status);
 
-// The gateway already checked the JWT's signature (deployed with JWT
-// verification on), so its role claim can be trusted here.
-function isServiceRoleJwt(token: string): boolean {
+// Is this the project's service-role key? (Deployed with --no-verify-jwt so
+// the browser's CORS preflight works; the database sends the key it keeps in
+// Vault.) Equal to our own key, or a key that can read a service-only table.
+async function isServiceKey(token: string): Promise<boolean> {
+  if (!token) return false;
+  if (token === SERVICE_ROLE_KEY) return true;
   try {
-    const part = token.split(".")[1];
-    const payload = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "=")));
-    return payload?.role === "service_role";
+    const probe = createClient(SUPABASE_URL, token, { auth: { persistSession: false } });
+    const { error } = await probe.from("my_calendar_reminders_sent").select("event_id").limit(1);
+    return !error;
   } catch { return false; }
 }
 
@@ -130,6 +140,50 @@ async function notify(admin: Row, body: Row) {
   return json({ ok: true, ...result });
 }
 
+// My Calendar reminders (2026-11-20). Runs every minute; anything due in the
+// last 15 minutes that hasn't gone out yet is sent (my_calendar_reminders_sent
+// makes sure each reminder goes out once).
+const LOOKBACK_MS = 15 * 60000;
+const MAX_REMINDER_MS = 7 * 86400000;
+async function reminders(admin: Row) {
+  const now = new Date();
+  const { data: events, error } = await admin.from("my_calendar_events").select("*").neq("reminders", "{}");
+  if (error) throw error;
+  if (!events?.length) return json({ ok: true, sent: 0 });
+  const occs = occurrencesBetween(events, new Date(now.getTime() - 86400000), new Date(now.getTime() + MAX_REMINDER_MS + 86400000));
+  let due = 0, sent = 0;
+  const subsByStaff = new Map<string, Row[]>();
+  for (const occ of occs) {
+    for (const m of (occ.event.reminders || []) as number[]) {
+      const at = reminderAt(occ.event, occ.date, Number(m));
+      if (at > now || at.getTime() <= now.getTime() - LOOKBACK_MS) continue;
+      // Claim it (only one run sends each reminder).
+      const { data: claimed, error: claimError } = await admin.from("my_calendar_reminders_sent")
+        .upsert({ event_id: occ.event.id, occurrence_date: occ.date, minutes: Number(m) }, { onConflict: "event_id,occurrence_date,minutes", ignoreDuplicates: true })
+        .select("event_id");
+      if (claimError) { console.error("reminder claim failed:", claimError); continue; }
+      if (!claimed?.length) continue;
+      due++;
+      const staffId = occ.event.staff_id;
+      if (!subsByStaff.has(staffId)) {
+        const { data } = await admin.from("push_subscriptions").select("*").eq("staff_id", staffId);
+        subsByStaff.set(staffId, data || []);
+      }
+      const subs = subsByStaff.get(staffId)!;
+      if (!subs.length) continue;
+      const ev = occ.event;
+      const r = await sendAll(admin, subs, async () => ({
+        title: ev.title || "Event",
+        body: [reminderLabel(Number(m)), timeLabel(ev, occ.start), ev.location || ""].filter(Boolean).join(" · "),
+        url: absolute(`/pages/dashboard?event=${ev.id}`),
+        tag: `cal-${ev.id}-${occ.date}-${m}`,
+      }));
+      sent += r.sent;
+    }
+  }
+  return json({ ok: true, due, sent });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS_HEADERS });
   if (req.method !== "POST") return fail("POST only", 405);
@@ -139,11 +193,11 @@ Deno.serve(async (req: Request) => {
   const action = String(body?.action || "");
   if (!PUBLIC_KEY || !PRIVATE_KEY) return fail("Push isn't set up yet (VAPID keys missing).", 503);
   try {
-    if (action === "notify") {
-      // Only the database trigger (service-role key) can fan out pushes.
+    if (action === "notify" || action === "reminders") {
+      // Only the database (trigger / cron, service-role key) can fan out pushes.
       const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-      if (!token || (token !== SERVICE_ROLE_KEY && !isServiceRoleJwt(token))) return fail("Not allowed.", 403);
-      return await notify(admin, body);
+      if (!(await isServiceKey(token))) return fail("Not allowed.", 403);
+      return action === "notify" ? await notify(admin, body) : await reminders(admin);
     }
     const auth = await requireStaff(req, admin);
     if (auth.error) return auth.error;

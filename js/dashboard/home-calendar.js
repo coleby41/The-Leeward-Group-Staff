@@ -9,7 +9,9 @@
                       (sign-in / app-password paths stay for later use)
    - Manage ›       → every linked calendar (up to 8): color, name, last sync,
                       Rename / Reconnect / Remove, Sync now, Add another calendar
-   - Rows view      → your next 4 events (the month view is home-today.js)
+   - Rows view      → your next 4 events, linked calendars + your own My
+                      Calendar events (js/dashboard/my-calendar.js); the month
+                      view is home-today.js
    - Syncs quietly when Home opens, when you come back to the tab, or when Manage opens, if the last sync is over 5 minutes old.
    Tables: calendar_providers, calendar_connections_status, calendar_events_cache
    (sql/supabase-calendar-sync-setup.sql).
@@ -56,6 +58,8 @@
     // Coming back to the tab after a while also refreshes.
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && isStale()) backgroundSync(); });
     await refresh();
+    // Added / changed / deleted one of your own events (my-calendar.js).
+    window.addEventListener("mycalendar:changed", () => refresh());
 
     // Background sync when it's been a while.
     if (isStale()) backgroundSync();
@@ -95,22 +99,35 @@
     if (manageEl) manageEl.style.display = conns.length ? "" : "none";
     if (synced) window.dispatchEvent(new CustomEvent("calendar:synced"));
 
-    if (!conns.length) { listEl.innerHTML = '<p class="card-subtitle">No calendar linked yet. Use "Link calendar" to connect Outlook, Google or iCloud.</p>'; return; }
+    // Your own events (My Calendar): the next 60 days, repeats expanded.
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const later = new Date(now.getTime() + 60 * 86400000);
+    const laterKey = `${later.getFullYear()}-${String(later.getMonth() + 1).padStart(2, "0")}-${String(later.getDate()).padStart(2, "0")}`;
+    const mine = window.MyCalendar ? (await window.MyCalendar.occurrences(todayKey, laterKey).catch(() => [])).filter(o => o.end > now) : [];
+
+    if (!conns.length && !mine.length) { listEl.innerHTML = '<p class="card-subtitle">Nothing on your calendar yet. Use "+ Event" to add one, or "Link calendar" to connect Outlook, Google or iCloud.</p>'; return; }
     const broken = conns.filter(c => c.status === "error");
     const warn = broken.length ? `<p class="card-subtitle">${esc(broken.map(c => c.external_account_email || c.provider_label).join(", "))} needs attention. Open "Manage" to fix it.</p>` : "";
 
-    const { data: events, error } = await DS.safeQuery("calendar rows", window.supabaseClient.from("calendar_events_cache")
-      .select("id, title, start_time, end_time, location, all_day, account_id").gte("end_time", new Date().toISOString()).order("start_time").limit(MAX_ROWS));
-    if (error) { listEl.innerHTML = warn + '<p class="card-subtitle">Couldn\'t load your events.</p>'; return; }
-    if (!events || !events.length) { listEl.innerHTML = warn + '<p class="card-subtitle">Nothing on your calendars in the next few weeks.</p>'; return; }
+    const { data: syncedRows, error } = conns.length ? await DS.safeQuery("calendar rows", window.supabaseClient.from("calendar_events_cache")
+      .select("id, title, start_time, end_time, location, all_day, account_id").gte("end_time", new Date().toISOString()).order("start_time").limit(MAX_ROWS)) : { data: [], error: null };
+    if (error && !mine.length) { listEl.innerHTML = warn + '<p class="card-subtitle">Couldn\'t load your events.</p>'; return; }
+    const events = [
+      ...(syncedRows || []),
+      ...mine.map(o => ({ id: o.id, title: o.title, start_time: o.start.toISOString(), end_time: o.end.toISOString(), location: o.location, all_day: o.all_day, mine: o }))
+    ].sort((a, b) => new Date(a.start_time) - new Date(b.start_time)).slice(0, MAX_ROWS);
+    if (!events.length) { listEl.innerHTML = warn + '<p class="card-subtitle">Nothing on your calendars in the next few weeks.</p>'; return; }
     const byId = new Map(conns.map((c, i) => [c.id, { name: c.external_account_email || c.provider_label, color: window.HomeCalendarColor(i) }]));
+    const showTags = conns.length + (mine.length ? 1 : 0) > 1;
     listEl.innerHTML = warn + events.map(ev => {
       const s = new Date(ev.start_time), en = new Date(ev.end_time || ev.start_time);
       const day = s.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
       const when = ev.all_day ? `${day} · All day` : `${day} · ${s.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} – ${en.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
-      const cal = byId.get(ev.account_id);
-      const tag = conns.length > 1 && cal ? `<span class="hm-cal-tag"><i style="background:${cal.color}"></i>${esc(cal.name)}</span>` : "";
-      return `<div class="info-item"><div><h3>${esc(ev.title || "Busy")}</h3><p>${esc(when)}${ev.location ? " · " + esc(ev.location) : ""}</p>${tag}</div></div>`;
+      const cal = ev.mine ? { name: "My events", color: window.MyCalendar.color } : byId.get(ev.account_id);
+      const tag = showTags && cal ? `<span class="hm-cal-tag"><i style="background:${cal.color}"></i>${esc(cal.name)}</span>` : "";
+      const inner = `<div><h3>${esc(ev.title || "Busy")}</h3><p>${esc(when)}${ev.location ? " · " + esc(ev.location) : ""}</p>${tag}</div>`;
+      return ev.mine ? `<a class="info-item" href="${ev.mine.href}" style="text-decoration:none;color:inherit">${inner}</a>` : `<div class="info-item">${inner}</div>`;
     }).join("");
   }
 
