@@ -724,7 +724,7 @@
     const box = $("#calSettingsPage");
     box.innerHTML = `
       <div class="cal-set-head">
-        <a href="/pages/calendar.html" class="nc-back-link">← Back to calendar</a>
+        <a href="/pages/calendar.html" class="nc-back-link" id="setBack">← Back to calendar</a>
         <h1>Calendar settings</h1>
       </div>
       <div class="cal-set-layout">
@@ -770,6 +770,14 @@
         <div class="cal-actions cal-actions--left"><a class="auth-button auth-button--secondary" href="/pages/notifications.html">Notification settings ›</a></div>
       </div>
       </div></div>`;
+    // Back: step back to the calendar you came from (so its own "← Back" still
+    // reaches the dashboard), otherwise swap this page for the calendar.
+    $("#setBack", box).addEventListener("click", (e) => {
+      e.preventDefault();
+      const r = document.referrer;
+      if (history.length > 1 && r.startsWith(location.origin) && /\/pages\/calendar(\.html)?([?#]|$)/.test(r.slice(location.origin.length))) history.back();
+      else location.replace("/pages/calendar.html");
+    });
     $("#setHelp", box).addEventListener("click", openHelp);
     box.querySelectorAll("[data-jump]").forEach((a) => a.addEventListener("click", (e) => {
       e.preventDefault();

@@ -325,5 +325,3 @@
   .cal-set-head h1 { font-size: 22px; }
   .cal-set-card { padding: 16px; border-radius: 14px; }
 }
-
-.cal-icon-link { display: inline-grid; place-items: center; text-decoration: none; }
