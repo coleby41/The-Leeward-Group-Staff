@@ -141,7 +141,7 @@
 <main class="main-content expanded cal-page">
     <!-- Staff Calendar (js/calendar-page.js), 2026-11-20. No sidebar here, so a way back out. -->
     <a href="/pages/dashboard.html" class="nc-back-link"
-       onclick="if (history.length > 1 && document.referrer.startsWith(location.origin)) { history.back(); return false; }">← Back</a>
+       onclick="var r = document.referrer; if (history.length > 1 && r.startsWith(location.origin) && !/\/pages\/calendar(-settings)?(\.html)?([?#]|$)/.test(r.slice(location.origin.length))) { history.back(); return false; }">← Back</a>
 
     <div class="cal-layout">
         <aside class="cal-panel" aria-label="Calendars">
