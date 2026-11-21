@@ -20103,3 +20103,64 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 .hm-today-tools #linkCalendarLink,
 .hm-today-tools #manageCalendarLink { display: none !important; }
 .hm-section-head h2 .hm-cal-head-link { white-space: nowrap; }
+
+
+/* ---------- Phone: app splash, Christmas extras (js/splash.js) ----------
+   On Nov 20 - Jan 1 only. Santa hat (same as the Christmas app icon) drops
+   onto the sail tip after the waves sweep in; frosty snowflakes fall behind
+   the logo. */
+.app-splash-hat, .app-splash-snow { display: none; }
+
+@media (max-width: 768px) {
+  .app-splash.is-christmas .app-splash-logo img.app-splash-hat {
+    display: block;
+    inset: auto;
+    left: 33px;
+    top: -30px;
+    width: 55px;
+    height: 48px;
+    opacity: 0;
+    transform: translateY(-70px) rotate(-25deg);
+    filter: drop-shadow(0 3px 3px rgba(0, 20, 60, 0.25));
+    animation: app-splash-hat 0.65s cubic-bezier(0.3, 1.5, 0.5, 1) 1.15s forwards;
+  }
+
+  .app-splash.is-christmas .app-splash-snow {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  .app-splash-snow span {
+    position: absolute;
+    top: -24px;
+    opacity: 0;
+    filter: drop-shadow(0 2px 2px rgba(0, 20, 60, 0.15));
+    animation-name: app-splash-snow;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  .app-splash-snow svg { display: block; width: 100%; height: 100%; }
+
+  .app-splash-logo, .app-splash-text { position: relative; z-index: 1; }
+}
+
+@keyframes app-splash-hat {
+  0%   { opacity: 0; transform: translateY(-70px) rotate(-25deg); }
+  30%  { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes app-splash-snow {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  15%  { opacity: 0.9; }
+  100% { opacity: 0; transform: translate(var(--drift), 70vh) rotate(160deg); }
+}
+
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+  .app-splash.is-christmas .app-splash-logo img.app-splash-hat { animation: none; opacity: 1; transform: none; }
+  .app-splash.is-christmas .app-splash-snow { display: none; }
+}

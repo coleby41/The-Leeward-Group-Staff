@@ -34,6 +34,41 @@
             '<div class="app-splash-tagline">Your staff portal for everything you need</div>' +
         '</div>';
 
+    // Christmas extras (Nov 20 - Jan 1): Santa hat drops onto the sail tip
+    // after the waves sweep in, and frosty snowflakes drift down behind the logo.
+    // Outside those dates the splash is unchanged.
+    const now = new Date();
+    const m = now.getMonth(), d = now.getDate();
+    const isChristmas = (m === 10 && d >= 20) || m === 11 || (m === 0 && d === 1);
+    if (isChristmas) {
+        splash.classList.add("is-christmas");
+        splash.querySelector(".app-splash-logo").insertAdjacentHTML("beforeend",
+            '<img class="app-splash-hat" src="/assets/logos/splash-hat.png" alt="">');
+
+        const flake =
+            '<svg viewBox="-10 -10 20 20" aria-hidden="true">' +
+                '<g stroke="#7FC4EE" stroke-width="2.4" stroke-linecap="round">' +
+                    '<line x1="-8" y1="0" x2="8" y2="0"/>' +
+                    '<line x1="-4" y1="-6.9" x2="4" y2="6.9"/>' +
+                    '<line x1="-4" y1="6.9" x2="4" y2="-6.9"/>' +
+                '</g><circle r="2.2" fill="#fff"/></svg>';
+        const snow = document.createElement("div");
+        snow.className = "app-splash-snow";
+        let html = "";
+        for (let i = 0; i < 16; i++) {
+            const size = 8 + Math.round(Math.random() * 10);           // px
+            const left = Math.round(Math.random() * 100);              // vw %
+            const delay = (Math.random() * 1.6).toFixed(2);            // s
+            const dur = (2.2 + Math.random() * 1.6).toFixed(2);        // s
+            const drift = Math.round(Math.random() * 40 - 20);         // px sideways
+            html += '<span style="left:' + left + '%;width:' + size + 'px;height:' + size +
+                'px;animation-delay:' + delay + 's;animation-duration:' + dur + 's;--drift:' + drift + 'px">' +
+                flake + '</span>';
+        }
+        snow.innerHTML = html;
+        splash.insertBefore(snow, splash.firstChild);
+    }
+
     // <body> doesn't exist yet (we're in <head>), so hang it off <html>.
     document.documentElement.appendChild(splash);
 
