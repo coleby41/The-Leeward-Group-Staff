@@ -210,7 +210,7 @@
         const drawn = new Set();
 
         const dpr = Math.min(2, window.devicePixelRatio || 1); // sharp, but capped for memory
-        const MAX_ZOOM = 4;
+        const MAX_ZOOM = 8;
         const MAX_PIXELS = 12e6; // stay well under iPhone's canvas size limit
 
         // Draws page n at `scale` (pdf.js units) and returns a JPEG data URL.
