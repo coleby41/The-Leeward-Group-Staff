@@ -48,7 +48,7 @@
         </div>
 
 
-        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">
             ☰
         </button>
 
@@ -142,11 +142,13 @@
 
 
 
+<!-- Desktop loads with the sidebar collapsed (js/sidebar-collapse.js) - set here so it never paints open first -->
+<script>if(window.matchMedia("(min-width: 821px)").matches){document.body.classList.add("sidebar-collapsed")}</script>
 <aside class="sidebar" id="sidebar">
 
 
     <div class="sidebar-header">
-        COMPANY WIDE
+        Company Wide
     </div>
 
 
@@ -591,6 +593,7 @@
 
 
 <script src="/js/script.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
 <script src="/js/mobile-app.js"></script>
 <script src="/js/sheet-swipe.js"></script>
 <script src="/js/install-app.js"></script>

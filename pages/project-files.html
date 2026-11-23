@@ -93,6 +93,8 @@
 
 </header>
 
+<!-- Desktop loads with the sidebar collapsed (js/sidebar-collapse.js) - set here so it never paints open first -->
+<script>if(window.matchMedia("(min-width: 821px)").matches){document.body.classList.add("sidebar-collapsed")}</script>
 <aside class="sidebar" id="sidebar">
 
     <div class="sidebar-search-wrap">
@@ -425,6 +427,7 @@
 <script src="/js/auth-guard.js"></script>
 <script src="/js/manager-nav.js"></script>
 <script src="/js/script.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
 <script src="/js/install-app.js"></script>
 <script src="/js/timeout.js"></script>
 <script src="/js/notifications.js"></script>

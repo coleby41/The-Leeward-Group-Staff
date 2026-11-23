@@ -38,7 +38,7 @@
                 <div class="brand-subtitle">Staff Portal</div>
             </div>
         </div>
-        <button class="menu-btn" id="menuBtn" aria-label="Toggle navigation">☰</button>
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
     </div>
 
     <div class="header-right">
@@ -73,8 +73,10 @@
     </div>
 </header>
 
+<!-- Desktop loads with the sidebar collapsed (js/sidebar-collapse.js) - set here so it never paints open first -->
+<script>if(window.matchMedia("(min-width: 821px)").matches){document.body.classList.add("sidebar-collapsed")}</script>
 <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">COMPANY WIDE</div>
+    <div class="sidebar-header">Company Wide</div>
     <nav class="sidebar-nav">
         <a href="/pages/dashboard.html" class="nav-item">
             <span class="home-nav-icon"></span>
@@ -247,6 +249,7 @@
 <script src="/js/auth-guard.js"></script>
 <script src="/js/manager-nav.js"></script>
 <script src="/js/script.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
 <script src="/js/install-app.js"></script>
 <script src="/js/timeout.js"></script>
 <script src="/js/notifications.js"></script>
