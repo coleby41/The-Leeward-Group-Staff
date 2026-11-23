@@ -20378,3 +20378,36 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
     font-weight: 700;
   }
 }
+
+/* Phone PDF viewer — zoom (pinch / double-tap, js/file-preview.js).
+   The browser's own pinch zoom is turned off on the pages so ours gets
+   the gesture. A zoomed page scrolls on its own (one finger pans) and
+   doesn't hand the swipe off to the next page. */
+.pdf-swipe-page {
+  touch-action: pan-x pan-y;
+}
+
+.pdf-swipe-page.is-zoomed {
+  display: block;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.pdf-swipe-page.is-zoomed::-webkit-scrollbar {
+  display: none;
+}
+
+.pdf-swipe-page.is-zoomed .pdf-swipe-img {
+  display: block;
+  max-width: none;
+  max-height: none;
+  margin: auto;
+}
+
+.pdf-swipe-img {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}

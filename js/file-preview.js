@@ -121,6 +121,7 @@
        page is drawn with pdf.js (same version legacy-forms-import.js uses,
        loaded only the first time it's needed) and laid out side by side:
        swipe left/right, one page at a time, with dots + "2 / 5" underneath.
+       Pinch or double-tap a page to zoom; drag to move around while zoomed.
        Pages draw as they come up next, not all at once, so long contracts
        don't eat the phone's memory. Desktop keeps the iframe. If pdf.js
        can't load, it falls back to the iframe too.
@@ -208,6 +209,23 @@
         const count = body.querySelector(".pdf-swipe-count");
         const drawn = new Set();
 
+        const dpr = Math.min(2, window.devicePixelRatio || 1); // sharp, but capped for memory
+        const MAX_ZOOM = 4;
+        const MAX_PIXELS = 12e6; // stay well under iPhone's canvas size limit
+
+        // Draws page n at `scale` (pdf.js units) and returns a JPEG data URL.
+        async function renderPage(n, scale) {
+            const page = await doc.getPage(n);
+            const viewport = page.getViewport({ scale });
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.floor(viewport.width);
+            canvas.height = Math.floor(viewport.height);
+            await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+            const src = canvas.toDataURL("image/jpeg", 0.92);
+            canvas.width = canvas.height = 0; // free the canvas memory right away
+            return { src, px: viewport.width };
+        }
+
         async function drawPage(slide) {
             const n = Number(slide.dataset.page);
             if (drawn.has(n)) return;
@@ -217,18 +235,14 @@
                 const base = page.getViewport({ scale: 1 });
                 // Fit the whole page inside the slide (width and height).
                 const fit = Math.min((slide.clientWidth - 8) / base.width, (slide.clientHeight - 8) / base.height);
-                const dpr = Math.min(2, window.devicePixelRatio || 1); // sharp, but capped for memory
-                const viewport = page.getViewport({ scale: fit * dpr });
-                const canvas = document.createElement("canvas");
-                canvas.width = Math.floor(viewport.width);
-                canvas.height = Math.floor(viewport.height);
-                await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+                const { src, px } = await renderPage(n, fit * dpr);
                 const img = document.createElement("img");
                 img.className = "pdf-swipe-img";
                 img.alt = `${name || "Document"} — page ${n}`;
-                img.style.width = `${Math.floor(base.width * fit)}px`;
-                img.src = canvas.toDataURL("image/jpeg", 0.92);
-                canvas.width = canvas.height = 0; // free the canvas memory right away
+                img.draggable = false;
+                slide._zoom = { fit, base, scale: 1, w: Math.floor(base.width * fit), h: Math.floor(base.height * fit), px };
+                img.style.width = `${slide._zoom.w}px`;
+                img.src = src;
                 slide.replaceChildren(img);
             } catch (err) {
                 if (!body._pdfDoc) return; // closed mid-draw
@@ -243,11 +257,116 @@
         }, { root: track, rootMargin: "0px 100%" });
         track.querySelectorAll(".pdf-swipe-page").forEach(s => observer.observe(s));
 
+        let currentIndex = 0;
         track.addEventListener("scroll", () => {
             const i = Math.round(track.scrollLeft / track.clientWidth);
+            if (i === currentIndex) return;
+            currentIndex = i;
             dots.forEach((d, j) => d.classList.toggle("is-active", j === i));
             if (count) count.textContent = `${i + 1} / ${total}`;
+            // Leaving a page puts it back to normal size.
+            track.querySelectorAll(".pdf-swipe-page.is-zoomed").forEach(s => setZoom(s, 1));
         }, { passive: true });
+
+        /* ---------- Zoom: pinch, or double-tap (2.5x / back to fit) ----------
+           A zoomed page becomes its own scroll box, so one finger pans
+           around it. While zoomed it doesn't swipe to the next page or
+           drag the sheet closed (data-no-swipe) — double-tap or pinch back
+           out first. After zooming, the page is redrawn sharper. */
+        function setZoom(slide, scale, cx, cy) {
+            const z = slide._zoom;
+            const img = slide.querySelector(".pdf-swipe-img");
+            if (!z || !img) return;
+            scale = Math.min(MAX_ZOOM, Math.max(1, scale));
+
+            // Keep the point under the fingers in the same spot.
+            const sr = slide.getBoundingClientRect();
+            const ir = img.getBoundingClientRect();
+            if (cx == null) { cx = sr.left + sr.width / 2; cy = sr.top + sr.height / 2; }
+            const fx = (cx - ir.left) / ir.width;
+            const fy = (cy - ir.top) / ir.height;
+
+            z.scale = scale;
+            const zoomed = scale > 1.01;
+            slide.classList.toggle("is-zoomed", zoomed);
+            slide.toggleAttribute("data-no-swipe", zoomed);
+            const w = z.w * scale;
+            const h = z.h * scale;
+            img.style.width = `${w}px`;
+
+            const offX = Math.max(0, (slide.clientWidth - w) / 2);
+            const offY = Math.max(0, (slide.clientHeight - h) / 2);
+            slide.scrollLeft = fx * w + offX - (cx - sr.left);
+            slide.scrollTop = fy * h + offY - (cy - sr.top);
+        }
+
+        let sharpenTimer = null;
+        function sharpen(slide) {
+            clearTimeout(sharpenTimer);
+            sharpenTimer = setTimeout(async () => {
+                const z = slide._zoom;
+                if (!z || z.scale <= 1.01) return;
+                let scale = z.fit * z.scale * dpr;
+                const pixels = (z.base.width * scale) * (z.base.height * scale);
+                if (pixels > MAX_PIXELS) scale *= Math.sqrt(MAX_PIXELS / pixels);
+                if (z.base.width * scale < z.px * 1.2) return; // already sharp enough
+                try {
+                    const { src, px } = await renderPage(Number(slide.dataset.page), scale);
+                    const img = slide.querySelector(".pdf-swipe-img");
+                    if (img && body._pdfDoc) { img.src = src; z.px = px; }
+                } catch (err) {
+                    console.error("PDF zoom redraw failed:", err);
+                }
+            }, 250);
+        }
+
+        let pinch = null;
+        let lastTap = null;
+        const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+
+        track.addEventListener("touchstart", e => {
+            const slide = e.target.closest(".pdf-swipe-page");
+            if (!slide || !slide._zoom) return;
+            if (e.touches.length === 2) {
+                const [a, b] = e.touches;
+                pinch = { slide, startDist: dist(a, b), startScale: slide._zoom.scale };
+                lastTap = null;
+            }
+        }, { passive: true });
+
+        track.addEventListener("touchmove", e => {
+            if (!pinch || e.touches.length !== 2) return;
+            e.preventDefault(); // we're zooming, not swiping
+            const [a, b] = e.touches;
+            setZoom(pinch.slide, pinch.startScale * dist(a, b) / pinch.startDist,
+                (a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+        }, { passive: false });
+
+        track.addEventListener("touchend", e => {
+            if (pinch) {
+                if (e.touches.length < 2) {
+                    const slide = pinch.slide;
+                    pinch = null;
+                    if (slide._zoom.scale < 1.08) setZoom(slide, 1);
+                    else sharpen(slide);
+                }
+                return;
+            }
+            // Double-tap: zoom in where you tapped, or back out to fit.
+            if (e.changedTouches.length !== 1 || e.touches.length) return;
+            const slide = e.target.closest(".pdf-swipe-page");
+            if (!slide || !slide._zoom) return;
+            const t = e.changedTouches[0];
+            const now = e.timeStamp;
+            if (lastTap && now - lastTap.t < 300 && Math.hypot(t.clientX - lastTap.x, t.clientY - lastTap.y) < 30) {
+                e.preventDefault();
+                lastTap = null;
+                if (slide._zoom.scale > 1.01) setZoom(slide, 1);
+                else { setZoom(slide, 2.5, t.clientX, t.clientY); sharpen(slide); }
+            } else {
+                lastTap = { t: now, x: t.clientX, y: t.clientY };
+            }
+        }, { passive: false });
     }
 
     function unsupported(body, message) {
