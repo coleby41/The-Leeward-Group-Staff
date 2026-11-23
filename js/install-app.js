@@ -41,10 +41,22 @@
         return !!deferredPrompt || isIOS;
     }
 
+    // Get the App page (pages/get-app.html): its button is
+    // data-install-app="any" and also works on computers (Edge/Chrome
+    // one-click install), not just phones.
+    function availableAnyWidth() {
+        if (installed || isStandalone()) return false;
+        return !!deferredPrompt || isIOS;
+    }
+
     function refresh() {
         var show = available();
-        document.querySelectorAll("[data-install-app]").forEach(function (el) { el.hidden = !show; });
+        var showAny = availableAnyWidth();
+        document.querySelectorAll("[data-install-app]").forEach(function (el) {
+            el.hidden = el.getAttribute("data-install-app") === "any" ? !showAny : !show;
+        });
         updateBanner(show);
+        document.dispatchEvent(new CustomEvent("leeward-install:change"));
     }
 
     /* ---------- Dashboard banner ---------- */
@@ -178,7 +190,13 @@
         install();
     });
 
-    window.LeewardInstall = { available: available, install: install, refresh: refresh };
+    window.LeewardInstall = {
+        available: available,
+        install: install,
+        refresh: refresh,
+        isInstalled: function () { return installed || isStandalone(); },
+        canPrompt: function () { return !!deferredPrompt; }
+    };
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", refresh);
     else refresh();

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Leeward Staff Portal | Get the App</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Get the App: plain page like Release Notes (no header/sidebar), linked
+     from the sidebar footer on every page. Opens on the guide for the
+     device you're on; the tabs switch to the others. The Install button
+     uses the browser's one-click install where it exists (Edge/Chrome on
+     Windows, Mac and Android — js/install-app.js); iPhone gets Apple's
+     Share → Add to Home Screen guide. -->
+<a href="/pages/dashboard.html" class="auth-button changelog-back">&larr; Back to Dashboard</a>
+
+<main class="changelog-main getapp-main">
+
+    <div class="getapp-hero">
+        <img class="getapp-hero__icon" src="/assets/icons/icon-192.png" alt="">
+        <div>
+            <h1>Get the Leeward Staff app</h1>
+            <p class="changelog-intro">Install the portal so it opens in its own window from your taskbar, Dock, or home screen, with no browser tabs. Nothing to download from an app store.</p>
+        </div>
+    </div>
+
+    <div class="getapp-status" id="getAppStatus">
+        <div class="getapp-status__text">
+            <strong id="getAppStatusTitle">Install on this device</strong>
+            <span id="getAppStatusBody">Follow the steps below for your device.</span>
+        </div>
+        <button type="button" class="getapp-install-btn" data-install-app="any" hidden>Install</button>
+    </div>
+
+    <div class="getapp-tabs" role="tablist" aria-label="Device">
+        <button type="button" role="tab" class="getapp-tab" data-device="windows">Windows</button>
+        <button type="button" role="tab" class="getapp-tab" data-device="mac">Mac</button>
+        <button type="button" role="tab" class="getapp-tab" data-device="iphone">iPhone</button>
+        <button type="button" role="tab" class="getapp-tab" data-device="android">Android</button>
+    </div>
+
+    <!-- Windows -->
+    <section class="getapp-guide" data-device="windows" role="tabpanel" hidden>
+        <h2>Microsoft Edge</h2>
+        <ol class="getapp-steps">
+            <li>Open the portal in Edge and sign in.</li>
+            <li>Click the <strong>App available</strong> icon on the right side of the address bar. Or open the <strong>&middot;&middot;&middot;</strong> menu and choose <strong>Apps &rarr; Install this site as an app</strong>.</li>
+            <li>Click <strong>Install</strong>.</li>
+        </ol>
+
+        <h2>Google Chrome</h2>
+        <ol class="getapp-steps">
+            <li>Open the portal in Chrome and sign in.</li>
+            <li>Click the <strong>Install</strong> icon on the right side of the address bar. Or open the <strong>&#8942;</strong> menu and choose <strong>Cast, save, and share &rarr; Install page as app</strong>.</li>
+            <li>Click <strong>Install</strong>.</li>
+        </ol>
+
+        <h2>Keep it handy</h2>
+        <ul class="changelog-list">
+            <li>Right-click <strong>Leeward Staff</strong> on the taskbar and choose <strong>Pin to taskbar</strong>. It&rsquo;s also in the Start menu.</li>
+            <li>Firefox can&rsquo;t install apps. Use Edge or Chrome.</li>
+        </ul>
+    </section>
+
+    <!-- Mac -->
+    <section class="getapp-guide" data-device="mac" role="tabpanel" hidden>
+        <h2>Safari</h2>
+        <ol class="getapp-steps">
+            <li>Open the portal in Safari and sign in.</li>
+            <li>In the menu bar, choose <strong>File &rarr; Add to Dock</strong>.</li>
+            <li>Click <strong>Add</strong>.</li>
+        </ol>
+
+        <h2>Google Chrome or Microsoft Edge</h2>
+        <ol class="getapp-steps">
+            <li>Open the portal and sign in.</li>
+            <li>Click the <strong>Install</strong> icon on the right side of the address bar.</li>
+            <li>Click <strong>Install</strong>.</li>
+        </ol>
+
+        <h2>Keep it handy</h2>
+        <ul class="changelog-list">
+            <li>It shows up in your Dock and in Launchpad. Right-click the Dock icon and choose <strong>Options &rarr; Keep in Dock</strong> so it stays there.</li>
+            <li>Safari&rsquo;s <strong>Add to Dock</strong> needs macOS Sonoma or newer. On older Macs, use Chrome or Edge.</li>
+        </ul>
+    </section>
+
+    <!-- iPhone & iPad (iPad uses the same steps) -->
+    <section class="getapp-guide" data-device="iphone" role="tabpanel" hidden>
+        <h2>Safari</h2>
+        <ol class="getapp-steps">
+            <li>Open the portal in Safari.</li>
+            <li>Tap the <strong>Share</strong> button in the toolbar.</li>
+            <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+            <li>Tap <strong>Add</strong> in the top corner.</li>
+        </ol>
+
+        <h2>Keep it handy</h2>
+        <ul class="changelog-list">
+            <li>Open the portal from the new <strong>Leeward Staff</strong> icon on your home screen from now on. It opens full screen, like an app.</li>
+            <li>Turn on notifications from inside the app to get alerts on your phone.</li>
+            <li>Same steps on an iPad.</li>
+        </ul>
+    </section>
+
+    <!-- Android -->
+    <section class="getapp-guide" data-device="android" role="tabpanel" hidden>
+        <h2>Google Chrome</h2>
+        <ol class="getapp-steps">
+            <li>Open the portal in Chrome.</li>
+            <li>Tap the <strong>&#8942;</strong> menu in the top right.</li>
+            <li>Tap <strong>Install app</strong> (on some phones it says <strong>Add to Home screen</strong>).</li>
+            <li>Tap <strong>Install</strong>.</li>
+        </ol>
+
+        <h2>Keep it handy</h2>
+        <ul class="changelog-list">
+            <li>The <strong>Leeward Staff</strong> icon is added to your home screen and app drawer.</li>
+        </ul>
+    </section>
+
+</main>
+
+<script src="/js/install-app.js"></script>
+<script>
+(function () {
+    "use strict";
+
+    // Which device are we on? (iPad on iPadOS reports as a Mac with touch.)
+    var ua = navigator.userAgent || "";
+    var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var device = isIOS ? "iphone"
+        : /Android/i.test(ua) ? "android"
+        : /Macintosh|Mac OS X/.test(ua) ? "mac"
+        : "windows";
+    var names = { windows: "this computer", mac: "this Mac", iphone: "this iPhone", android: "this phone" };
+
+    var tabs = document.querySelectorAll(".getapp-tab");
+    var guides = document.querySelectorAll(".getapp-guide");
+
+    function show(which) {
+        tabs.forEach(function (t) {
+            var on = t.dataset.device === which;
+            t.classList.toggle("is-active", on);
+            t.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        guides.forEach(function (g) { g.hidden = g.dataset.device !== which; });
+    }
+
+    tabs.forEach(function (t) {
+        t.addEventListener("click", function () { show(t.dataset.device); });
+    });
+    show(device);
+
+    // Status box: already installed / one-click install / follow the steps.
+    var title = document.getElementById("getAppStatusTitle");
+    var body = document.getElementById("getAppStatusBody");
+    var isFirefox = /Firefox\//.test(ua);
+
+    function updateStatus() {
+        var api = window.LeewardInstall;
+        var status = document.getElementById("getAppStatus");
+        if (api && api.isInstalled()) {
+            status.classList.add("is-installed");
+            title.textContent = "You're using the app";
+            body.textContent = "The Leeward Staff app is installed on " + names[device] + ".";
+        } else if (api && api.canPrompt()) {
+            title.textContent = "Install on " + names[device];
+            body.textContent = "One click and it's added to your " + (device === "mac" ? "Dock and Launchpad." : device === "windows" ? "Start menu." : "home screen.");
+        } else if (device === "iphone") {
+            title.textContent = "Install on " + names[device];
+            body.textContent = "Tap Install for a quick guide, or follow the steps below.";
+        } else if (isFirefox) {
+            title.textContent = "Open this page in Edge or Chrome";
+            body.textContent = "Firefox can't install apps.";
+        } else {
+            title.textContent = "Install on " + names[device];
+            body.textContent = "Follow the steps below for your browser.";
+        }
+    }
+
+    document.addEventListener("leeward-install:change", updateStatus);
+    updateStatus();
+})();
+</script>
+
+</body>
+</html>

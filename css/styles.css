@@ -20411,3 +20411,191 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
   user-select: none;
   -webkit-touch-callout: none;
 }
+
+/* ============================================================
+   GET THE APP page (pages/get-app.html) — Nov 23 2026
+   Plain page like Release Notes. Bold corporate: no gradients, no caps,
+   one status panel + device tabs + numbered steps.
+============================================================ */
+.getapp-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.getapp-hero__icon {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  border-radius: 18px;
+  box-shadow: 0 4px 14px rgba(5, 33, 51, 0.16);
+}
+
+.getapp-hero .changelog-intro {
+  margin: 0;
+}
+
+.getapp-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  margin-bottom: 28px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-alt);
+}
+
+.getapp-status.is-installed {
+  border-left-color: var(--success);
+}
+
+.getapp-status__text {
+  display: grid;
+  gap: 2px;
+}
+
+.getapp-status__text strong {
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.getapp-status__text span {
+  color: var(--text-soft);
+  font-size: 0.92rem;
+}
+
+.getapp-install-btn {
+  flex-shrink: 0;
+  min-height: 42px;
+  padding: 0 22px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--accent-strong);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 6px rgba(5, 33, 51, 0.22);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.getapp-install-btn:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.getapp-install-btn:active {
+  transform: scale(0.98);
+}
+
+.getapp-install-btn[hidden] {
+  display: none;
+}
+
+.getapp-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.getapp-tab {
+  flex: 1 0 auto;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.getapp-tab.is-active {
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: 0 1px 4px rgba(5, 33, 51, 0.14);
+}
+
+.getapp-guide h2 {
+  margin: 28px 0 12px;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+
+.getapp-steps {
+  list-style: none;
+  counter-reset: getapp-step;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.getapp-steps li {
+  counter-increment: getapp-step;
+  position: relative;
+  min-height: 28px;
+  padding: 2px 0 0 40px;
+  line-height: 1.55;
+}
+
+.getapp-steps li::before {
+  content: counter(getapp-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-strong);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .getapp-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .getapp-hero h1 {
+    font-size: 1.6rem;
+  }
+
+  .getapp-tab {
+    padding: 9px 10px;
+    font-size: 0.86rem;
+  }
+
+  .getapp-hero__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  .getapp-status {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .getapp-install-btn {
+    min-height: 46px;
+  }
+}
