@@ -20166,11 +20166,38 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 }
 
 /* ============================================================
-   SHARED SIDEBAR COLLAPSE — every page (Nov 23 2026)
-   js/sidebar-collapse.js puts the project pages' 3D collapse tab
-   (.sidebar-collapse-toggle above) on every page with a sidebar, and
-   desktop pages now load collapsed. Phones keep the drawer + ☰.
+   SHARED SIDEBAR — HOVER TO EXPAND, every page (Nov 23 2026)
+   js/sidebar-collapse.js. Desktop pages sit on the 68px icon rail
+   (body.sidebar-collapsed); hovering it slides the full sidebar out OVER
+   the page (body.sidebar-peek). The page keeps the 68px margin the whole
+   time so nothing underneath shifts. Phones keep the drawer + ☰.
 ============================================================ */
+
+/* No half-circle tab anymore. */
+.sidebar-collapse-toggle {
+  display: none !important;
+}
+
+/* Open width, same values as :root's --sidebar-width. */
+:root {
+  --sidebar-open-width: clamp(210px, 17vw, 260px);
+}
+@media (max-width: 1100px) {
+  :root { --sidebar-open-width: clamp(190px, 22vw, 230px); }
+}
+
+@media (min-width: 821px) {
+  /* Page layout (main content, docked panels) stays at the rail width... */
+  body.sidebar-peek {
+    --sidebar-width: 68px;
+  }
+
+  /* ...only the sidebar itself grows, floating over the page. */
+  body.sidebar-peek .sidebar {
+    --sidebar-width: var(--sidebar-open-width);
+    box-shadow: 8px 0 24px rgba(5, 33, 51, 0.28);
+  }
+}
 
 /* "Company Wide" in normal case — no all caps anywhere in the portal. */
 .sidebar-header {
@@ -20180,57 +20207,25 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
   transition: opacity 0.2s ease;
 }
 
-/* Collapsed: the label keeps its space (so the icons and the tab don't
-   jump up/down when opening/closing) but fades out. */
+/* On the rail the label keeps its space (so the icons don't jump when it
+   opens/closes) but is hidden. */
 body.sidebar-collapsed .sidebar-header {
   opacity: 0;
   visibility: hidden;
 }
 
 /* Dropdown groups: sub-links are text only, so hide them and the arrow on
-   the rail. Clicking the group icon opens the sidebar (sidebar-collapse.js). */
+   the rail. They come back as soon as the sidebar slides open. */
 body.sidebar-collapsed .subnav,
 body.sidebar-collapsed .nav-arrow {
   display: none;
 }
 
-/* On a page that lives inside a group (e.g. Excel Workbook Templates),
-   light up the group's icon on the rail so you can still see where you are. */
+/* On a page inside a group (e.g. Excel Workbook Templates), light up the
+   group's icon on the rail so you can still see where you are. */
 body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
   background: rgba(255, 255, 255, 0.14);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     0 2px 6px rgba(0, 0, 0, 0.25);
-}
-
-/* Hover label for each icon while collapsed. Same navy + 3D shadow as the
-   sidebar's own nav items. */
-.sidebar-tooltip {
-  position: fixed;
-  z-index: calc(var(--z-floating-control) + 1);
-  transform: translate(-4px, -50%);
-  padding: 7px 12px;
-  border-radius: 10px;
-  background: #072133;
-  color: #f7fbff;
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 4px 12px rgba(5, 33, 51, 0.3);
-  transition: opacity 0.12s ease, transform 0.12s ease;
-}
-
-.sidebar-tooltip.is-visible {
-  opacity: 1;
-  transform: translate(0, -50%);
-}
-
-@media (max-width: 820px) {
-  .sidebar-tooltip {
-    display: none;
-  }
 }

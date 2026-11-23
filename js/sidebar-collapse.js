@@ -1,120 +1,85 @@
 /* ===========================
-   SHARED SIDEBAR COLLAPSE (every page with #sidebar)
-   - Same 3D round tab project pages already had (.sidebar-collapse-toggle,
-     styles.css) — now on every page, not just the project family.
-   - Desktop pages load COLLAPSED (icon-only rail). The body class is
-     already added by the one-line inline script right before each page's
-     <aside class="sidebar">, so the page never paints expanded first and
-     then animates shut. This file just syncs the tab to that state.
-   - Hovering an icon while collapsed shows its tab name in a tooltip.
+   SHARED SIDEBAR — HOVER TO EXPAND (every page with #sidebar)
+   - Desktop pages sit on the 68px icon-only rail (body.sidebar-collapsed).
+     The class is already added by the one-line inline script right before
+     each page's <aside class="sidebar">, so the page never paints open
+     first and then shuts.
+   - Hovering the rail slides the full sidebar out OVER the page
+     (body.sidebar-peek) — the page itself doesn't move, because the
+     page-level --sidebar-width stays 68px and only .sidebar gets the open
+     width (styles.css, "SHARED SIDEBAR" section). Mouse leaves → back to
+     the rail.
+   - No collapse tab / half circle anymore. project-shell.js no longer
+     creates one either; its ⌘F search + rail search icon call
+     window.SidebarRail.open() so the search box is usable.
    - Phones (<= 820px, script.js SIDEBAR_MOBILE_BREAKPOINT) keep the
      drawer + ☰ button and are never collapsed.
-   project-shell.js's own initSidebarCollapse() sees #sidebarCollapseToggle
-   already exists and bows out, so there's only ever one tab.
 =========================== */
 (function () {
     const sidebar = document.getElementById("sidebar");
-    if (!sidebar || document.getElementById("sidebarCollapseToggle")) return;
+    if (!sidebar) return;
 
     const desktopQuery = window.matchMedia("(min-width: 821px)");
+    const body = document.body;
 
-    // Hover label element (see "Hover tooltip" below) — created first because
-    // setCollapsed() hides it, and setCollapsed() runs during init.
-    const tooltip = document.createElement("div");
-    tooltip.className = "sidebar-tooltip";
-    tooltip.setAttribute("role", "tooltip");
-    document.body.appendChild(tooltip);
+    // Small delays so just sweeping the mouse past the rail doesn't flap it
+    // open/closed.
+    const OPEN_DELAY = 120;
+    const CLOSE_DELAY = 200;
+    let openTimer = null;
+    let closeTimer = null;
 
-    /* ---------- Toggle tab ---------- */
-    const toggle = document.createElement("button");
-    toggle.type = "button";
-    toggle.id = "sidebarCollapseToggle";
-    toggle.className = "sidebar-collapse-toggle";
-    toggle.innerHTML = `<span class="sidebar-collapse-toggle-icon">&lsaquo;</span>`;
-    document.body.appendChild(toggle);
-
-    function isCollapsed() {
-        return document.body.classList.contains("sidebar-collapsed");
+    function clearTimers() {
+        clearTimeout(openTimer);
+        clearTimeout(closeTimer);
     }
 
-    function positionToggle() {
-        const firstItem = sidebar.querySelector(".sidebar-nav .nav-item");
-        const rect = (firstItem || sidebar).getBoundingClientRect();
-        toggle.style.top = `${rect.top + rect.height / 2}px`;
+    function open() {
+        if (!desktopQuery.matches) return;
+        clearTimers();
+        body.classList.remove("sidebar-collapsed");
+        body.classList.add("sidebar-peek");
     }
 
-    function setCollapsed(collapsed) {
-        document.body.classList.toggle("sidebar-collapsed", collapsed);
-        toggle.classList.toggle("is-collapsed", collapsed);
-        toggle.setAttribute("aria-label", collapsed ? "Expand navigation" : "Collapse navigation");
-        hideTooltip();
+    function close() {
+        clearTimers();
+        if (!desktopQuery.matches) return;
+        body.classList.remove("sidebar-peek");
+        body.classList.add("sidebar-collapsed");
     }
 
-    toggle.addEventListener("click", () => setCollapsed(!isCollapsed()));
-
-    // Desktop starts collapsed (inline script already set the class);
-    // phones never are.
-    setCollapsed(desktopQuery.matches);
-
-    // Crossing the phone breakpoint: drawer on phones, collapsed rail back
-    // on desktop.
-    desktopQuery.addEventListener("change", (e) => setCollapsed(e.matches));
-
-    window.addEventListener("resize", positionToggle);
-    positionToggle();
-
-    /* ---------- Hover tooltip (collapsed only) ----------
-       One fixed-position element on <body> rather than a CSS ::after on
-       each link — the sidebar's overflow-y:auto would clip anything that
-       sticks out past its 68px edge. */
-    function labelFor(el) {
-        const text = el.querySelector(".nav-text");
-        return (text ? text.textContent : el.getAttribute("aria-label") || el.title || "").trim();
+    function setMode() {
+        clearTimers();
+        body.classList.remove("sidebar-peek");
+        body.classList.toggle("sidebar-collapsed", desktopQuery.matches);
     }
 
-    function showTooltip(el) {
-        const label = labelFor(el);
-        if (!label) return;
-        tooltip.textContent = label;
-        const rect = el.getBoundingClientRect();
-        tooltip.style.top = `${rect.top + rect.height / 2}px`;
-        tooltip.style.left = `${sidebar.getBoundingClientRect().right + 30}px`;
-        tooltip.classList.add("is-visible");
-    }
+    setMode();
+    desktopQuery.addEventListener("change", setMode);
 
-    function hideTooltip() {
-        tooltip.classList.remove("is-visible");
-    }
-
-    const hoverTargets = ".nav-item, .sidebar-search-collapsed-btn";
-
-    sidebar.addEventListener("mouseover", (e) => {
-        if (!isCollapsed()) return;
-        const el = e.target.closest(hoverTargets);
-        if (el && sidebar.contains(el)) showTooltip(el);
+    sidebar.addEventListener("mouseenter", () => {
+        if (!desktopQuery.matches) return;
+        clearTimeout(closeTimer);
+        if (body.classList.contains("sidebar-peek")) return;
+        openTimer = setTimeout(open, OPEN_DELAY);
     });
 
-    sidebar.addEventListener("mouseout", (e) => {
-        const el = e.target.closest(hoverTargets);
-        if (el && !el.contains(e.relatedTarget)) hideTooltip();
+    sidebar.addEventListener("mouseleave", () => {
+        if (!desktopQuery.matches) return;
+        clearTimeout(openTimer);
+        // Don't snap shut while typing in the sidebar search box.
+        if (sidebar.contains(document.activeElement) && document.activeElement.matches("input, textarea")) return;
+        closeTimer = setTimeout(close, CLOSE_DELAY);
     });
 
-    sidebar.addEventListener("scroll", hideTooltip, { passive: true });
+    // Opened without hovering (⌘F / search icon): close on a click outside
+    // or Escape.
+    document.addEventListener("click", (e) => {
+        if (body.classList.contains("sidebar-peek") && !sidebar.contains(e.target) && !sidebar.matches(":hover")) close();
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && body.classList.contains("sidebar-peek")) close();
+    });
 
-    /* ---------- Dropdown groups (Company docs, IT Tools) ----------
-       Their sub-links are text only, so they're hidden on the rail.
-       Clicking the group icon while collapsed opens the sidebar with that
-       group expanded. Capture phase so this runs before the link's inline
-       onclick="toggleSubnav(...)". */
-    sidebar.addEventListener("click", (e) => {
-        if (!isCollapsed()) return;
-        const parent = e.target.closest(".nav-parent");
-        if (!parent) return;
-        setCollapsed(false);
-        if (parent.classList.contains("expanded")) {
-            // Already open — keep it open instead of letting toggleSubnav shut it.
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    }, true);
+    window.SidebarRail = { open, close };
 })();

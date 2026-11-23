@@ -697,14 +697,11 @@
     // icon (initSidebarSearchCollapsedButton()) — both need to expand the
     // sidebar back out of its icon-only rail before the real search input
     // is usable/focusable again.
+    // Sidebar is hover-to-expand now (js/sidebar-collapse.js) — slide it
+    // open over the page so the search box is visible and focusable.
     function expandSidebarIfCollapsed() {
-        if (!document.body.classList.contains("sidebar-collapsed")) return;
-        document.body.classList.remove("sidebar-collapsed");
-        const collapseToggle = document.getElementById("sidebarCollapseToggle");
-        if (collapseToggle) {
-            collapseToggle.classList.remove("is-collapsed");
-            collapseToggle.setAttribute("aria-label", "Collapse navigation");
-        }
+        if (window.SidebarRail) window.SidebarRail.open();
+        else document.body.classList.remove("sidebar-collapsed");
     }
 
     function initSearchShortcut() {
@@ -864,7 +861,8 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-        initSidebarCollapse();
+        // initSidebarCollapse() (the half-circle tab) retired Nov 23 2026 —
+        // every page now uses hover-to-expand from js/sidebar-collapse.js.
         initSearchShortcut();
         initSidebarSearchCollapsedButton();
         initProjectShell();
