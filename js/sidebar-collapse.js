@@ -4,11 +4,8 @@
      The class is already added by the one-line inline script right before
      each page's <aside class="sidebar">, so the page never paints open
      first and then shuts.
-   - Hovering the rail slides the full sidebar out OVER the page
-     (body.sidebar-peek) — the page itself doesn't move, because the
-     page-level --sidebar-width stays 68px and only .sidebar gets the open
-     width (styles.css, "SHARED SIDEBAR" section). Mouse leaves → back to
-     the rail.
+   - Hovering the rail opens the full sidebar (body.sidebar-peek) and the
+     page slides over with it. Mouse leaves → back to the rail.
    - No collapse tab / half circle anymore. project-shell.js no longer
      creates one either; its ⌘F search + rail search icon call
      window.SidebarRail.open() so the search box is usable.

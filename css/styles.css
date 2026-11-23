@@ -20168,9 +20168,9 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
 /* ============================================================
    SHARED SIDEBAR — HOVER TO EXPAND, every page (Nov 23 2026)
    js/sidebar-collapse.js. Desktop pages sit on the 68px icon rail
-   (body.sidebar-collapsed); hovering it slides the full sidebar out OVER
-   the page (body.sidebar-peek). The page keeps the 68px margin the whole
-   time so nothing underneath shifts. Phones keep the drawer + ☰.
+   (body.sidebar-collapsed); hovering it opens the full sidebar
+   (body.sidebar-peek) and the page slides over with it. Phones keep the
+   drawer + ☰.
 ============================================================ */
 
 /* No half-circle tab anymore. */
@@ -20178,26 +20178,9 @@ html.pf-sheet-lock body { position: fixed; left: 0; right: 0; width: 100%; }
   display: none !important;
 }
 
-/* Open width, same values as :root's --sidebar-width. */
-:root {
-  --sidebar-open-width: clamp(210px, 17vw, 260px);
-}
-@media (max-width: 1100px) {
-  :root { --sidebar-open-width: clamp(190px, 22vw, 230px); }
-}
-
-@media (min-width: 821px) {
-  /* Page layout (main content, docked panels) stays at the rail width... */
-  body.sidebar-peek {
-    --sidebar-width: 68px;
-  }
-
-  /* ...only the sidebar itself grows, floating over the page. */
-  body.sidebar-peek .sidebar {
-    --sidebar-width: var(--sidebar-open-width);
-    box-shadow: 8px 0 24px rgba(5, 33, 51, 0.28);
-  }
-}
+/* Hovering (body.sidebar-peek) just drops the collapsed class, so
+   --sidebar-width goes back to the normal open width and the page slides
+   over with the sidebar (.main-content already transitions margin-left). */
 
 /* "Company Wide" in normal case — no all caps anywhere in the portal. */
 .sidebar-header {
