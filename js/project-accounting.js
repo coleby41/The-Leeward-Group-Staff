@@ -193,7 +193,9 @@
         try {
             const url = await PI().signedUrl(inv, false);
             if (previewInvoice !== inv) return;
-            $("acctPreviewBody").innerHTML = `<iframe class="file-preview-frame" src="${esc(url)}" title="${esc(inv.file.file_name)}"></iframe>`;
+            // Shared viewer: swipe page by page on phones, iframe on desktop.
+            if (window.FilePreview?.renderPdf) window.FilePreview.renderPdf($("acctPreviewBody"), url, inv.file.file_name);
+            else $("acctPreviewBody").innerHTML = `<iframe class="file-preview-frame" src="${esc(url)}" title="${esc(inv.file.file_name)}"></iframe>`;
         } catch (err) {
             if (previewInvoice !== inv) return;
             $("acctPreviewBody").innerHTML = '<div class="file-preview-error">Couldn\'t load a preview for this invoice.</div>';

@@ -1147,7 +1147,9 @@
             }, { once: true });
             if (imgEl) imgEl.src = data.signedUrl;
         } else if (kind === "pdf") {
-            bodyEl.innerHTML = `<iframe class="file-preview-frame" src="${escapeHtmlFiles(data.signedUrl)}" title="${escapeHtmlFiles(file.file_name)}"></iframe>`;
+            // Shared viewer: swipe page by page on phones, iframe on desktop.
+            if (window.FilePreview?.renderPdf) window.FilePreview.renderPdf(bodyEl, data.signedUrl, file.file_name);
+            else bodyEl.innerHTML = `<iframe class="file-preview-frame" src="${escapeHtmlFiles(data.signedUrl)}" title="${escapeHtmlFiles(file.file_name)}"></iframe>`;
         } else {
             renderUnsupportedPreview(file, bodyEl, "Preview isn't available for this file type.");
         }

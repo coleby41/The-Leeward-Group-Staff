@@ -9,6 +9,7 @@
        kind,                 // optional: "pdf" | "image" | "other" (otherwise from the name)
    })
    window.FilePreview.download(url, name)   // saves a file without leaving the page
+   window.FilePreview.renderPdf(bodyEl, url, name) // PDF into any preview body (swipe pages on phones)
 
    Same modal markup/classes as Project Files' preview (.popup--preview,
    .file-preview-*) — built once, on first use, so any page can call it.
@@ -68,6 +69,7 @@
     function close() {
         if (!overlay) return;
         overlay.classList.add("hidden");
+        destroyPdf(overlay.querySelector("#sharedFilePreviewBody"));
         overlay.querySelector("#sharedFilePreviewBody").innerHTML = ""; // stop the iframe loading
         if (!document.querySelector(".popup-overlay:not(.hidden)")) document.body.classList.remove("popup-active");
         current = null;
@@ -107,11 +109,145 @@
             }, { once: true });
             img.src = url;
         } else if (kind === "pdf") {
-            body.innerHTML = `<iframe class="file-preview-frame" title="${esc(req.name || "Document")}"></iframe>`;
-            body.querySelector("iframe").src = url;
+            renderPdf(body, url, req.name);
         } else {
             unsupported(body, "Preview isn't available for this file type. Use Download instead.");
         }
+    }
+
+    /* ---------- PDFs on phones: swipe page by page (Coleby, 2026-11-23) ----------
+       An <iframe> PDF on iPhone only shows page 1, shrunk, and won't
+       scroll. On phones (<= 768px, same cutoff as the phone sheets) each
+       page is drawn with pdf.js (same version legacy-forms-import.js uses,
+       loaded only the first time it's needed) and laid out side by side:
+       swipe left/right, one page at a time, with dots + "2 / 5" underneath.
+       Pages draw as they come up next, not all at once, so long contracts
+       don't eat the phone's memory. Desktop keeps the iframe. If pdf.js
+       can't load, it falls back to the iframe too.
+
+       window.FilePreview.renderPdf(bodyEl, url, name) — also used by
+       Project Files' and Accounting's own preview popups. */
+    const PDFJS_VERSION = "3.11.174";
+    let pdfjsPromise = null;
+
+    function loadPdfJs() {
+        if (window.pdfjsLib) {
+            if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.js`;
+            }
+            return Promise.resolve(window.pdfjsLib);
+        }
+        if (pdfjsPromise) return pdfjsPromise;
+        pdfjsPromise = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.min.js`;
+            script.onload = () => {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.js`;
+                resolve(window.pdfjsLib);
+            };
+            script.onerror = () => { pdfjsPromise = null; reject(new Error("pdf.js didn't load")); };
+            document.head.appendChild(script);
+        });
+        return pdfjsPromise;
+    }
+
+    function isPhone() {
+        return window.matchMedia("(max-width: 768px)").matches;
+    }
+
+    function iframePdf(body, url, name) {
+        body.innerHTML = `<iframe class="file-preview-frame" title="${esc(name || "Document")}"></iframe>`;
+        body.querySelector("iframe").src = url;
+    }
+
+    function destroyPdf(body) {
+        if (body && body._pdfDoc) {
+            body._pdfDoc.destroy();
+            body._pdfDoc = null;
+        }
+    }
+
+    async function renderPdf(body, url, name) {
+        destroyPdf(body);
+        if (!isPhone()) { iframePdf(body, url, name); return; }
+
+        body.innerHTML = `<div class="file-preview-loading">Loading preview…</div>`;
+        const loadingEl = body.firstElementChild;
+        let doc;
+        try {
+            const lib = await loadPdfJs();
+            doc = await lib.getDocument({ url }).promise;
+        } catch (err) {
+            console.error("Phone PDF viewer failed, using the browser's:", err);
+            if (loadingEl.isConnected) iframePdf(body, url, name);
+            return;
+        }
+        // Closed, or another file opened, while it was loading.
+        if (!loadingEl.isConnected) { doc.destroy(); return; }
+        body._pdfDoc = doc;
+
+        const total = doc.numPages;
+        const showDots = total > 1 && total <= 10;
+        body.innerHTML = `
+            <div class="pdf-swipe">
+                <div class="pdf-swipe-track">
+                    ${Array.from({ length: total }, (_, i) => `
+                        <div class="pdf-swipe-page" data-page="${i + 1}">
+                            <div class="file-preview-loading">Page ${i + 1}</div>
+                        </div>`).join("")}
+                </div>
+                ${total > 1 ? `
+                <div class="pdf-swipe-footer">
+                    ${showDots ? `<div class="pdf-swipe-dots">${Array.from({ length: total }, (_, i) => `<span class="pdf-swipe-dot${i === 0 ? " is-active" : ""}"></span>`).join("")}</div>` : ""}
+                    <span class="pdf-swipe-count">1 / ${total}</span>
+                </div>` : ""}
+            </div>`;
+
+        const track = body.querySelector(".pdf-swipe-track");
+        const dots = body.querySelectorAll(".pdf-swipe-dot");
+        const count = body.querySelector(".pdf-swipe-count");
+        const drawn = new Set();
+
+        async function drawPage(slide) {
+            const n = Number(slide.dataset.page);
+            if (drawn.has(n)) return;
+            drawn.add(n);
+            try {
+                const page = await doc.getPage(n);
+                const base = page.getViewport({ scale: 1 });
+                // Fit the whole page inside the slide (width and height).
+                const fit = Math.min((slide.clientWidth - 8) / base.width, (slide.clientHeight - 8) / base.height);
+                const dpr = Math.min(2, window.devicePixelRatio || 1); // sharp, but capped for memory
+                const viewport = page.getViewport({ scale: fit * dpr });
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.floor(viewport.width);
+                canvas.height = Math.floor(viewport.height);
+                await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+                const img = document.createElement("img");
+                img.className = "pdf-swipe-img";
+                img.alt = `${name || "Document"} — page ${n}`;
+                img.style.width = `${Math.floor(base.width * fit)}px`;
+                img.src = canvas.toDataURL("image/jpeg", 0.92);
+                canvas.width = canvas.height = 0; // free the canvas memory right away
+                slide.replaceChildren(img);
+            } catch (err) {
+                if (!body._pdfDoc) return; // closed mid-draw
+                console.error(`PDF page ${n} failed:`, err);
+                slide.innerHTML = `<div class="file-preview-error">Couldn't show page ${n}.</div>`;
+            }
+        }
+
+        // Draw the page on screen plus the next one over, as you swipe.
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(e => { if (e.isIntersecting) drawPage(e.target); });
+        }, { root: track, rootMargin: "0px 100%" });
+        track.querySelectorAll(".pdf-swipe-page").forEach(s => observer.observe(s));
+
+        track.addEventListener("scroll", () => {
+            const i = Math.round(track.scrollLeft / track.clientWidth);
+            dots.forEach((d, j) => d.classList.toggle("is-active", j === i));
+            if (count) count.textContent = `${i + 1} / ${total}`;
+        }, { passive: true });
     }
 
     function unsupported(body, message) {
@@ -135,5 +271,5 @@
         a.remove();
     }
 
-    window.FilePreview = { open, close, download };
+    window.FilePreview = { open, close, download, renderPdf };
 })();
