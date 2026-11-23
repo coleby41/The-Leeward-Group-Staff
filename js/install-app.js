@@ -50,6 +50,8 @@
     }
 
     function refresh() {
+        // Hides "Get the App" links (.get-app-link) inside the installed app.
+        document.documentElement.classList.toggle("is-installed-app", installed || isStandalone());
         var show = available();
         var showAny = availableAnyWidth();
         document.querySelectorAll("[data-install-app]").forEach(function (el) {

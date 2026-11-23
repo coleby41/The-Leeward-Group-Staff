@@ -14,6 +14,15 @@
 (function () {
     "use strict";
 
+    // Christmas season (Nov 20 - Jan 1). Flags <html> on EVERY screen size
+    // so the Christmas logo (img[data-seasonal-logo], styles.css) shows on
+    // desktop too — the favicon stays the everyday logo. Set here, in
+    // <head>, so the everyday logo never flashes first.
+    const today = new Date();
+    const tm = today.getMonth(), td = today.getDate();
+    const isChristmasSeason = (tm === 10 && td >= 20) || tm === 11 || (tm === 0 && td === 1);
+    if (isChristmasSeason) document.documentElement.classList.add("is-christmas-season");
+
     const KEY = "leewardSplashShown";
     try {
         if (!window.matchMedia("(max-width: 768px)").matches) return;
@@ -37,10 +46,7 @@
     // Christmas extras (Nov 20 - Jan 1): Santa hat drops onto the sail tip
     // after the waves sweep in, and frosty snowflakes drift down behind the logo.
     // Outside those dates the splash is unchanged.
-    const now = new Date();
-    const m = now.getMonth(), d = now.getDate();
-    const isChristmas = (m === 10 && d >= 20) || m === 11 || (m === 0 && d === 1);
-    if (isChristmas) {
+    if (isChristmasSeason) {
         splash.classList.add("is-christmas");
         splash.querySelector(".app-splash-logo").insertAdjacentHTML("beforeend",
             '<img class="app-splash-hat" src="/assets/logos/splash-hat.png" alt="">');

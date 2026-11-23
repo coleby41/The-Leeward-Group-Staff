@@ -445,7 +445,10 @@
         if (!el) return "";
         // Every footer link (Release Notes, Report Bug), each keeping its
         // own target — Release Notes stays in the portal, Report Bug opens Tally.
-        const links = Array.from(el.querySelectorAll("a[href]"));
+        // "Get the App" is left out once you're already in the installed app.
+        const inApp = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+        const links = Array.from(el.querySelectorAll("a[href]"))
+            .filter(a => !(inApp && a.closest(".get-app-link")));
         const clone = el.cloneNode(true);
         clone.querySelectorAll("a").forEach(a => a.remove());
         const text = clone.textContent.replace(/\s+/g, " ").replace(/[\s-]+$/, "").trim();

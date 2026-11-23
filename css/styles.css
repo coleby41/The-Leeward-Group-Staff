@@ -20599,3 +20599,20 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
     min-height: 46px;
   }
 }
+
+/* "Get the App" footer link: never shown inside the installed app.
+   Media query covers it before any script runs; .is-installed-app
+   (js/install-app.js) covers the moment right after installing. */
+@media (display-mode: standalone) {
+  .get-app-link { display: none; }
+}
+.is-installed-app .get-app-link { display: none; }
+
+/* Christmas logo (Nov 20 - Jan 1) on every screen size — login, the
+   landing page, Good Morning, 404. js/splash.js adds .is-christmas-season
+   to <html>. Swaps the picture without touching the HTML, so after Jan 1
+   the everyday logo is back on its own. The favicon is NOT changed. */
+.is-christmas-season img[data-seasonal-logo] {
+  content: url("/assets/icons/icon-512.png");
+  border-radius: 22%;
+}
