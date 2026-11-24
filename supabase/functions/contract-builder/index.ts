@@ -78,14 +78,14 @@ async function loadAll(admin: Row, projectId: string, companyId: number) {
   const pkgIds = (pkgsRes.data || []).map((p: Row) => p.id);
   if (pkgIds.length) {
     const { data: invs, error } = await admin.from("bid_invites")
-      .select("id, package_id, bid_amount, proposal_file_id, responded_at")
+      .select("id, package_id, bid_amount, awarded_amount, proposal_file_id, responded_at")
       .eq("company_id", companyId).eq("status", "awarded").in("package_id", pkgIds)
       .order("responded_at", { ascending: false, nullsFirst: false });
     if (error) throw error;
     const inv = (invs || [])[0];
     if (inv) {
       const pkg = (pkgsRes.data || []).find((p: Row) => p.id === inv.package_id) || {};
-      award = { invite_id: inv.id, amount: inv.bid_amount != null ? Number(inv.bid_amount) : null, scope: pkg.scope || pkg.name || "", package_name: pkg.name || "", proposal_file_id: inv.proposal_file_id || null };
+      award = { invite_id: inv.id, amount: inv.awarded_amount != null ? Number(inv.awarded_amount) : inv.bid_amount != null ? Number(inv.bid_amount) : null, scope: pkg.scope || pkg.name || "", package_name: pkg.name || "", proposal_file_id: inv.proposal_file_id || null };
     }
   }
 

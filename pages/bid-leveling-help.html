@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bid Leveling Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Bid Leveling guide: plain page like Release Notes (no header/sidebar).
+     Linked from the Help button on Bid Leveling, Bid Invites, the invite
+     wizard and the Bid Leveling popups. ?id=<project> makes "Back" return
+     to that project's Bid Leveling. Keep it in step with
+     js/project-bid-leveling.js when the page changes. -->
+<a href="/pages/project-home.html" class="auth-button changelog-back" id="blHelpBack">&larr; Back to Bid Leveling</a>
+
+<main class="changelog-main bl-guide">
+    <p class="bl-guide-kicker">Help · Bids</p>
+    <h1>Bid Leveling guide</h1>
+    <p class="changelog-intro">How bids work in the portal, from setting up the buildings to awarding a vendor. It replaces the bid workbook: same idea, but the math is done for you and vendors send their prices in directly.</p>
+
+    <nav class="bl-guide-toc" aria-label="On this page">
+        <a href="#how">How it works</a>
+        <a href="#setup">1. Set up buildings</a>
+        <a href="#invite">2. Invite vendors</a>
+        <a href="#vendors">3. What vendors do</a>
+        <a href="#compare">4. Compare bids</a>
+        <a href="#award">5. Negotiate and award</a>
+        <a href="#summary">6. Summary and export</a>
+        <a href="#terms">Terms</a>
+        <a href="#faq">Questions</a>
+    </nav>
+
+    <section id="how">
+        <h2>How it works</h2>
+        <ol class="bl-guide-steps">
+            <li><strong>Set up buildings</strong><span>Building types, how many of each, units and square footage.</span></li>
+            <li><strong>Invite vendors</strong><span>Pick the cost codes, the buildings they cover, and the approved vendors.</span></li>
+            <li><strong>Vendors send prices</strong><span>One price per building for each cost code, in the vendor portal.</span></li>
+            <li><strong>Compare</strong><span>Bid Leveling shows the best bid on every line against the budget.</span></li>
+            <li><strong>Negotiate and award</strong><span>Set a target, then award the vendor's package.</span></li>
+            <li><strong>Contract and budget</strong><span>The award starts the contract with the right amount.</span></li>
+        </ol>
+    </section>
+
+    <section id="setup">
+        <h2>1. Set up buildings</h2>
+        <p>The first time anyone opens Bid Leveling on a project, it asks for the buildings. To change them later, click <strong>Edit buildings</strong>.</p>
+        <p>Add one row for each <strong>building type</strong>, meaning buildings that are built the same way and share one bid sheet:</p>
+        <dl class="bl-guide-dl">
+            <dt>Name</dt><dd>What you call it, like "Pool House" or "24 Unit 1BR &amp; 2BR".</dd>
+            <dt>Buildings</dt><dd>How many of this type are being built. Every total for the type is multiplied by this.</dd>
+            <dt>Building #s</dt><dd>Which buildings they are on the site plan, like 3, 4, 5.</dd>
+            <dt>Units / bldg</dt><dd>Apartments in one building. Used for $ per unit. Use 0 for a building with no units.</dd>
+            <dt>GBSF / bldg</dt><dd>Gross building square feet for one building. Used for $ per SF.</dd>
+            <dt>Leasable SF</dt><dd>Rentable square feet for one building.</dd>
+        </dl>
+        <p>Then leave on the <strong>site-wide sections</strong> this project has: Site Work, Hardscape &amp; Landscape and Amenities. These are priced once for the whole site, not per building.</p>
+        <p class="bl-guide-note"><strong>Good to know:</strong> bids are per building, so if the number of buildings changes later, just edit it. Every total updates and nobody has to re-bid.</p>
+    </section>
+
+    <section id="invite">
+        <h2>2. Invite vendors</h2>
+        <ol class="changelog-list">
+            <li>Click <strong>+ Invite vendors</strong> on Bid Leveling (or Vendors › More Actions › Generate A Invite Bid).</li>
+            <li>Name the package, then under <strong>What vendors price</strong> pick its <strong>cost codes</strong> (for example 3001 Termite Treatment and 3002 Foundations) and the <strong>building types and sections</strong> it covers.</li>
+            <li>Pick the vendors. Only <strong>Approved</strong> vendors can be invited.</li>
+            <li>Set the due date and walkthrough, attach the plans, and send. You can save a draft and finish later.</li>
+        </ol>
+        <p>Vendors get an email with a <strong>View Invite &amp; Bid</strong> button. Reminders go out on their own before the due date. An invite with no cost codes picked works the old way: the vendor sends one total.</p>
+    </section>
+
+    <section id="vendors">
+        <h2>3. What vendors do</h2>
+        <p>Vendors keep it simple. In the vendor portal they:</p>
+        <ul class="changelog-list">
+            <li>Choose <strong>Bidding</strong> or <strong>Not bidding</strong>.</li>
+            <li>Enter <strong>one price per building</strong> for each cost code and building type in the package. No breakdown. The portal multiplies by the number of buildings.</li>
+            <li>Add exclusions if they have any, attach their proposal PDF, and submit.</li>
+        </ul>
+        <p>They can change their bid until the due date. Their prices show up on Bid Leveling as soon as they submit. Vendors never see each other's prices.</p>
+    </section>
+
+    <section id="compare">
+        <h2>4. Compare bids</h2>
+        <p>Bid Leveling has a tab for each building type and site-wide section, plus <strong>Summary</strong>. Each line shows:</p>
+        <dl class="bl-guide-dl">
+            <dt>Budget</dt><dd>What you planned to spend on this line, per building.</dd>
+            <dt>Best bid</dt><dd>The lowest vendor price and who sent it. After an award, the awarded vendor's price.</dd>
+            <dt>vs budget</dt><dd>Best bid minus budget. <span class="bl-over">Orange</span> means it's over budget.</dd>
+            <dt>Bids</dt><dd>How many prices are in, and how many invited vendors haven't answered yet.</dd>
+        </dl>
+        <p>Use <strong>Needs award</strong> to see only what's left. To set a budget before any bids come in, use <strong>+ Add line</strong>. If a vendor sends a price by email or phone, open the line and click <strong>+ Add bid</strong>.</p>
+    </section>
+
+    <section id="award">
+        <h2>5. Negotiate and award</h2>
+        <p>Click a line to see every bid, with each vendor's exclusions and proposal PDF.</p>
+        <ol class="changelog-list">
+            <li>Set the <strong>budget</strong> (and the estimate, if you have one).</li>
+            <li>If you're negotiating, enter the <strong>reduction asked</strong>. The <strong>target bid</strong>, $ per unit and $ per SF update as you type. Click <strong>Save budget &amp; notes</strong>.</li>
+            <li>Click <strong>Award</strong> on the vendor you want.</li>
+        </ol>
+        <p>Awards are per <strong>invite package</strong>, the same as on Bid Invites: awarding a vendor awards them everything they priced in that package. Their contract amount is their total after your reductions. You then confirm on the Bid Invites page, which sends the award email and asks for their COI.</p>
+    </section>
+
+    <section id="summary">
+        <h2>6. Summary and export</h2>
+        <p>The <strong>Summary</strong> tab adds everything up by cost code across all building types and site-wide sections, like the workbook's "Bid Summary by Cost Code".</p>
+        <p><strong>Export to Excel</strong> gives you a workbook-style copy any time: one sheet per building type or section, plus the summary.</p>
+    </section>
+
+    <section id="terms">
+        <h2>Terms</h2>
+        <dl class="bl-guide-dl bl-guide-dl--plain">
+            <dt>Building type</dt><dd>A group of identical buildings that share one bid sheet.</dd>
+            <dt>Site-wide section</dt><dd>Site Work, Hardscape &amp; Landscape or Amenities. Priced once for the whole site.</dd>
+            <dt>Cost code</dt><dd>The number and name for a line of work, like 3002 Foundations - Turn-Key. Same list as the workbook.</dd>
+            <dt>GBSF</dt><dd>Gross building square feet.</dd>
+            <dt>Leasable SF</dt><dd>Rentable square feet.</dd>
+            <dt>Target bid</dt><dd>The vendor's price minus the reduction you asked for. The workbook called these "Negotiation targets".</dd>
+            <dt>Contract amount</dt><dd>The awarded vendor's total after reductions: each price × its number of buildings.</dd>
+        </dl>
+    </section>
+
+    <section id="faq">
+        <h2>Questions</h2>
+        <div class="bl-guide-faq"><strong>A vendor sent their price by email. How do I add it?</strong><span>Open the line and click + Add bid. Pick the package and the vendor, and type the price per building.</span></div>
+        <div class="bl-guide-faq"><strong>We added a building. Do vendors need to re-bid?</strong><span>No. Change the number of buildings in Edit buildings and every total updates.</span></div>
+        <div class="bl-guide-faq"><strong>Can vendors see other vendors' prices?</strong><span>No. Each vendor only sees their own bid.</span></div>
+        <div class="bl-guide-faq"><strong>Can I still get the Excel workbook?</strong><span>Yes. Export to Excel gives you the same layout as the workbook, with today's numbers.</span></div>
+        <div class="bl-guide-faq"><strong>Does the estimate count as the lowest bid?</strong><span>No. Best bid only compares vendor prices. The estimate is kept on the line for reference.</span></div>
+        <div class="bl-guide-faq"><strong>I don't see Bid Leveling.</strong><span>It uses the same access as Bid Invites. Ask IT to turn on Manage Bid Invites for your workgroup.</span></div>
+    </section>
+</main>
+
+<script>
+// "Back" returns to this project's Bid Leveling when the link carried ?id=.
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (id) back.href = "/pages/project-bid-leveling.html?id=" + encodeURIComponent(id);
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

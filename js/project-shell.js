@@ -92,14 +92,15 @@
     // Bid Invites (beta) tab — only for people who can send or manage bid
     // invites (sql/supabase-bid-invites-setup.sql). Starts hidden in the
     // markup so nobody sees it flash in and back out.
+    // Bid Invites and Bid Leveling (2026-11-24) share the same two permissions.
     async function applyBidInvitesNavVisibility() {
-        const item = document.getElementById("bidInvitesNavItem");
-        if (!item || !window.Permissions) return;
+        const items = ["bidInvitesNavItem", "bidLevelingNavItem"].map(id => document.getElementById(id)).filter(Boolean);
+        if (!items.length || !window.Permissions) return;
         try { await (window.supabaseInitialProfilePromise || Promise.resolve()); } catch (e) { /* ignore */ }
         try { await window.Permissions.initPermissions(); } catch (e) { /* hasPermission fails open */ }
         const allowed = window.Permissions.hasPermission("vendors.send_bid_invites")
             || window.Permissions.hasPermission("projects.manage_bid_invites");
-        item.style.display = allowed ? "" : "none";
+        items.forEach(item => { item.style.display = allowed ? "" : "none"; });
     }
 
     /* ===========================

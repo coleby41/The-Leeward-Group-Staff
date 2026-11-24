@@ -95,6 +95,37 @@ async function loadInvite(ctx: VendorContext, id: unknown): Promise<{ invite: Ro
   return { invite, pkg };
 }
 
+// Bid Leveling (2026-11-24): a package can list cost codes + building
+// types / site sections. Vendors then enter one price per building for each
+// (area, cost code) instead of a single total. Empty for old packages.
+async function packageLines(ctx: VendorContext, pkg: Row): Promise<Row[]> {
+  const codes: string[] = Array.isArray(pkg.cost_codes) ? pkg.cost_codes : [];
+  const areaIds: string[] = Array.isArray(pkg.area_ids) ? pkg.area_ids : [];
+  if (!codes.length || !areaIds.length) return [];
+  const [areasRes, codesRes] = await Promise.all([
+    ctx.admin.from("bid_areas").select("id, kind, name, building_count, building_numbers, enabled, sort_order, created_at").in("id", areaIds),
+    ctx.admin.from("bid_cost_codes").select("code, description, sort_order").in("code", codes),
+  ]);
+  if (areasRes.error) throw areasRes.error;
+  if (codesRes.error) throw codesRes.error;
+  const order: Row = { building: 0, site_work: 1, hardscape: 2, amenities: 3 };
+  const areas = (areasRes.data || []).filter((a: Row) => a.enabled !== false)
+    .sort((a: Row, b: Row) => (order[a.kind] - order[b.kind]) || (a.sort_order - b.sort_order) || String(a.created_at).localeCompare(String(b.created_at)));
+  const codeRows = (codesRes.data || []).sort((a: Row, b: Row) => a.sort_order - b.sort_order);
+  const out: Row[] = [];
+  for (const a of areas) {
+    for (const c of codeRows) {
+      out.push({
+        area_id: a.id, area_name: a.name, site_wide: a.kind !== "building",
+        building_count: a.kind === "building" ? a.building_count : 1,
+        building_numbers: a.kind === "building" ? a.building_numbers || null : null,
+        cost_code: c.code, description: c.description,
+      });
+    }
+  }
+  return out;
+}
+
 function canStillBid(pkg: Row): boolean {
   return pkg.status === "open" && new Date(pkg.due_at).getTime() > Date.now();
 }
@@ -187,6 +218,13 @@ async function invite(ctx: VendorContext, body: Row) {
     proposal = data || null;
   }
   const site = project ? [project.site_address, [project.site_city, project.site_state].filter(Boolean).join(", "), project.site_zip].filter(Boolean).join(" ") : "";
+  const lines = await packageLines(ctx, pkg);
+  let myPrices: Row[] = [];
+  if (lines.length) {
+    const { data, error } = await ctx.admin.from("bid_invite_prices").select("area_id, cost_code, amount").eq("invite_id", inv.id);
+    if (error) throw error;
+    myPrices = data || [];
+  }
 
   return json({
     ok: true,
@@ -206,6 +244,11 @@ async function invite(ctx: VendorContext, body: Row) {
       contact_phone: pkg.contact_phone, status: pkg.status, can_bid: canStillBid(pkg) && !["awarded", "not_selected"].includes(inv.status),
     },
     project: { id: pkg.project_id, name: project?.name || "", code: project?.project_code || "" },
+    // One price per building for each line; empty = the old single total.
+    lines: lines.map((l: Row) => {
+      const mine = myPrices.find((p: Row) => p.area_id === l.area_id && p.cost_code === l.cost_code);
+      return { ...l, amount: mine ? Number(mine.amount) : null };
+    }),
     files: (fileRows || []).map((r: Row) => {
       const f = Array.isArray(r.project_files) ? r.project_files[0] : r.project_files;
       return f ? { id: f.id, name: f.file_name } : null;
@@ -255,6 +298,7 @@ async function respond(ctx: VendorContext, body: Row) {
       // Withdrawing a submitted bid clears it.
       bid_amount: null, bid_notes: null, bid_received_on: null, bid_source: null, proposal_file_id: null,
     }).eq("id", inv.id);
+    await ctx.admin.from("bid_invite_prices").delete().eq("invite_id", inv.id);
     return json({ ok: true });
   }
   return fail("bad_choice");
@@ -291,8 +335,30 @@ async function submitBid(ctx: VendorContext, body: Row) {
   const { invite: inv, pkg } = loaded;
   if (!canStillBid(pkg) || ["awarded", "not_selected"].includes(inv.status)) return fail("closed", 409);
 
-  const amount = Number(String(body.amount ?? "").replace(/[$,\s]/g, ""));
-  if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) return fail("bad_amount", 400, { fields: ["amount"] });
+  // Packages with cost codes: body.prices = [{ area_id, cost_code, amount }],
+  // one price per building; blank lines are left out (not priced). The total
+  // is worked out here (price x buildings). Old packages: body.amount.
+  const lines = await packageLines(ctx, pkg);
+  let amount: number;
+  let priceRows: Row[] = [];
+  if (lines.length) {
+    const given: Row[] = Array.isArray(body.prices) ? body.prices : [];
+    for (const g of given) {
+      const line = lines.find((l: Row) => l.area_id === String(g.area_id) && l.cost_code === String(g.cost_code));
+      if (!line) return fail("bad_line", 400);
+      const raw = String(g.amount ?? "").replace(/[$,\s]/g, "");
+      if (raw === "") continue;
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0 || value > 999999999999) return fail("bad_amount", 400, { fields: [`${line.area_id}|${line.cost_code}`] });
+      priceRows.push({ invite_id: inv.id, area_id: line.area_id, cost_code: line.cost_code, amount: Math.round(value * 100) / 100, _count: line.building_count });
+    }
+    if (!priceRows.length || !priceRows.some((r: Row) => r.amount > 0)) return fail("bad_amount", 400, { fields: ["prices"] });
+    amount = priceRows.reduce((s: number, r: Row) => s + r.amount * r._count, 0);
+    priceRows = priceRows.map(({ _count, ...r }: Row) => r);
+  } else {
+    amount = Number(String(body.amount ?? "").replace(/[$,\s]/g, ""));
+    if (!Number.isFinite(amount) || amount <= 0 || amount > 999999999999) return fail("bad_amount", 400, { fields: ["amount"] });
+  }
   const path = String(body.path || "");
   const marker = `-vendor-${inv.id.slice(0, 8)}-`;
   if (!path.startsWith(bidsPrefix(pkg.project_id)) || !path.includes(marker) || path.includes("..")) return fail("missing_file", 400, { fields: ["file"] });
@@ -322,10 +388,19 @@ async function submitBid(ctx: VendorContext, body: Row) {
   }).eq("id", inv.id);
   if (error) throw error;
 
+  // Replace this vendor's line prices (the trigger keeps bid_amount = total).
+  if (lines.length) {
+    const del = await ctx.admin.from("bid_invite_prices").delete().eq("invite_id", inv.id);
+    if (del.error) throw del.error;
+    const ins = await ctx.admin.from("bid_invite_prices").insert(priceRows);
+    if (ins.error) throw ins.error;
+  }
+
   // Let Leeward know.
   const amountText = formatMoney(amount);
   const projectName = project?.name || "a project";
-  const staffLink = `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${pkg.project_id}`;
+  // Line-by-line bids open in Bid Leveling; single totals on Bid Invites.
+  const staffLink = `${STAFF_PORTAL_URL}/pages/${lines.length ? "project-bid-leveling" : "project-bid-invites"}.html?id=${pkg.project_id}`;
   if (pkg.created_by) {
     await notifyStaff(ctx.admin, [pkg.created_by], {
       title: "Bid submitted",
@@ -458,7 +533,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
   // Round 1: awarded invites (with their package) + direct assignments.
   const [invRows, assigned] = await Promise.all([
     ctx.admin.from("bid_invites")
-      .select("id, package_id, bid_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id, bid_packages!package_id(id, name, project_id, awarded_at, contact_name, contact_email, contact_phone)")
+      .select("id, package_id, bid_amount, awarded_amount, proposal_file_id, coi_requested_at, coi_received_at, coi_file_id, bid_packages!package_id(id, name, project_id, awarded_at, contact_name, contact_email, contact_phone)")
       .eq("company_id", ctx.company!.id).eq("status", "awarded"),
     // Projects Leeward added this vendor to directly (vendor page › Manage Projects).
     ctx.admin.from("vendor_project_assignments")
@@ -559,7 +634,7 @@ async function awardedProjects(ctx: VendorContext, onlyProjectId?: string) {
         ...mineInv.map((r: Row) => {
           const pkg: Row = pkgById.get(r.package_id) || {};
           return {
-            invite_id: r.id, name: pkg.name, amount: r.bid_amount, awarded_at: pkg.awarded_at,
+            invite_id: r.id, name: pkg.name, amount: r.awarded_amount ?? r.bid_amount, awarded_at: pkg.awarded_at,
             contact_name: pkg.contact_name, contact_email: pkg.contact_email, contact_phone: pkg.contact_phone,
             proposal: r.proposal_file_id && fileById.get(r.proposal_file_id) ? { id: r.proposal_file_id, name: (fileById.get(r.proposal_file_id) as Row).file_name } : null,
           };

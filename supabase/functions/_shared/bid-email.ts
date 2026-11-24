@@ -39,6 +39,7 @@ export interface InviteForEmail {
   company_name: string;
   contact_name: string | null;
   bid_amount?: number | string | null;
+  awarded_amount?: number | string | null;   // after Bid Leveling negotiation; wins over bid_amount
 }
 
 export type BidEmailKind = "invite" | "reminder_no_response" | "reminder_due" | "awarded" | "not_selected" | "coi_request";
@@ -357,7 +358,9 @@ export function renderBidEmail(
 
   if (kind === "awarded" || kind === "not_selected") {
     const awarded = kind === "awarded";
-    const amount = invite.bid_amount != null && invite.bid_amount !== "" ? formatMoney(invite.bid_amount) : "";
+    // The award amount after negotiation (Bid Leveling), else the bid.
+    const amountValue = awarded && invite.awarded_amount != null && invite.awarded_amount !== "" ? invite.awarded_amount : invite.bid_amount;
+    const amount = amountValue != null && amountValue !== "" ? formatMoney(amountValue) : "";
     const subject = awarded ? s.subjAward(pkg.project_name, pkg.name) : s.subjResults(pkg.project_name, pkg.name);
     const bodyHtml = awarded
       ? p(s.awardBody(company, pkgName, project, escapeHtml(amount))) + p(s.awardNext(escapeHtml(pkg.contact_name)))

@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bid Leveling | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="/js/splash.js"></script>
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-to-do.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
+
+<header class="header">
+
+    <div class="header-left">
+
+        <!-- Phone-only nav button (hidden above 820px via .menu-btn--mobile-only).
+             These project pages use the collapse tab instead of a hamburger on
+             desktop, but on a phone the sidebar is a hidden drawer, so without
+             this there's no way to reach the other project tabs. script.js
+             picks it up by id like every other page's #menuBtn. -->
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="/pages/project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
+    </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">Bid Leveling</h1>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>
+
+<!-- Desktop loads with the sidebar collapsed (js/sidebar-collapse.js) - set here so it never paints open first -->
+<script>if(window.matchMedia("(min-width: 821px)").matches){document.body.classList.add("sidebar-collapsed")}</script>
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+        <!-- Icon-only stand-in shown only once the sidebar collapses to its
+             68px rail (body.sidebar-collapsed in styles.css hides the input/
+             hint/results above but keeps this) — clicking it expands the
+             sidebar and focuses the real search input, same as ⌘F/Ctrl+F. -->
+        <button type="button" class="sidebar-search-collapsed-btn" id="sidebarSearchCollapsedBtn" aria-label="Search this project" title="Search this project">
+            <span class="sidebar-search-collapsed-icon" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/projects.html">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-files.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-form-logs.html">
+            <span class="form-logs-nav-icon"></span>
+            <span class="nav-text">Form Logs</span>
+        </a>
+
+        <!-- Bid Invites (beta): hidden until project-shell.js confirms the
+             vendors.send_bid_invites or projects.manage_bid_invites permission. -->
+        <a href="#" class="nav-item" data-nav-page="/pages/project-bid-invites.html" id="bidInvitesNavItem" style="display:none;">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">Bid Invites</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-bid-leveling.html" id="bidLevelingNavItem" style="display:none;">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Bid Leveling</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-timeline.html">
+            <span class="timeline-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="/pages/changelog.html">Release Notes</a> - <span class="get-app-link"><a class="version-report-bug" href="/pages/get-app.html">Get the App</a> - </span><a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <!-- Header follows Home (pages/dashboard.html .hm-head): no banner. -->
+    <div class="hm-head">
+        <div>
+            <p class="hm-date" id="blKicker">Bids</p>
+            <h1 class="hm-greeting">Bid Leveling</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/bid-leveling-help.html" class="hm-btn hm-glass bl-help-btn" id="blHelpBtn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
+            <button type="button" class="hm-btn hm-glass" id="blExportBtn">Export to Excel</button>
+            <a href="/pages/vendors.html" class="hm-btn hm-btn--primary hidden" id="blInviteBtn">+ Invite vendors</a>
+        </div>
+    </div>
+
+    <div id="blPageMessage" class="workbook-page-message" style="display:none;"></div>
+    <div class="workbook-loading" id="blLoading"><p>Loading bid leveling…</p></div>
+    <div class="workbook-empty" id="blNoAccess" style="display:none;"><p>You don't have access to Bid Leveling. Ask IT to turn on <strong>Manage Bid Invites</strong> for your workgroup on the Workgroups page.</p></div>
+
+    <!-- First time on a project: set up the buildings. -->
+    <div class="bl-setup-empty" id="blSetupEmpty" style="display:none;">
+        <h2>Set up the buildings first</h2>
+        <p>Bid Leveling needs each building type on this project (how many buildings, units and square feet) and which site-wide sections it has. It takes a minute and you can change it any time.</p>
+        <button type="button" class="auth-button" data-act="setup">Set up buildings</button>
+    </div>
+
+    <div id="blBody" style="display:none;">
+        <div class="bl-tabs" role="tablist" aria-label="Building type" id="blTabs"></div>
+        <p class="bl-facts" id="blFacts"></p>
+
+        <section class="hm-glass bl-strip" aria-label="Totals">
+            <span class="hm-sheen" aria-hidden="true"></span>
+            <div class="bl-stats" id="blStats"></div>
+        </section>
+
+        <div class="bl-toolbar" id="blFilters">
+            <div class="bl-seg" role="radiogroup" aria-label="Show">
+                <button type="button" role="radio" aria-checked="true" class="is-active" data-filter="all">All</button>
+                <button type="button" role="radio" aria-checked="false" data-filter="needs">Needs award</button>
+            </div>
+            <div class="bl-toolbar-right">
+                <label class="bl-search">
+                    <span class="bl-search-icon" aria-hidden="true"></span>
+                    <input type="search" id="blSearch" placeholder="Search code, item or vendor" aria-label="Search">
+                </label>
+                <button type="button" class="auth-button auth-button--secondary auth-button--sm hidden" id="blAddLineBtn">+ Add line</button>
+            </div>
+        </div>
+
+        <div class="bl-table" id="blTable"></div>
+        <p class="bl-footnote">Click a line to see every bid, set the budget and a negotiation target, and award. Best bid compares vendor prices only; the estimate is in the line for reference.</p>
+    </div>
+
+</main>
+
+
+<!-- Set up buildings -->
+<div class="popup-overlay hidden" id="blSetupOverlay">
+    <div class="popup bl-setup-popup" role="dialog" aria-modal="true" aria-labelledby="blSetupTitle">
+        <div class="bl-popup-head">
+            <div>
+                <h2 id="blSetupTitle">Set up buildings</h2>
+                <p class="auth-inline-copy">Bid Leveling uses this to split bids by building type and multiply totals by the number of buildings. You can change it any time.</p>
+            </div>
+            <div class="bl-popup-head-actions">
+                <a href="/pages/bid-leveling-help.html#setup" class="bl-help-round" aria-label="Help" target="_self"><span class="bl-help-icon" aria-hidden="true"></span></a>
+                <button type="button" class="file-preview-close-btn" id="blSetupCloseBtn" aria-label="Close">✕</button>
+            </div>
+        </div>
+        <form class="auth-form" id="blSetupForm" novalidate>
+            <h3 class="bl-subhead">Building types</h3>
+            <p class="auth-inline-copy">One row for each kind of building. Buildings of the same type share one bid sheet.</p>
+            <div id="blSetupRows"></div>
+            <button type="button" class="bl-dashed-btn" id="blSetupAddBtn">+ Add building type</button>
+            <div class="bl-setup-totals" id="blSetupTotals"></div>
+
+            <h3 class="bl-subhead">Site-wide sections</h3>
+            <p class="auth-inline-copy">Priced once for the whole site, not per building. Turn off any this project doesn't have.</p>
+            <div class="bl-switches">
+                <label class="form-toggle-row"><input type="checkbox" id="blSection_site_work" checked><span>Site Work</span></label>
+                <label class="form-toggle-row"><input type="checkbox" id="blSection_hardscape" checked><span>Hardscape &amp; Landscape</span></label>
+                <label class="form-toggle-row"><input type="checkbox" id="blSection_amenities" checked><span>Amenities</span></label>
+            </div>
+            <p class="auth-inline-copy">Bids are per building, so changing the number of buildings updates every total right away; nobody has to re-bid.</p>
+            <p class="auth-message" id="blSetupMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="blSetupCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="blSetupSaveBtn">Save buildings</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Review a line: every bid, budget, negotiation, award -->
+<div class="popup-overlay hidden" id="blReviewOverlay">
+    <div class="popup bl-review-popup" role="dialog" aria-modal="true" aria-labelledby="blReviewTitle">
+        <div class="bl-popup-head">
+            <div>
+                <p class="bl-eyebrow" id="blReviewEyebrow"></p>
+                <h2 id="blReviewTitle">Review</h2>
+                <p class="auth-inline-copy" id="blReviewFacts"></p>
+            </div>
+            <div class="bl-popup-head-actions">
+                <a href="/pages/bid-leveling-help.html#award" class="bl-help-round" aria-label="Help"><span class="bl-help-icon" aria-hidden="true"></span></a>
+                <button type="button" class="file-preview-close-btn" id="blReviewCloseBtn" aria-label="Close">✕</button>
+            </div>
+        </div>
+
+        <h3 class="bl-subhead">Bids</h3>
+        <div class="bl-bids" id="blReviewBids"></div>
+        <button type="button" class="bl-dashed-btn hidden" id="blReviewAddBidBtn">+ Add bid (vendor sent it by email or phone)</button>
+
+        <form class="auth-form bl-review-form" id="blReviewForm" novalidate>
+            <h3 class="bl-subhead">Budget &amp; negotiation</h3>
+            <div class="wizard-field-grid">
+                <label class="auth-field">Budget <input type="text" id="blReviewBudget" inputmode="decimal" placeholder="$0"></label>
+                <label class="auth-field">Estimate <input type="text" id="blReviewEstimate" inputmode="decimal" placeholder="$0"></label>
+            </div>
+            <label class="auth-field">Reduction asked <input type="text" id="blReviewReduction" inputmode="decimal" placeholder="$0"></label>
+            <p class="bl-target" id="blReviewTarget"></p>
+            <label class="auth-field">Comments <textarea id="blReviewNotes" rows="2" maxlength="2000" class="bid-light-textarea"></textarea></label>
+            <p class="auth-message" id="blReviewMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="submit" class="auth-button auth-button--secondary" id="blReviewSaveBtn">Save budget &amp; notes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Add / edit a bid by hand -->
+<div class="popup-overlay hidden" id="blBidOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="blBidTitle">
+        <h2 id="blBidTitle">Add bid</h2>
+        <p class="auth-inline-copy" id="blBidSubtitle"></p>
+        <form class="auth-form" id="blBidForm" novalidate>
+            <div id="blBidVendorRow">
+                <label class="auth-field">Invite package <select id="blBidPackage"></select></label>
+                <label class="auth-field">Vendor <select id="blBidVendor"></select></label>
+                <p class="bid-field-hint">A vendor who wasn't invited is added to the package as a bid that came in by email. No email is sent.</p>
+            </div>
+            <label class="auth-field"><span id="blBidAmountLabel">Price per building</span>
+                <span class="bid-money-input"><span>$</span><input type="text" id="blBidAmount" inputmode="decimal" placeholder="0" autocomplete="off"></span>
+            </label>
+            <p class="auth-message" id="blBidMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="blBidCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="blBidSaveBtn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Add a line (budget before any bids) -->
+<div class="popup-overlay hidden" id="blLineOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="blLineTitle">
+        <h2 id="blLineTitle">Add line</h2>
+        <p class="auth-inline-copy" id="blLineSubtitle"></p>
+        <form class="auth-form" id="blLineForm" novalidate>
+            <label class="auth-field">Cost code <select id="blLineCode"></select></label>
+            <div class="hidden" id="blLineNewFields">
+                <div class="wizard-field-grid">
+                    <label class="auth-field">New code <input type="text" id="blLineNewCode" inputmode="numeric" maxlength="6" placeholder="13001"></label>
+                    <label class="auth-field">Description <input type="text" id="blLineNewDesc" maxlength="120" placeholder="Fitness Equipment"></label>
+                </div>
+                <p class="bid-field-hint">New codes are added to the company-wide list for every project.</p>
+            </div>
+            <label class="auth-field"><span id="blLineBudgetLabel">Budget per building</span>
+                <span class="bid-money-input"><span>$</span><input type="text" id="blLineBudget" inputmode="decimal" placeholder="0" autocomplete="off"></span>
+            </label>
+            <p class="auth-message" id="blLineMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="blLineCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="blLineSaveBtn">Add line</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
+<script src="/js/mobile-app.js"></script>
+<script src="/js/sheet-swipe.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/file-preview.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/project-archived.js"></script>
+<script src="/js/project-shell.js"></script>
+<script src="/js/project-bid-leveling.js"></script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+</script>
+
+</body>
+</html>

@@ -219,6 +219,25 @@
         await loadTemplate();
         $("bidLoading").style.display = "none";
         render();
+        openAwardFromUrl();
+    }
+
+    // Bid Leveling › Review › Award sends people here with ?award=<invite id>
+    // so the award goes through this page's own popup (COI template check,
+    // emails). Opened once, then the parameter is dropped.
+    let awardFromUrlDone = false;
+    function openAwardFromUrl() {
+        if (awardFromUrlDone) return;
+        awardFromUrlDone = true;
+        const params = new URLSearchParams(window.location.search);
+        const inviteId = params.get("award");
+        if (!inviteId) return;
+        params.delete("award");
+        history.replaceState(null, "", `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+        const found = findInvite(inviteId);
+        if (!found) { setMessage("Couldn't find that bid to award.", "error"); return; }
+        if (!canManage || found.pkg.status !== "open") { setMessage(`${found.pkg.name} is already ${found.pkg.status}.`, "error"); return; }
+        openAward(found.pkg, found.invite);
     }
 
     // The project's COI template — card, upload and remove live in
@@ -575,7 +594,10 @@
         awardTarget = { pkg, invite };
         const others = pkg.invites.filter(i => i.id !== invite.id && i.status === "bid_received");
         $("bidAwardTitle").textContent = `Award ${pkg.name}?`;
-        $("bidAwardSubtitle").textContent = `${invite.company_name} · ${money(invite.bid_amount)}`;
+        // awarded_amount = the total after Bid Leveling's negotiation reductions.
+        $("bidAwardSubtitle").textContent = invite.awarded_amount != null
+            ? `${invite.company_name} · ${money(invite.awarded_amount)} after negotiation (bid ${money(invite.bid_amount)})`
+            : `${invite.company_name} · ${money(invite.bid_amount)}`;
         $("bidAwardNotifyWinner").checked = true;
         $("bidAwardNotifyWinnerLabel").textContent = `Email ${invite.company_name} an award notice`;
         $("bidAwardNotifyOthers").checked = others.length > 0;
@@ -711,6 +733,8 @@
             $("bidNoAccess").style.display = "block";
             return;
         }
+        $("bidHelpBtn").href = `/pages/bid-leveling-help.html?id=${encodeURIComponent(project.id)}`;
+        $("bidLevelingBtn").href = `/pages/project-bid-leveling.html?id=${encodeURIComponent(project.id)}`;
         if (canSend) {
             const btn = $("bidNewInviteBtn");
             btn.href = `/pages/vendors.html?invite=1&project=${encodeURIComponent(project.id)}`;

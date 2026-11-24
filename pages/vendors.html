@@ -1239,6 +1239,24 @@
                     <textarea id="bidScope" rows="4" maxlength="4000" placeholder="What the vendor is bidding on — sheets, inclusions, exclusions"></textarea>
                 </label>
 
+                <!-- Bid Leveling (2026-11-24): what vendors price, one price per
+                     building for each cost code + building type picked here.
+                     Nothing picked = the old way (one total + PDF). js/bid-invites.js -->
+                <div class="bid-price-lines" id="bidPriceLines">
+                    <div class="bid-price-lines-head">
+                        <p class="company-form-section-title">What vendors price</p>
+                        <a href="/pages/bid-leveling-help.html#invite" class="bl-help-round" aria-label="How Bid Leveling works" target="_blank" rel="noopener"><span class="bl-help-icon" aria-hidden="true"></span></a>
+                    </div>
+                    <p class="bid-field-hint">Pick the cost codes and the buildings they cover. Vendors then enter one price per building for each, and it lands in Bid Leveling. Leave it empty to ask for one total instead.</p>
+                    <div id="bidAreasBox"><p class="bid-field-hint">Choose a project first.</p></div>
+                    <label class="auth-field">
+                        Cost codes
+                        <input type="search" id="bidCodesSearch" placeholder="Search cost codes, e.g. 3002 or framing" autocomplete="off">
+                    </label>
+                    <p class="bid-field-hint" id="bidCodesPicked"></p>
+                    <div class="bid-codes-list" id="bidCodesList"></div>
+                </div>
+
                 <label class="auth-field">
                     Location
                     <input type="text" id="bidLocation" maxlength="200" placeholder="Filled in from the project's site address">

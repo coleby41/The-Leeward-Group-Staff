@@ -148,7 +148,70 @@
 
     /* ---------- open / close ---------- */
 
+    /* ---------- What vendors price (Bid Leveling, 2026-11-24) ----------
+       cost codes (bid_cost_codes) x building types / sections (bid_areas of
+       the chosen project). Saved on the package as cost_codes + area_ids.
+       Nothing picked = the old single-total invite. */
+    let costCodes = null;          // bid_cost_codes rows, loaded once (null = table missing)
+    let projectAreas = [];         // bid_areas for the chosen project
+    let pickedCodes = new Set();
+    let pickedAreas = new Set();
+
+    async function loadCostCodes() {
+        if (costCodes) return;
+        const { data, error } = await client().from("bid_cost_codes").select("code, description, division_code, division_name, sort_order").eq("active", true).order("sort_order");
+        if (error) { costCodes = []; $("bidPriceLines").classList.add("hidden"); return; } // SQL not run yet
+        costCodes = data || [];
+        $("bidPriceLines").classList.remove("hidden");
+        renderCodes();
+    }
+
+    async function loadAreas(project) {
+        projectAreas = [];
+        if (!project) { renderAreas(); return; }
+        const { data, error } = await client().from("bid_areas").select("id, kind, name, building_count, enabled, sort_order, created_at").eq("project_id", project.id);
+        if (String($("bidProjectSelect").value) !== String(project.id)) return;
+        const order = { building: 0, site_work: 1, hardscape: 2, amenities: 3 };
+        projectAreas = error ? [] : (data || []).filter(a => a.enabled !== false)
+            .sort((a, b) => (order[a.kind] - order[b.kind]) || (a.sort_order - b.sort_order) || String(a.created_at).localeCompare(String(b.created_at)));
+        pickedAreas = new Set([...pickedAreas].filter(id => projectAreas.some(a => a.id === id)));
+        renderAreas();
+    }
+
+    function renderAreas() {
+        const box = $("bidAreasBox");
+        const project = currentProject();
+        if (!project) { box.innerHTML = `<p class="bid-field-hint">Choose a project first.</p>`; return; }
+        if (!projectAreas.length) {
+            box.innerHTML = `<p class="bid-field-hint">This project's buildings aren't set up yet. <a href="/pages/project-bid-leveling.html?id=${esc(project.id)}" target="_blank" rel="noopener">Set up buildings in Bid Leveling</a>, then come back (your draft is kept if you save it).</p>`;
+            return;
+        }
+        box.innerHTML = `<p class="bid-field-label">Buildings</p><div class="bid-area-picks">${projectAreas.map(a => `
+            <label class="bid-area-pick"><input type="checkbox" data-area="${esc(a.id)}" ${pickedAreas.has(a.id) ? "checked" : ""}>
+                <span>${esc(a.name)}${a.kind === "building" ? ` <span class="bid-cell-sub">× ${esc(a.building_count)}</span>` : ""}</span></label>`).join("")}</div>`;
+    }
+
+    function renderCodes() {
+        if (!costCodes) return;
+        const q = $("bidCodesSearch").value.trim().toLowerCase();
+        let lastDiv = null;
+        const parts = [];
+        costCodes.forEach(c => {
+            if (q && !`${c.code} ${c.description} ${c.division_name}`.toLowerCase().includes(q) && !pickedCodes.has(c.code)) return;
+            const div = `${c.division_code} ${c.division_name}`;
+            if (div !== lastDiv) { parts.push(`<p class="bid-codes-div">${esc(div)}</p>`); lastDiv = div; }
+            parts.push(`<label class="bid-code-pick"><input type="checkbox" data-code="${esc(c.code)}" ${pickedCodes.has(c.code) ? "checked" : ""}><span><span class="bid-cell-sub">${esc(c.code)}</span> ${esc(c.description)}</span></label>`);
+        });
+        $("bidCodesList").innerHTML = parts.join("") || `<p class="bid-field-hint">No cost codes match.</p>`;
+        const picked = costCodes.filter(c => pickedCodes.has(c.code)).map(c => `${c.code} ${c.description}`);
+        $("bidCodesPicked").textContent = picked.length ? `Picked: ${picked.join(", ")}` : "";
+    }
+
     function resetForm() {
+        pickedCodes = new Set();
+        pickedAreas = new Set();
+        projectAreas = [];
+        if ($("bidCodesSearch")) $("bidCodesSearch").value = "";
         renderWizardTemplate(null);
         step = 1;
         chosenFiles = [];
@@ -188,7 +251,9 @@
         // The project tab's "+ New Invite" link skips the first page.
         showStep(preselectProjectId ? 1 : "start");
 
-        await Promise.all([loadProjects(), ensureVendorData()]);
+        await Promise.all([loadProjects(), ensureVendorData(), loadCostCodes()]);
+        renderCodes();
+        renderAreas();
         populateTradeTags();
         if (preselectProjectId && projects.some(p => String(p.id) === String(preselectProjectId))) {
             $("bidProjectSelect").value = String(preselectProjectId);
@@ -308,6 +373,11 @@
         chosenFiles = (filesRes.data || []).filter(r => r.project_files).map(r => ({ kind: "project", file: r.project_files }));
 
         $("bidPackageName").value = pkg.name || "";
+        pickedCodes = new Set(Array.isArray(pkg.cost_codes) ? pkg.cost_codes : []);
+        pickedAreas = new Set(Array.isArray(pkg.area_ids) ? pkg.area_ids : []);
+        await loadCostCodes();
+        await loadAreas(currentProject());
+        renderCodes();
         $("bidTradeTag").value = pkg.trade_tag_id ? String(pkg.trade_tag_id) : "";
         $("bidScope").value = pkg.scope || "";
         $("bidLocation").value = pkg.location || "";
@@ -413,6 +483,7 @@
     async function onProjectChange() {
         const project = currentProject();
         renderWizardTemplate(project);
+        loadAreas(project); // background
         // Files picked from the previous project don't belong to this one.
         chosenFiles = chosenFiles.filter(f => f.kind === "upload");
         renderFiles();
@@ -668,6 +739,8 @@
         if ($("bidWalkthroughToggle").checked && !d.walkthrough_at) return "Set the walkthrough date and time, or turn the walkthrough off.";
         if (d.walkthrough_at && new Date(d.walkthrough_at) > new Date(d.due_at)) return "The walkthrough is after bids are due.";
         if (d.questions_due_at && new Date(d.questions_due_at) > new Date(d.due_at)) return "Questions are due after bids are due.";
+        if (pickedCodes.size && !pickedAreas.size) return "Pick which buildings the cost codes are for, or clear the cost codes.";
+        if (pickedAreas.size && !pickedCodes.size) return "Pick at least one cost code for the buildings you checked, or uncheck them.";
         if (!d.contact_name) return "Add the contact person's name.";
         if (!isEmail(d.contact_email)) return "Add a valid email for the contact person — vendors' questions go to it.";
         return "";
@@ -795,6 +868,12 @@
             ...draft(),
             trade_tag_id: tradeTagId,
             trade_tag_name: tradeTagId ? tagName(tradeTagId) : null,
+            // What vendors price (Bid Leveling). Null = one total, the old way.
+            // Only sent once supabase-bid-leveling-setup.sql has added the columns.
+            ...(costCodes && costCodes.length ? {
+                cost_codes: pickedCodes.size && pickedAreas.size ? Array.from(pickedCodes) : null,
+                area_ids: pickedCodes.size && pickedAreas.size ? Array.from(pickedAreas) : null,
+            } : {}),
             remind_no_response: $("bidRemindNoResponse").checked,
             remind_before_due: $("bidRemindBeforeDue").checked,
             status,
@@ -939,6 +1018,18 @@
         $("bidInviteNextBtn").addEventListener("click", onNext);
         $("bidInviteForm").addEventListener("submit", e => e.preventDefault());
         $("bidStartNewBtn").addEventListener("click", startNew);
+        $("bidCodesSearch").addEventListener("input", renderCodes);
+        $("bidCodesList").addEventListener("change", e => {
+            const code = e.target.dataset && e.target.dataset.code;
+            if (!code) return;
+            if (e.target.checked) pickedCodes.add(code); else pickedCodes.delete(code);
+            renderCodes();
+        });
+        $("bidAreasBox").addEventListener("change", e => {
+            const id = e.target.dataset && e.target.dataset.area;
+            if (!id) return;
+            if (e.target.checked) pickedAreas.add(id); else pickedAreas.delete(id);
+        });
         $("bidContinueBtn").addEventListener("click", startContinue);
         $("bidSaveDraftBtn").addEventListener("click", saveDraft);
         $("bidDraftList").addEventListener("click", e => {
