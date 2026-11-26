@@ -29,16 +29,21 @@
      #compare, #award, #new). ?id=<project> makes "Back" return to that
      project's Bids tab. Keep it in step with js/project-bids.js.
      Colors and callouts: .bg-* in css/styles.css. -->
-<a href="/pages/project-home.html" class="auth-button changelog-back" id="blHelpBack">&larr; Back to Bids</a>
 
-<main class="changelog-main bl-guide bg-guide">
-    <header class="bg-hero">
-        <p class="bg-hero-kicker"><a href="/pages/help.html">Help center</a> › Bids</p>
-        <h1>How bidding works</h1>
-        <p>You send a bid package, vendors send back prices, and you pick who gets the work. It all happens on the project's <strong>Bids</strong> tab.</p>
-    </header>
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Bids</p>
+            <h1 class="hm-greeting">How bidding works</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/help.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Bids</a>
+        </div>
+    </div>
+    <p class="hc-intro">You send a bid package, vendors send back prices, and you pick who gets the work. It all happens on the project's <strong>Bids</strong> tab.</p>
 
-    <nav class="bg-toc" aria-label="On this page">
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
         <a href="#new" class="bg-c1"><b>1</b>Send a package</a>
         <a href="#vendors" class="bg-c2"><b>2</b>Vendors bid</a>
         <a href="#compare" class="bg-c3"><b>3</b>Compare</a>
@@ -46,6 +51,7 @@
         <a href="#quickbooks" class="bg-c5"><b>5</b>QuickBooks</a>
         <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
     </nav>
+    <div class="hc-body">
 
     <section id="new" class="bg-section bg-c1">
         <h2><b>1</b>Send a bid package</h2>
@@ -134,6 +140,8 @@
         <div class="bl-guide-faq"><strong>Some older packages only show one total per vendor.</strong><span>Those were sent before cost codes were added. They still work: pick the winner and award like normal, they just can't be split.</span></div>
         <div class="bl-guide-faq"><strong>I can't see the Bids tab.</strong><span>Ask IT to turn on Send Bid Invites or Manage Bid Invites for your workgroup. You need Manage Bid Invites to award.</span></div>
     </section>
+    </div>
+</div>
 </main>
 
 <script>

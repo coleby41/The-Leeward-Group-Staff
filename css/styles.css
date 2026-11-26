@@ -21102,3 +21102,27 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
 .notification-help-link-icon { width: 16px; height: 16px; background: currentColor;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat; }
+
+/* Help pages: full width, Home-style header (no banner) — Nov 26 2026 */
+.changelog-main.hc-full { max-width: none; padding: 36px clamp(20px, 4vw, 56px) 120px; }
+.hc-full .hm-head { margin-bottom: 8px; }
+.hc-full .hm-date a { color: inherit; }
+.hc-full .hm-greeting { font-size: 2.1rem; }
+.hc-intro { margin: 0 0 20px; max-width: 760px; color: var(--text-soft); line-height: 1.6; }
+.hc-full .hc-search { margin: 0 0 8px; max-width: 640px; }
+.hc-full .hc-search input { border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(10, 24, 36, 0.06); }
+.hc-full .hc-search input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.hc-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px; align-items: start; margin-top: 18px; border-top: 1px solid var(--border); }
+.hc-toc { position: sticky; top: 24px; flex-direction: column; flex-wrap: nowrap; padding-top: 26px; }
+.hc-toc a { background: none; padding: 0 10px 0 4px; }
+.hc-toc a:hover { background: var(--c-soft); }
+.hc-body { min-width: 0; }
+.hc-body > .bg-section:first-child { border-top: none; padding-top: 22px; }
+.hc-body p, .hc-body ul, .hc-body .bg-callout, .hc-body h3, .hc-body .bl-guide-faq { max-width: 980px; }
+.hc-body .hc-shot img { max-width: min(100%, 1100px); }
+@media (max-width: 900px) {
+  .hc-layout { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .hc-toc { position: static; flex-direction: row; flex-wrap: wrap; }
+  .hc-toc a { background: var(--c-soft); padding: 0 14px 0 6px; }
+}
+.hc-body .hc-shot img[src*="new-"], .hc-body .hc-shot img[src*="award"], .hc-body .hc-shot img[src*="add-bid"] { max-width: min(100%, 560px); }

@@ -28,18 +28,22 @@
      "Help center" in the profile menu (notification dropdown footer).
      To add a guide: write pages/<topic>-help.html like bids-help.html,
      then add it to GUIDES below (and drop it from SOON). -->
-<a href="/pages/dashboard.html" class="auth-button changelog-back" id="hcBack">&larr; Back</a>
 
-<main class="changelog-main bl-guide bg-guide hc">
-    <header class="bg-hero hc-hero">
-        <p class="bg-hero-kicker">The Leeward Group staff portal</p>
-        <h1>Help center</h1>
-        <p>Step-by-step guides for the portal. Search for what you're trying to do, or pick a guide below.</p>
-        <label class="hc-search">
-            <span class="bl-search-icon" aria-hidden="true"></span>
-            <input type="search" id="hcSearch" placeholder="Try &quot;award&quot; or &quot;QuickBooks&quot;" aria-label="Search the help center" autocomplete="off">
-        </label>
-    </header>
+<main class="changelog-main bl-guide bg-guide hc hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date">The Leeward Group staff portal</p>
+            <h1 class="hm-greeting">Help center</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/dashboard.html" class="hm-btn hm-glass" id="hcBack">&larr; Back</a>
+        </div>
+    </div>
+    <p class="hc-intro">Step-by-step guides for the portal. Search for what you're trying to do, or pick a guide below.</p>
+    <label class="hc-search">
+        <span class="bl-search-icon" aria-hidden="true"></span>
+        <input type="search" id="hcSearch" placeholder="Try &quot;award&quot; or &quot;QuickBooks&quot;" aria-label="Search the help center" autocomplete="off">
+    </label>
 
     <section class="hc-results hidden" id="hcResults" aria-live="polite"></section>
 
