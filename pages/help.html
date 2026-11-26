@@ -39,11 +39,16 @@
             <a href="/pages/dashboard.html" class="hm-btn hm-glass" id="hcBack">&larr; Back</a>
         </div>
     </div>
+    <div class="hc-top">
+    <div class="hc-top-text">
     <p class="hc-intro">Step-by-step guides for the portal. Search for what you're trying to do, or pick a guide below.</p>
     <label class="hc-search">
         <span class="bl-search-icon" aria-hidden="true"></span>
         <input type="search" id="hcSearch" placeholder="Try &quot;award&quot; or &quot;QuickBooks&quot;" aria-label="Search the help center" autocomplete="off">
     </label>
+    </div>
+    <span class="hc-buddy hc-buddy--big" data-buddy="search"></span>
+    </div>
 
     <section class="hc-results hidden" id="hcResults" aria-live="polite"></section>
 
@@ -53,7 +58,7 @@
     </section>
 
     <section class="hc-soon">
-        <h2 class="hc-h2">On the way</h2>
+        <div class="hc-soon-head"><span class="hc-buddy hc-buddy--small" data-buddy="cone"></span><h2 class="hc-h2">On the way</h2></div>
         <p class="hc-soon-copy">Guides for the rest of the portal are being written. Until then, ask someone in the office or send a note with Report a problem.</p>
         <div class="hc-soon-list" id="hcSoon"></div>
     </section>
@@ -61,6 +66,7 @@
     <p class="hc-foot">Something not working? <a href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report a problem</a> · See what's new in <a href="/pages/changelog.html">Release Notes</a></p>
 </main>
 
+<script src="/js/help-buddies.js"></script>
 <script>
 (function () {
     // Every guide and its sections. Search looks at the titles and the words in "text".
@@ -111,7 +117,8 @@
             ? '<h2 class="hc-h2">' + hits.length + ' result' + (hits.length === 1 ? "" : "s") + '</h2>' + hits.map(function (h) {
                 return '<a class="hc-hit ' + h.g.color + '" href="' + h.g.url + '#' + h.s.anchor + '"><strong>' + esc(h.s.title) + '</strong><span>' + esc(h.g.title) + ' guide</span></a>';
             }).join("")
-            : '<p class="hc-none">Nothing matches "' + esc(input.value.trim()) + '" yet. Try another word, or <a href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">tell us what you were looking for</a>.</p>';
+            : '<div class="hc-none-wrap"><span class="hc-buddy hc-buddy--small" data-buddy="shrug"></span><p class="hc-none">Nothing matches "' + esc(input.value.trim()) + '" yet. Try another word, or <a href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">tell us what you were looking for</a>.</p></div>';
+        if (window.HelpBuddies) window.HelpBuddies.refresh();
     }
     input.addEventListener("input", search);
     var startQ = new URLSearchParams(window.location.search).get("q");
