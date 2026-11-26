@@ -21160,3 +21160,36 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
   .hc-top { align-items: center; }
   .hc-blobs span { opacity: 0.4; }
 }
+.hc-top { align-items: center; }
+.hc-buddy--big { width: 150px; margin: 0 24px 0 0; }
+.hc-full .hm-head + .hc-top { margin-top: -6px; }
+@media (max-width: 700px) {
+  .hc-top { flex-wrap: wrap; gap: 10px 14px; }
+  .hc-top-text { display: contents; }
+  .hc-top .hc-intro { flex: 1 1 0; margin: 0; }
+  .hc-buddy--big { width: 84px; margin: 0; }
+  .hc-top .hc-search { flex: 1 0 100%; order: 3; max-width: none; }
+}
+
+/* Theo: speech bubble + "Theo AI" badge in the help center search */
+.hc-theo { position: relative; display: flex; flex-direction: column; align-items: center; margin-right: 24px; }
+.hc-theo .hc-buddy--big { margin: 0; }
+.hc-bubble { position: relative; margin: 0 0 6px; padding: 9px 14px; border-radius: 14px; background: #fff; border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(10, 24, 36, 0.10); font-size: 0.88rem; font-weight: 700; color: var(--accent-strong); white-space: nowrap;
+  animation: hc-bubble-in 0.5s 0.3s ease-out both; }
+.hc-bubble::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px; background: #fff;
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); transform: rotate(45deg); }
+@keyframes hc-bubble-in { from { opacity: 0; transform: translateY(6px) scale(0.95); } to { opacity: 1; transform: none; } }
+.hc-full .hc-search input { padding-right: 230px; }
+.hc-ai-badge { position: absolute; right: 8px; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: linear-gradient(120deg, #e7f0fb, #efe8fc); color: #4b3a8f; font-size: 0.78rem; font-weight: 700; white-space: nowrap; pointer-events: auto; cursor: default; }
+.hc-ai-spark { color: #6a4bb5; }
+@media (prefers-reduced-motion: reduce) { .hc-bubble { animation: none; } }
+@media (max-width: 700px) {
+  .hc-theo { margin: 0; }
+  .hc-bubble { font-size: 0.75rem; padding: 6px 10px; white-space: normal; text-align: center; max-width: 110px; }
+  .hc-full .hc-search { flex-wrap: wrap; }
+  .hc-full .hc-search input { padding-right: 16px; }
+  .hc-ai-badge { position: static; margin-top: 8px; }
+}
+@media (max-width: 700px) { .hc-full .hc-search .bl-search-icon { top: 18px; } }

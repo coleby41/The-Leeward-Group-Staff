@@ -1,8 +1,9 @@
 /* ===========================================================
    HELP BUDDIES (help center + guides) — 2026-11-26
 
-   Little hard-hat characters and soft background color blobs for the
-   help pages. Put <span class="hc-buddy" data-buddy="search"></span>
+   Theo, our little hard-hat helper (in a few colors), and the soft
+   background color blobs for the help pages. Put
+   <span class="hc-buddy" data-buddy="search"></span>
    where you want one; this swaps in the drawing.
 
      search     blue, holding a magnifying glass (help center top)
