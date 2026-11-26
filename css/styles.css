@@ -21029,12 +21029,13 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
   background: var(--c-soft); color: var(--c); font-size: 0.88rem; font-weight: 700; text-decoration: none; }
 .bg-toc a b, .bg-section h2 b { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--c); color: #fff; font-size: 0.8rem; }
 .bg-toc a:hover { filter: brightness(0.96); }
-.bg-section { margin-top: 30px; padding: 26px 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--c); }
+.bg-section { margin-top: 0; padding: 34px 0 10px; border-top: 1px solid var(--border); }
+.bg-toc + .bg-section { border-top: none; padding-top: 22px; }
 .bg-section h2 { display: flex; align-items: center; gap: 12px; color: var(--c); }
 .bg-section h2 b { width: 32px; height: 32px; font-size: 0.95rem; }
 .bg-section h3 { color: var(--text); }
 .bg-section ul li::marker { color: var(--c); }
-.bg-callout { position: relative; margin: 16px 0; padding: 14px 18px 14px 52px; border-radius: 12px; border-left: 4px solid; font-size: 0.93rem; }
+.bg-callout { position: relative; margin: 16px 0; padding: 12px 16px 12px 50px; border-radius: 10px; font-size: 0.93rem; }
 .bg-callout p { margin: 4px 0 0; line-height: 1.55; }
 .bg-callout::before { position: absolute; left: 16px; top: 13px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 0.85rem; font-weight: 800; color: #fff; }
 .bg-callout--tip { background: #eaf3fb; border-color: #085c98; color: #0b3554; }
@@ -21046,5 +21047,4 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
 .bg-callout > strong { display: block; }
 @media (max-width: 768px) {
   .bg-hero { padding: 24px 20px; }
-  .bg-section { padding: 20px 18px; }
 }
