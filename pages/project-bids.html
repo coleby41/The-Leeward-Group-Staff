@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <script src="/js/splash.js"></script>
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body>
+
+<!-- Header/sidebar shell shared by every project-dashboard page
+     (project-shell.js). Keep this block in sync across projects.html,
+     project-files.html, project-timeline.html, project-to-do.html,
+     project-accounting.html, project-site-plans.html, project-contract.html
+     if you change it here. -->
+
+<header class="header">
+
+    <div class="header-left">
+
+        <!-- Phone-only nav button (hidden above 820px via .menu-btn--mobile-only).
+             These project pages use the collapse tab instead of a hamburger on
+             desktop, but on a phone the sidebar is a hidden drawer, so without
+             this there's no way to reach the other project tabs. script.js
+             picks it up by id like every other page's #menuBtn. -->
+        <button class="menu-btn menu-btn--mobile-only" id="menuBtn" aria-label="Toggle navigation">☰</button>
+
+        <div class="project-switcher" id="projectSwitcher">
+            <button type="button" class="project-switcher-toggle" id="projectSwitcherToggle">
+                <div>
+                    <div class="brand-title" id="headerProjectName">Loading…</div>
+                    <div class="project-breadcrumb" id="headerProjectBreadcrumb">
+                        <a href="/pages/project-home.html">Home</a> → …
+                    </div>
+                </div>
+                <span class="project-switcher-caret">⌄</span>
+            </button>
+            <div class="project-switcher-dropdown hidden" id="projectSwitcherDropdown"></div>
+        </div>
+
+    </div>
+
+    <div class="header-center">
+        <h1 class="header-page-name" id="headerPageName">Bids</h1>
+    </div>
+
+    <div class="header-right">
+        <div class="header-user-area">
+            <div class="header-user-pill" id="headerUserPill">
+                <span id="headerUserName">Staff</span>
+                <div class="notification-wrapper">
+                    <button class="notification-bell" id="notificationBell" aria-label="Notifications">
+                        <span class="notification-bell-icon"></span>
+                        <span class="notification-count">0</span>
+                    </button>
+                    <div class="notification-dropdown" id="notificationDropdown">
+                        <div class="notification-header">
+                            <span>Notifications</span>
+                            <button class="mark-read-btn">Mark as read</button>
+                        </div>
+                        <div id="notificationList"></div>
+                        <div id="notificationEmpty" class="notification-item" style="display:none;">
+                            <p>No notifications yet.</p>
+                        </div>
+                        <div class="notification-footer">
+                            <button type="button" class="notification-change-password-btn" id="changePasswordBtn">
+                                <span class="notification-change-password-btn-icon" aria-hidden="true"></span>
+                                Change Password
+                            </button>
+                            <button class="auth-button auth-button--secondary header-signout" id="signOutButton" type="button">Sign out</button>
+                        </div>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</header>
+
+<!-- Desktop loads with the sidebar collapsed (js/sidebar-collapse.js) - set here so it never paints open first -->
+<script>if(window.matchMedia("(min-width: 821px)").matches){document.body.classList.add("sidebar-collapsed")}</script>
+<aside class="sidebar" id="sidebar">
+
+    <div class="sidebar-search-wrap">
+        <input type="text" id="sidebarSearchInput" class="sidebar-search-input" placeholder="Search this project…" autocomplete="off">
+        <kbd class="sidebar-search-shortcut-hint" id="sidebarSearchShortcutHint">⌘F</kbd>
+        <div class="sidebar-search-results hidden" id="sidebarSearchResults"></div>
+        <!-- Icon-only stand-in shown only once the sidebar collapses to its
+             68px rail (body.sidebar-collapsed in styles.css hides the input/
+             hint/results above but keeps this) — clicking it expands the
+             sidebar and focuses the real search input, same as ⌘F/Ctrl+F. -->
+        <button type="button" class="sidebar-search-collapsed-btn" id="sidebarSearchCollapsedBtn" aria-label="Search this project" title="Search this project">
+            <span class="sidebar-search-collapsed-icon" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item" data-nav-page="/pages/projects.html">
+            <span class="projects-nav-icon"></span>
+            <span class="nav-text">Overview</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-files.html">
+            <span class="docs-nav-icon"></span>
+            <span class="nav-text">Project Files</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-form-logs.html">
+            <span class="form-logs-nav-icon"></span>
+            <span class="nav-text">Form Logs</span>
+        </a>
+
+        <!-- Bid Invites (beta): hidden until project-shell.js confirms the
+             vendors.send_bid_invites or projects.manage_bid_invites permission. -->
+        <a href="#" class="nav-item active" data-nav-page="/pages/project-bids.html" id="bidsNavItem" style="display:none;">
+            <span class="companies-nav-icon"></span>
+            <span class="nav-text">Bids</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-timeline.html">
+            <span class="timeline-nav-icon"></span>
+            <span class="nav-text">Project Timeline</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-todo.html">
+            <span class="todo-nav-icon"></span>
+            <span class="nav-text">To-do</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounts.html">
+            <span class="accounts-nav-icon"></span>
+            <span class="nav-text">Accounts / Contacts</span>
+        </a>
+
+        <a href="#" class="nav-item" data-nav-page="/pages/project-accounting.html">
+            <span class="finance-nav-icon"></span>
+            <span class="nav-text">Accounting</span>
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="footer-pill" id="sidebarGroupPill"></div>
+        <div class="sidebar-brand">Leeward Group</div>
+        <div class="version">Version 1.0.1-RC-BETA - <a class="version-report-bug" href="/pages/changelog.html">Release Notes</a> - <span class="get-app-link"><a class="version-report-bug" href="/pages/get-app.html">Get the App</a> - </span><a class="version-report-bug" href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report Bug</a></div>
+    </div>
+</aside>
+
+<main class="main-content">
+
+    <div id="bdPageMessage" class="workbook-page-message" style="display:none;"></div>
+    <div class="workbook-loading" id="bdLoading"><p>Loading bids…</p></div>
+    <div class="workbook-empty" id="bdNoAccess" style="display:none;"><p>You don't have access to Bids. Ask IT to turn on <strong>Manage Bid Invites</strong> or <strong>Send Bid Invites</strong> for your workgroup.</p></div>
+
+    <!-- ===== List: every bid package on the project ===== -->
+    <div id="bdListView">
+        <div class="hm-head">
+            <div>
+                <p class="hm-date" id="bdKicker">Bids</p>
+                <h1 class="hm-greeting">Bids</h1>
+            </div>
+            <div class="hm-actions">
+                <a href="/pages/bids-help.html" data-help="" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
+                <button type="button" class="hm-btn hm-glass" id="bdExportBtn">Export for QuickBooks</button>
+                <button type="button" class="hm-btn hm-btn--primary hidden" id="bdNewBtn">+ New bid package</button>
+            </div>
+        </div>
+        <p class="bl-facts" id="bdBuildings"></p>
+        <section class="hm-glass bl-strip" aria-label="Totals">
+            <span class="hm-sheen" aria-hidden="true"></span>
+            <div class="bl-stats" id="bdStats"></div>
+        </section>
+        <div class="bl-table" id="bdTable"></div>
+        <p class="bl-footnote"><strong>Export for QuickBooks</strong> downloads an IIF file (vendors and this job, for QuickBooks Desktop › File › Utilities › Import › IIF Files) and an Excel file (budgets and contract amounts) until the QuickBooks Desktop connection is set up.</p>
+        <div class="card bid-package-card" id="bdCoiTemplate" style="display:none"></div>
+        <div class="card bid-package-card" id="bdPaperwork" style="display:none"></div>
+    </div>
+
+    <!-- ===== One package: compare + pick winners ===== -->
+    <div id="bdPackageView" class="hidden">
+        <a href="#" class="bd-back" id="bdBackBtn">‹ All bid packages</a>
+        <div class="hm-head">
+            <div>
+                <p class="hm-date" id="bdPkgKicker"></p>
+                <h1 class="hm-greeting" id="bdPkgTitle"></h1>
+            </div>
+            <div class="hm-actions">
+                <a href="/pages/bids-help.html" data-help="compare" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
+                <button type="button" class="hm-btn hm-glass hidden" id="bdRemindBtn">Remind waiting</button>
+                <button type="button" class="hm-btn hm-glass hidden" id="bdAddBidBtn">+ Add a bid</button>
+                <button type="button" class="hm-btn hm-btn--primary hidden" id="bdAwardBtn">Award picks…</button>
+            </div>
+        </div>
+        <p class="bl-facts bd-meta" id="bdPkgMeta"></p>
+        <div class="bl-table" id="bdMatrix"></div>
+        <section class="hm-glass bl-strip bd-picks hidden" id="bdPicks" aria-label="Your picks">
+            <span class="hm-sheen" aria-hidden="true"></span>
+            <div class="bd-picks-inner"><div class="bd-picks-body" id="bdPicksBody"></div>
+                <button type="button" class="hm-btn hm-btn--primary" id="bdPicksAwardBtn">Award picks…</button></div>
+        </section>
+        <p class="bl-footnote" id="bdPkgNote">The lowest price on each line is shaded and picked for you. Change any winner to split the package. Click a budget to change it.</p>
+        <h2 class="bd-subhead">Vendors</h2>
+        <div class="bl-table bd-vendors" id="bdVendors"></div>
+    </div>
+
+</main>
+
+
+<!-- New bid package: 1 What, 2 Who -->
+<div class="popup-overlay hidden" id="bdNewOverlay">
+    <div class="popup bd-new-popup" role="dialog" aria-modal="true" aria-labelledby="bdNewTitle">
+        <div class="bl-popup-head">
+            <div>
+                <h2 id="bdNewTitle">New bid package</h2>
+                <div class="bd-steps"><span class="bd-step" data-np-dot="1"><b>1</b>What</span><span class="bd-step-line"></span><span class="bd-step" data-np-dot="2"><b>2</b>Who</span></div>
+            </div>
+            <div class="bl-popup-head-actions">
+                <a href="/pages/bids-help.html#what" class="bl-help-round" id="bdNewHelp" aria-label="Help"><span class="bl-help-icon" aria-hidden="true"></span></a>
+                <button type="button" class="file-preview-close-btn" aria-label="Close" data-close="bdNewOverlay">✕</button>
+            </div>
+        </div>
+
+        <div data-np-step="1" class="bd-np-body">
+            <label class="auth-field">Package name <input type="text" id="bdNewName" maxlength="120" placeholder="e.g. Concrete"></label>
+            <div class="auth-field bd-field">
+                <span>Cost codes</span>
+                <div class="bd-chips" id="bdNewChips"></div>
+                <label class="bl-search bd-code-search"><span class="bl-search-icon" aria-hidden="true"></span><input type="search" id="bdNewCodeSearch" placeholder="Add a cost code: type a number or name" autocomplete="off" aria-label="Add a cost code"></label>
+                <div class="bd-code-list hidden" id="bdNewCodeList"></div>
+            </div>
+            <div class="auth-field bd-field">
+                <span>Price it for</span>
+                <div class="bd-picks-row" id="bdNewAreas"></div>
+                <p class="bid-field-hint">All buildings are checked. Uncheck any this package doesn't cover.</p>
+            </div>
+            <div class="wizard-field-grid">
+                <label class="auth-field">Bids due <input type="date" id="bdNewDueDate"></label>
+                <label class="auth-field">Time <input type="time" id="bdNewDueTime" value="14:00"></label>
+            </div>
+            <details class="bd-more" id="bdNewMore">
+                <summary>More options <span>scope, plans, walkthrough, contact, reminders</span></summary>
+                <label class="auth-field">Scope of work <textarea id="bdNewScope" rows="3" maxlength="4000" class="bid-light-textarea" placeholder="What they're bidding on: sheets, inclusions, exclusions"></textarea></label>
+                <label class="auth-field">Location <input type="text" id="bdNewLocation" maxlength="200"></label>
+                <div class="wizard-field-grid">
+                    <label class="auth-field">Walkthrough (optional) <input type="datetime-local" id="bdNewWalk"></label>
+                    <label class="auth-field">Walkthrough location <input type="text" id="bdNewWalkLocation" maxlength="200"></label>
+                </div>
+                <label class="auth-field">Questions due (optional) <input type="datetime-local" id="bdNewQuestions"></label>
+                <div class="wizard-field-grid">
+                    <label class="auth-field">Contact name <input type="text" id="bdNewContactName" maxlength="120"></label>
+                    <label class="auth-field">Contact email <input type="email" id="bdNewContactEmail" maxlength="200"></label>
+                </div>
+                <label class="auth-field">Contact phone (optional) <input type="tel" id="bdNewContactPhone" maxlength="40"></label>
+                <label class="form-toggle-row"><input type="checkbox" id="bdNewRemindNo" checked><span>Remind vendors who haven't answered</span></label>
+                <label class="form-toggle-row"><input type="checkbox" id="bdNewRemindDue" checked><span>Remind everyone the day before bids are due</span></label>
+                <div class="auth-field bd-field">
+                    <span>Plans &amp; specs (from Project Files)</span>
+                    <label class="bl-search"><span class="bl-search-icon" aria-hidden="true"></span><input type="search" id="bdNewFileSearch" placeholder="Search project files" aria-label="Search project files"></label>
+                    <div class="bd-files" id="bdNewFiles"></div>
+                </div>
+            </details>
+        </div>
+
+        <div data-np-step="2" class="bd-np-body" hidden>
+            <p class="auth-inline-copy">Vendors who priced these cost codes before are already checked. Uncheck anyone you don't want, or find more by trade or name. Only approved vendors can be invited.</p>
+            <div class="bd-who-tools">
+                <select id="bdNewTrade" aria-label="Trade"><option value="">All trades</option></select>
+                <label class="bl-search"><span class="bl-search-icon" aria-hidden="true"></span><input type="search" id="bdNewVendorSearch" placeholder="Search vendors" aria-label="Search vendors"></label>
+                <span class="bl-soft bl-small" id="bdNewWhoCount"></span>
+            </div>
+            <div class="bd-who-list" id="bdNewWhoList"></div>
+            <p class="bid-field-hint">They'll get an email with a View Invite &amp; Bid button, enter one price per building for each cost code, and attach their proposal. Reminders go out on their own.</p>
+        </div>
+
+        <p class="auth-message" id="bdNewMessage" role="status"></p>
+        <div class="bd-np-foot">
+            <button type="button" class="auth-button auth-button--secondary" id="bdNewBackBtn">Cancel</button>
+            <div class="bd-np-foot-right">
+                <button type="button" class="bl-link-btn" id="bdNewDraftBtn">Save draft</button>
+                <button type="button" class="auth-button" id="bdNewNextBtn">Next: Who</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Award picks -->
+<div class="popup-overlay hidden" id="bdAwardOverlay">
+    <div class="popup bd-award-popup" role="dialog" aria-modal="true" aria-labelledby="bdAwardTitle">
+        <div class="bl-popup-head">
+            <h2 id="bdAwardTitle">Award</h2>
+            <div class="bl-popup-head-actions">
+                <a href="/pages/bids-help.html#award" data-help="award" class="bl-help-round" aria-label="Help"><span class="bl-help-icon" aria-hidden="true"></span></a>
+                <button type="button" class="file-preview-close-btn" aria-label="Close" data-close="bdAwardOverlay">✕</button>
+            </div>
+        </div>
+        <form class="auth-form" id="bdAwardForm" novalidate>
+            <div class="bd-winners" id="bdAwardWinners"></div>
+            <p class="auth-inline-copy" id="bdAwardLosers"></p>
+            <div class="bd-award-checks">
+                <label class="form-toggle-row"><input type="checkbox" id="bdAwardNotifyWinner" checked><span id="bdAwardNotifyWinnerLabel">Email the winners</span></label>
+                <label class="form-toggle-row" id="bdAwardNotifyOthersRow"><input type="checkbox" id="bdAwardNotifyOthers" checked><span id="bdAwardNotifyOthersLabel">Email the others</span></label>
+            </div>
+            <p class="auth-inline-copy">Each winner gets one contract for what they won. Generate it from the project's <strong>Accounts</strong> page. Amounts go out in the next <strong>Export for QuickBooks</strong>.</p>
+            <div class="hidden" id="bdAwardCoiTpl"></div>
+            <p class="auth-message" id="bdAwardMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="bdAwardCancelBtn">Back</button>
+                <button type="submit" class="auth-button" id="bdAwardConfirmBtn">Award</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Add a bid (came in by email or phone) -->
+<div class="popup-overlay hidden" id="bdBidOverlay">
+    <div class="popup workbook-popup" role="dialog" aria-modal="true" aria-labelledby="bdBidTitle">
+        <h2 id="bdBidTitle">Add a bid</h2>
+        <p class="auth-inline-copy" id="bdBidSubtitle"></p>
+        <form class="auth-form" id="bdBidForm" novalidate>
+            <label class="auth-field">Vendor <select id="bdBidVendor"></select></label>
+            <p class="bid-field-hint">A vendor who wasn't invited is added as a bid that came in by email. No email is sent. Leave a line blank if they didn't price it.</p>
+            <div id="bdBidLines"></div>
+            <p class="auth-message" id="bdBidMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="bdBidCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="bdBidSaveBtn">Save bid</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Set up buildings -->
+<div class="popup-overlay hidden" id="bdSetupOverlay">
+    <div class="popup bl-setup-popup" role="dialog" aria-modal="true" aria-labelledby="bdSetupTitle">
+        <div class="bl-popup-head">
+            <div>
+                <h2 id="bdSetupTitle">Set up buildings</h2>
+                <p class="auth-inline-copy">Vendors price each building type once per building; totals are multiplied by the number of buildings. You can change this any time.</p>
+            </div>
+            <div class="bl-popup-head-actions">
+                <a href="/pages/bids-help.html#new" data-help="new" class="bl-help-round" aria-label="Help"><span class="bl-help-icon" aria-hidden="true"></span></a>
+                <button type="button" class="file-preview-close-btn" aria-label="Close" data-close="bdSetupOverlay">✕</button>
+            </div>
+        </div>
+        <form class="auth-form" id="bdSetupForm" novalidate>
+            <h3 class="bl-subhead">Building types</h3>
+            <div id="bdSetupRows"></div>
+            <button type="button" class="bl-dashed-btn" id="bdSetupAddBtn">+ Add building type</button>
+            <h3 class="bl-subhead">Site-wide sections</h3>
+            <p class="auth-inline-copy">Priced once for the whole site. Check the ones this project has.</p>
+            <div class="bl-switches">
+                <label class="form-toggle-row"><input type="checkbox" id="bdSection_site_work"><span>Site Work</span></label>
+                <label class="form-toggle-row"><input type="checkbox" id="bdSection_hardscape"><span>Hardscape &amp; Landscape</span></label>
+                <label class="form-toggle-row"><input type="checkbox" id="bdSection_amenities"><span>Amenities</span></label>
+            </div>
+            <p class="auth-message" id="bdSetupMessage" role="status"></p>
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="bdSetupCancelBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="bdSetupSaveBtn">Save buildings</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Change Password modal — opened from the "Change Password" action in
+     the notification center dropdown (see /js/change-password.js). Same
+     corporate popup styling (.modal-icon-header/.popup) used by the
+     app's other non-destructive modals. -->
+<div class="popup-overlay hidden" id="changePasswordModalOverlay">
+    <div class="popup">
+        <div class="workbook-preview-header">
+            <div class="modal-icon-header" style="margin-bottom:0;">
+                <span class="modal-icon modal-icon--lock" aria-hidden="true"></span>
+                <div>
+                    <h2>Change Password</h2>
+                    <p class="auth-inline-copy">Enter your current password, then choose a new one.</p>
+                </div>
+            </div>
+            <button type="button" class="menu-btn" id="closeChangePasswordBtn" aria-label="Close">✕</button>
+        </div>
+
+        <form class="auth-form" id="changePasswordForm">
+            <label class="auth-field">
+                Current password
+                <input type="password" id="changePasswordCurrentInput" name="currentPassword" required autocomplete="current-password" placeholder="Enter your current password">
+            </label>
+
+            <label class="auth-field">
+                New password
+                <input type="password" id="changePasswordNewInput" name="newPassword" required minlength="8" autocomplete="new-password" placeholder="At least 8 characters">
+            </label>
+
+            <label class="auth-field">
+                Confirm new password
+                <input type="password" id="changePasswordConfirmInput" name="confirmPassword" required minlength="8" autocomplete="new-password" placeholder="Re-enter your new password">
+            </label>
+
+            <p class="auth-message" id="changePasswordMessage" role="status"></p>
+
+            <div class="popup-buttons">
+                <button type="button" class="auth-button auth-button--secondary" id="cancelChangePasswordBtn">Cancel</button>
+                <button type="submit" class="auth-button" id="submitChangePasswordBtn">Update Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- Phone tab bar first, so it's there on the very first paint (not after the CDN loads). -->
+<script src="/js/mobile-app.js"></script>
+<script src="/js/sheet-swipe.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/js/supabase-config.js"></script>
+<script src="/js/supabase-auth.js"></script>
+<script src="/js/toast.js"></script>
+<script src="/js/file-preview.js"></script>
+<script src="/js/morning-check.js"></script>
+<script src="/js/auth-guard.js"></script>
+<script src="/js/manager-nav.js"></script>
+<script src="/js/script.js"></script>
+<script src="/js/sidebar-collapse.js"></script>
+<script src="/js/install-app.js"></script>
+<script src="/js/timeout.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/change-password.js"></script>
+<script src="/js/permissions.js"></script>
+<script src="/js/permission-editor.js"></script>
+<script src="/js/nav-access.js"></script>
+<script src="/js/project-fields.js"></script>
+<script src="/js/project-archived.js"></script>
+<script src="/js/project-shell.js"></script>
+<script src="/js/coi-template.js"></script>
+<script src="/js/vendor-paperwork.js"></script>
+<script src="/js/project-bids.js"></script>
+<script>
+// Popup ✕ buttons (data-close="<overlay id>")
+document.addEventListener("click", function (e) { var b = e.target.closest("[data-close]"); if (!b) return; document.getElementById(b.dataset.close).classList.add("hidden"); if (!document.querySelector(".popup-overlay:not(.hidden)")) document.body.classList.remove("popup-active"); });
+</script>
+
+<script>
+
+/* ===========================
+   SIGN OUT
+=========================== */
+
+const signOutButton = document.getElementById("signOutButton");
+if (signOutButton) {
+    signOutButton.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (typeof window.signOutUser === "function") {
+            window.signOutUser();
+        } else {
+            console.error("signOutUser() is not available");
+        }
+    });
+}
+
+/* ===========================
+   HEADER NAME / NAV ACCESS
+   (same pattern as every other page — project-shell.js owns the project
+   name/breadcrumb, this owns the signed-in staff member's own name)
+=========================== */
+
+const userNameElement = document.getElementById("headerUserName");
+
+function updateStaffName(profile) {
+    if (!profile) return;
+    const name = profile.full_name || profile.username || "Staff";
+    if (userNameElement) userNameElement.textContent = name;
+
+    const sidebarGroupPill = document.getElementById("sidebarGroupPill");
+    if (sidebarGroupPill) {
+        const groups = window.getSupabaseUserGroups ? window.getSupabaseUserGroups(profile) : [];
+        sidebarGroupPill.textContent = groups.length
+            ? groups.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(", ")
+            : "No Group";
+    }
+}
+
+const storedProfile = localStorage.getItem("staffProfile");
+if (storedProfile) {
+    try {
+        updateStaffName(JSON.parse(storedProfile));
+    } catch (error) {
+        console.warn("Unable to parse stored profile:", error);
+    }
+}
+
+window.addEventListener("DOMContentLoaded", function () {
+    const profile = window.currentSupabaseProfile || null;
+    if (profile) updateStaffName(profile);
+});
+
+</script>
+
+</body>
+</html>

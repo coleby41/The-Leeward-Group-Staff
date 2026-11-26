@@ -400,7 +400,7 @@ async function submitBid(ctx: VendorContext, body: Row) {
   const amountText = formatMoney(amount);
   const projectName = project?.name || "a project";
   // Line-by-line bids open in Bid Leveling; single totals on Bid Invites.
-  const staffLink = `${STAFF_PORTAL_URL}/pages/${lines.length ? "project-bid-leveling" : "project-bid-invites"}.html?id=${pkg.project_id}`;
+  const staffLink = `${STAFF_PORTAL_URL}/pages/project-bids.html?id=${pkg.project_id}`;
   if (pkg.created_by) {
     await notifyStaff(ctx.admin, [pkg.created_by], {
       title: "Bid submitted",
@@ -681,7 +681,7 @@ async function notifyIfReady(ctx: VendorContext, onlyProjectId?: string) {
           title: "Paperwork ready for review",
           message: `${companyName(ctx)} finished their paperwork for ${project.name}. Review and approve it on the project's Bid Invites page.`,
           type: "vendor_document",
-          link_url: `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${project.id}`,
+          link_url: `${STAFF_PORTAL_URL}/pages/project-bids.html?id=${project.id}`,
           link_label: "Review paperwork",
         });
       }
@@ -798,7 +798,7 @@ async function saveProjectCoi(ctx: VendorContext, body: Row) {
       title: "COI received",
       message: `${companyName(ctx)} uploaded their COI for ${project.name}.`,
       type: "vendor_document",
-      link_url: inviteIds.length ? `${STAFF_PORTAL_URL}/pages/project-bid-invites.html?id=${project.id}` : `${STAFF_PORTAL_URL}/pages/vendor.html?id=${ctx.company!.id}`,
+      link_url: inviteIds.length ? `${STAFF_PORTAL_URL}/pages/project-bids.html?id=${project.id}` : `${STAFF_PORTAL_URL}/pages/vendor.html?id=${ctx.company!.id}`,
       link_label: inviteIds.length ? "View bids" : "View vendor",
     });
   }

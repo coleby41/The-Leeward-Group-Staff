@@ -180,6 +180,115 @@ async function handleRemind(body: Row) {
   return json({ ok: true, sent, failed });
 }
 
+// Bids v2 (2026-11-26): award a package to one OR several vendors. Each
+// line (area + cost code) has its own winner, so a package can be split
+// (Foundations to GBS, Termite to Reaves).
+//   body.package_id
+//   body.lines:   [{ area_id, cost_code, invite_id }]   the winner of each line
+//   body.amounts: { [invite_id]: number }              optional negotiated contract amount
+//   body.notify_winner / body.notify_others
+// Winners -> 'awarded' with awarded_amount (their won prices x buildings, or
+// the negotiated amount); other bidders -> 'not_selected'; package -> 'awarded'.
+async function handleAwardSplit(body: Row, staffName: string) {
+  const packageId = String(body.package_id || "");
+  const picks: Row[] = Array.isArray(body.lines) ? body.lines : [];
+  if (!packageId || !picks.length) return json({ ok: false, error: "package_id and lines are required" }, 400);
+
+  const loaded = await loadPackage(packageId);
+  if (!loaded) return json({ ok: false, error: "That bid package doesn't exist anymore." }, 404);
+  const { pkg, project } = loaded;
+  if (pkg.status !== "open") return json({ ok: false, error: "This bid package has already been awarded or closed." }, 400);
+
+  const admin = serviceClient();
+  const { data: invites, error } = await admin.from("bid_invites").select("*").eq("package_id", pkg.id);
+  if (error) throw error;
+  const byId = new Map((invites || []).map((i: Row) => [i.id, i]));
+  const winnerIds = Array.from(new Set(picks.map((p: Row) => String(p.invite_id))));
+  for (const id of winnerIds) {
+    const inv = byId.get(id);
+    if (!inv) return json({ ok: false, error: "A picked vendor isn't on this bid package." }, 400);
+    if (inv.status !== "bid_received") return json({ ok: false, error: `${inv.company_name} hasn't submitted a bid yet.` }, 400);
+  }
+
+  // What each winner won: their own price on each picked line x buildings.
+  const { data: prices, error: pErr } = await admin.from("bid_invite_prices").select("invite_id, area_id, cost_code, amount").in("invite_id", winnerIds);
+  if (pErr) throw pErr;
+  const { data: areas, error: aErr } = await admin.from("bid_areas").select("id, kind, building_count").eq("project_id", pkg.project_id);
+  if (aErr) throw aErr;
+  const countOf = new Map((areas || []).map((a: Row) => [a.id, a.kind === "building" ? Number(a.building_count) || 0 : 1]));
+  const won = new Map<string, number>();
+  for (const p of picks) {
+    const price = (prices || []).find((x: Row) => x.invite_id === String(p.invite_id) && x.area_id === String(p.area_id) && x.cost_code === String(p.cost_code));
+    if (!price) return json({ ok: false, error: `${byId.get(String(p.invite_id))?.company_name || "A vendor"} didn't price ${p.cost_code} there.` }, 400);
+    won.set(String(p.invite_id), (won.get(String(p.invite_id)) || 0) + Number(price.amount) * (countOf.get(String(p.area_id)) ?? 1));
+  }
+  const amounts: Row = body.amounts && typeof body.amounts === "object" ? body.amounts : {};
+  const winners = winnerIds.map((id) => {
+    const negotiated = Number(String(amounts[id] ?? "").replace(/[$,\s]/g, ""));
+    const amount = Number.isFinite(negotiated) && negotiated > 0 ? negotiated : won.get(id) || 0;
+    return { ...byId.get(id), awarded_amount: Math.round(amount * 100) / 100 };
+  });
+  const losers = (invites || []).filter((i: Row) => !winnerIds.includes(i.id) && i.status === "bid_received");
+
+  // Award asks each winner for a COI, so the project needs a COI template
+  // first, unless every winner is COI-exempt.
+  const coiNeeded = new Map<string, boolean>();
+  for (const w of winners) coiNeeded.set(w.id, await needsCoi(admin, w.company_id));
+  if ([...coiNeeded.values()].some(Boolean) && !(await hasCoiTemplate(admin, pkg.project_id))) {
+    return json({ ok: false, error: "Post this project's COI template before awarding. Vendors can't upload their COI without it.", code: "no_template" }, 409);
+  }
+
+  const now = new Date().toISOString();
+  const biggest = winners.slice().sort((a, b) => b.awarded_amount - a.awarded_amount)[0];
+  const { data: closed, error: closeError } = await admin.from("bid_packages")
+    .update({ status: "awarded", awarded_invite_id: biggest.id, awarded_at: now, awarded_by_name: staffName })
+    .eq("id", pkg.id).eq("status", "open").select("id");
+  if (closeError) throw closeError;
+  if (!closed?.length) return json({ ok: false, error: "This bid package has already been awarded or closed." }, 409);
+
+  for (const w of winners) {
+    const { error: wErr } = await admin.from("bid_invites").update({ status: "awarded", awarded_amount: w.awarded_amount }).eq("id", w.id);
+    if (wErr) throw wErr;
+  }
+  if (losers.length) {
+    const { error: lErr } = await admin.from("bid_invites").update({ status: "not_selected" }).in("id", losers.map((i: Row) => i.id));
+    if (lErr) throw lErr;
+  }
+  // Remember the winner of each line (Bids tab shows it).
+  for (const p of picks) {
+    const { error: lineErr } = await admin.from("bid_lines").upsert(
+      { project_id: pkg.project_id, area_id: String(p.area_id), cost_code: String(p.cost_code), winner_invite_id: String(p.invite_id), updated_by_name: staffName },
+      { onConflict: "area_id,cost_code" },
+    );
+    if (lineErr) throw lineErr;
+  }
+
+  const emailPkg = packageForEmail(pkg, project);
+  const langs = await languagesFor(admin, [...winners, ...losers].map((i: Row) => i.contact_email));
+  const failed: { company_name: string; error: string }[] = [];
+  let emailed = 0;
+  let coiRequested = 0;
+  const toEmail: { invite: Row; kind: "awarded" | "not_selected" }[] = [];
+  if (body.notify_winner) winners.forEach((invite: Row) => toEmail.push({ invite, kind: "awarded" }));
+  if (body.notify_others) losers.forEach((invite: Row) => toEmail.push({ invite, kind: "not_selected" }));
+  for (let i = 0; i < toEmail.length; i++) {
+    const { invite, kind } = toEmail[i];
+    if (i > 0) await pause();
+    const askCoi = kind === "awarded" && coiNeeded.get(invite.id) === true;
+    const email = renderBidEmail(kind, emailPkg, invite, { lang: langs.get(normalizeEmail(invite.contact_email)) || "en", coiRequest: askCoi });
+    const result = await sendEmail({ to: invite.contact_email, subject: email.subject, html: email.html, text: email.text, replyTo: pkg.contact_email });
+    if (result.ok) {
+      emailed++;
+      const sentAt = new Date().toISOString();
+      await admin.from("bid_invites").update({ result_emailed_at: sentAt, ...(askCoi ? { coi_requested_at: sentAt, coi_received_at: null } : {}) }).eq("id", invite.id);
+      if (askCoi) coiRequested++;
+    } else {
+      failed.push({ company_name: invite.company_name, error: result.error || "Unknown error" });
+    }
+  }
+  return json({ ok: true, winners: winners.map((w) => ({ invite_id: w.id, company_name: w.company_name, amount: w.awarded_amount })), emailed, failed, not_selected: losers.length, coi_requested: coiRequested });
+}
+
 async function handleAward(body: Row, staffName: string) {
   const packageId = String(body.package_id || "");
   const inviteId = String(body.invite_id || "");
@@ -451,7 +560,7 @@ Deno.serve(async (req: Request) => {
   const action = String(body?.action || "");
   const needed = action === "preview" ? SEND
     : action === "send" ? [SEND, MANAGE]
-    : action === "remind" || action === "award" || action === "request_coi" || action === "paperwork_decide" ? MANAGE
+    : action === "remind" || action === "award" || action === "award_split" || action === "request_coi" || action === "paperwork_decide" ? MANAGE
     : action === "paperwork" ? [SEND, MANAGE]
     : null;
   if (!needed) return json({ ok: false, error: `Unknown action "${action}"` }, 400);
@@ -466,6 +575,7 @@ Deno.serve(async (req: Request) => {
     if (action === "request_coi") return await handleRequestCoi(body);
     if (action === "paperwork") return await handlePaperwork(body);
     if (action === "paperwork_decide") return await handlePaperworkDecide(body, auth.staff.full_name || auth.staff.username || "Staff");
+    if (action === "award_split") return await handleAwardSplit(body, auth.staff.full_name || auth.staff.username || "Staff");
     return await handleAward(body, auth.staff.full_name || auth.staff.username || "Staff");
   } catch (error) {
     console.error(`bid-invites ${action} failed:`, error);

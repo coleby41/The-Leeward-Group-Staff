@@ -183,7 +183,7 @@
         const project = currentProject();
         if (!project) { box.innerHTML = `<p class="bid-field-hint">Choose a project first.</p>`; return; }
         if (!projectAreas.length) {
-            box.innerHTML = `<p class="bid-field-hint">This project's buildings aren't set up yet. <a href="/pages/project-bid-leveling.html?id=${esc(project.id)}" target="_blank" rel="noopener">Set up buildings in Bid Leveling</a>, then come back (your draft is kept if you save it).</p>`;
+            box.innerHTML = `<p class="bid-field-hint">This project's buildings aren't set up yet. <a href="/pages/project-bids.html?id=${esc(project.id)}" target="_blank" rel="noopener">Set up buildings on the project's Bids tab</a>, then come back (your draft is kept if you save it).</p>`;
             return;
         }
         box.innerHTML = `<p class="bid-field-label">Buildings</p><div class="bid-area-picks">${projectAreas.map(a => `
@@ -842,7 +842,7 @@
 
     function finishSend(projectId, packageName, data, error) {
         doneProjectId = projectId;
-        $("bidOpenTrackerBtn").href = `/pages/project-bid-invites.html?id=${encodeURIComponent(projectId)}`;
+        $("bidOpenTrackerBtn").href = `/pages/project-bids.html?id=${encodeURIComponent(projectId)}`;
         const summary = $("bidDoneSummary");
         const failuresEl = $("bidDoneFailures");
         failuresEl.innerHTML = "";

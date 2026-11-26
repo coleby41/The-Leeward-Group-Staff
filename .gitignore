@@ -14,3 +14,4 @@
 # Editor cruft
 *.swp
 .vscode/
+_to_delete/

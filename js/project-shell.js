@@ -94,7 +94,7 @@
     // markup so nobody sees it flash in and back out.
     // Bid Invites and Bid Leveling (2026-11-24) share the same two permissions.
     async function applyBidInvitesNavVisibility() {
-        const items = ["bidInvitesNavItem", "bidLevelingNavItem"].map(id => document.getElementById(id)).filter(Boolean);
+        const items = ["bidsNavItem"].map(id => document.getElementById(id)).filter(Boolean);
         if (!items.length || !window.Permissions) return;
         try { await (window.supabaseInitialProfilePromise || Promise.resolve()); } catch (e) { /* ignore */ }
         try { await window.Permissions.initPermissions(); } catch (e) { /* hasPermission fails open */ }

@@ -131,7 +131,7 @@
         }
         const b = data.bids;
         return `
-            <a class="pov-tile pov-tile--link" href="/pages/project-bid-invites.html">
+            <a class="pov-tile pov-tile--link" href="/pages/project-bids.html">
                 <p class="pov-tile-label">Bids out</p>
                 <p class="pov-tile-value">${b.open.length} <span>package${b.open.length === 1 ? "" : "s"}</span></p>
                 <p class="pov-tile-sub">${b.open.length ? `${b.replied} of ${b.invited} replied${b.nextDue ? " · due " + shortDate(b.nextDue) : ""}` : "None open"}</p>

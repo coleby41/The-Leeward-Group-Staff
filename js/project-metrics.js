@@ -316,7 +316,7 @@
             const waiting = invites.filter(i => i.package_id === p.id && !i.responded_at).length;
             if (!waiting) return;
             const days = dayNum(p.due_at.slice(0, 10)) - dayNum(today);
-            items.push({ level: "blue", title: `${p.name} bids due ${days === 0 ? "today" : `in ${days} day${days === 1 ? "" : "s"}`}`, meta: `${waiting} vendor${waiting === 1 ? " hasn't" : "s haven't"} replied`, href: "/pages/project-bid-invites.html" });
+            items.push({ level: "blue", title: `${p.name} bids due ${days === 0 ? "today" : `in ${days} day${days === 1 ? "" : "s"}`}`, meta: `${waiting} vendor${waiting === 1 ? " hasn't" : "s haven't"} replied`, href: "/pages/project-bids.html" });
         });
 
         return items;
