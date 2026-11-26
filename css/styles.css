@@ -21005,3 +21005,46 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
   .bd-row > div:last-child { grid-column: 1 / -1; padding-top: 0; }
   .bd-row .bl-action { justify-content: flex-start; text-align: left; }
 }
+
+/* ============================================================
+   BIDS GUIDE colors + callouts (pages/bids-help.html) — Nov 26 2026
+   Each step has its own color (bg-c1..c5); callouts: tip (blue),
+   caution (amber), warning (red).
+============================================================ */
+.bg-guide { --c: var(--accent); --c-soft: var(--accent-soft); }
+.bg-c0 { --c: #4a5866; --c-soft: #eef1f4; }
+.bg-c1 { --c: #085c98; --c-soft: #e6f0f8; }
+.bg-c2 { --c: #0f7c73; --c-soft: #e2f4f1; }
+.bg-c3 { --c: #6a4bb5; --c-soft: #efeafb; }
+.bg-c4 { --c: #2f7d32; --c-soft: #e8f4e8; }
+.bg-c5 { --c: #b3621b; --c-soft: #fcefe2; }
+.bg-hero { margin: 8px 0 22px; padding: 30px 32px; border-radius: 18px; color: #fff;
+  background: linear-gradient(130deg, #053f67 0%, #085c98 45%, #0f7c73 100%); box-shadow: 0 12px 30px rgba(5, 63, 103, 0.18); }
+.bg-hero h1 { margin: 4px 0 8px; color: #fff; }
+.bg-hero p { margin: 0; max-width: 640px; color: rgba(255, 255, 255, 0.88); line-height: 1.6; }
+.bg-hero strong { color: #fff; }
+.bg-hero .bg-hero-kicker { font-size: 0.85rem; font-weight: 700; color: rgba(255, 255, 255, 0.75); }
+.bg-toc { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.bg-toc a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 6px; border-radius: 999px;
+  background: var(--c-soft); color: var(--c); font-size: 0.88rem; font-weight: 700; text-decoration: none; }
+.bg-toc a b, .bg-section h2 b { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--c); color: #fff; font-size: 0.8rem; }
+.bg-toc a:hover { filter: brightness(0.96); }
+.bg-section { margin-top: 30px; padding: 26px 28px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--c); }
+.bg-section h2 { display: flex; align-items: center; gap: 12px; color: var(--c); }
+.bg-section h2 b { width: 32px; height: 32px; font-size: 0.95rem; }
+.bg-section h3 { color: var(--text); }
+.bg-section ul li::marker { color: var(--c); }
+.bg-callout { position: relative; margin: 16px 0; padding: 14px 18px 14px 52px; border-radius: 12px; border-left: 4px solid; font-size: 0.93rem; }
+.bg-callout p { margin: 4px 0 0; line-height: 1.55; }
+.bg-callout::before { position: absolute; left: 16px; top: 13px; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 0.85rem; font-weight: 800; color: #fff; }
+.bg-callout--tip { background: #eaf3fb; border-color: #085c98; color: #0b3554; }
+.bg-callout--tip::before { content: "i"; background: #085c98; font-family: Georgia, serif; font-style: italic; }
+.bg-callout--caution { background: #fff4e3; border-color: #d98a1c; color: #5c3a0c; }
+.bg-callout--caution::before { content: "!"; background: #d98a1c; }
+.bg-callout--warning { background: #fdeceb; border-color: #c43d3d; color: #5e1717; }
+.bg-callout--warning::before { content: "!"; background: #c43d3d; }
+.bg-callout > strong { display: block; }
+@media (max-width: 768px) {
+  .bg-hero { padding: 24px 20px; }
+  .bg-section { padding: 20px 18px; }
+}

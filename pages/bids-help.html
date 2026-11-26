@@ -27,102 +27,123 @@
 <!-- Bids guide (v2, 2026-11-26): plain page like Release Notes. Linked from
      every Help button on the Bids tab and its popups (anchors #what, #who,
      #compare, #award, #new). ?id=<project> makes "Back" return to that
-     project's Bids tab. Keep it in step with js/project-bids.js. -->
+     project's Bids tab. Keep it in step with js/project-bids.js.
+     Colors and callouts: .bg-* in css/styles.css. -->
 <a href="/pages/project-home.html" class="auth-button changelog-back" id="blHelpBack">&larr; Back to Bids</a>
 
-<main class="changelog-main bl-guide">
-    <p class="bl-guide-kicker">Help · Bids</p>
-    <h1>Bids guide</h1>
-    <p class="changelog-intro">Everything about bidding lives on the project's <strong>Bids</strong> tab: send a package, compare the prices that come back, and award each cost code to the vendor you pick.</p>
+<main class="changelog-main bl-guide bg-guide">
+    <header class="bg-hero">
+        <p class="bg-hero-kicker">Help · Bids</p>
+        <h1>How bidding works</h1>
+        <p>You send a bid package, vendors send back prices, and you pick who gets the work. It all happens on the project's <strong>Bids</strong> tab.</p>
+    </header>
 
-    <nav class="bl-guide-toc" aria-label="On this page">
-        <a href="#how">How it works</a>
-        <a href="#new">1. New bid package</a>
-        <a href="#vendors">2. What vendors do</a>
-        <a href="#compare">3. Compare</a>
-        <a href="#award">4. Award</a>
-        <a href="#quickbooks">5. QuickBooks</a>
-        <a href="#terms">Terms</a>
-        <a href="#faq">Questions</a>
+    <nav class="bg-toc" aria-label="On this page">
+        <a href="#new" class="bg-c1"><b>1</b>Send a package</a>
+        <a href="#vendors" class="bg-c2"><b>2</b>Vendors bid</a>
+        <a href="#compare" class="bg-c3"><b>3</b>Compare</a>
+        <a href="#award" class="bg-c4"><b>4</b>Award</a>
+        <a href="#quickbooks" class="bg-c5"><b>5</b>QuickBooks</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
     </nav>
 
-    <section id="how">
-        <h2>How it works</h2>
-        <ol class="bl-guide-steps">
-            <li><strong>New bid package</strong><span>Say what you need priced and who should price it. Two steps.</span></li>
-            <li><strong>Vendors bid</strong><span>They get an email and enter one price per building for each cost code.</span></li>
-            <li><strong>Compare</strong><span>Prices side by side. The lowest on each line is picked for you.</span></li>
-            <li><strong>Award</strong><span>Keep the picks or change them, then confirm once. One package can go to several vendors.</span></li>
-        </ol>
-    </section>
+    <section id="new" class="bg-section bg-c1">
+        <h2><b>1</b>Send a bid package</h2>
+        <p>A bid package is one trade you want priced, like Concrete or Framing. Click <strong>+ New bid package</strong> and fill in two short steps.</p>
 
-    <section id="new">
-        <h2>1. New bid package</h2>
-        <p>Click <strong>+ New bid package</strong> on the Bids tab. The first time, you'll set up the project's buildings: each building type, how many of them, and which site-wide sections the project has (Site Work, Hardscape &amp; Landscape, Amenities). Change them any time with <strong>Edit</strong> next to the buildings line.</p>
-        <h3 id="what">Step 1: What</h3>
+        <div class="bg-callout bg-callout--tip">
+            <strong>First time on this project?</strong>
+            <p>You'll be asked to set up the buildings first: each building type, how many there are, and whether the project has Site Work, Hardscape or Amenities. It only takes a minute, and you can change it later with <strong>Edit</strong> on the buildings line.</p>
+        </div>
+
+        <h3 id="what">Step 1: What you need priced</h3>
         <ul>
-            <li><strong>Package name</strong>, like Concrete or Framing.</li>
-            <li><strong>Cost codes</strong>: type a number or name and press Enter. Add as many as the trade covers.</li>
-            <li><strong>Price it for</strong>: all buildings are checked. Uncheck any the package doesn't cover.</li>
-            <li><strong>Bids due</strong>: date and time.</li>
-            <li><strong>More options</strong> (only if you need them): scope, plans from Project Files, walkthrough, questions due, your contact info, and reminders. Your contact info is remembered for next time.</li>
+            <li>Give it a name, like <em>Concrete</em>.</li>
+            <li>Add the cost codes. Start typing a number or a name and hit Enter to add it.</li>
+            <li>All the buildings are checked. Uncheck any this trade isn't doing.</li>
+            <li>Pick the date and time bids are due.</li>
         </ul>
-        <h3 id="who">Step 2: Who</h3>
-        <p>Vendors who priced these cost codes before are already checked. Uncheck anyone you don't want, or find more by trade or name. Only approved vendors can be invited; others show what they're missing (address, W-9, COI, tags). Click <strong>Send</strong>, or <strong>Save draft</strong> to finish later.</p>
+        <p>Scope, plans, a walkthrough, your contact info and reminders are tucked under <strong>More options</strong>. You don't have to touch them, but attaching the plans saves you a lot of phone calls.</p>
+
+        <h3 id="who">Step 2: Who should bid</h3>
+        <p>Anyone who's priced these cost codes for us before is already checked. Uncheck who you don't want, or search by trade or name to add more. When it looks right, click <strong>Send</strong>. If you're not ready, <strong>Save draft</strong> and come back to it.</p>
+
+        <div class="bg-callout bg-callout--caution">
+            <strong>Only approved vendors can be invited</strong>
+            <p>If a vendor is grayed out, the list tells you what they're missing: address, tax ID, W-9, a current COI or trade tags. Fix it on their vendor page and they'll show up as approved.</p>
+        </div>
     </section>
 
-    <section id="vendors">
-        <h2>2. What vendors do</h2>
-        <p>Each vendor gets an email with a <strong>View Invite &amp; Bid</strong> button. In the vendor portal they type one price per building for each cost code they want to bid (blank means they skip it) and attach their proposal. Reminders go out on their own if you left them on. Vendors never see each other's prices.</p>
+    <section id="vendors" class="bg-section bg-c2">
+        <h2><b>2</b>What vendors do</h2>
+        <p>Each vendor gets an email with a <strong>View Invite &amp; Bid</strong> button. They type one price per building for each cost code, attach their proposal and submit. If they skip a line, that just means they're not bidding it.</p>
+        <p>They can't see anyone else's prices. If they haven't answered, the portal reminds them for you, and everyone gets a nudge the day before bids are due.</p>
     </section>
 
-    <section id="compare">
-        <h2>3. Compare</h2>
-        <p>Click a package to open it. Each vendor is a column; each cost code is a row, grouped by building type. Prices are per building; the totals row multiplies by the number of buildings.</p>
+    <section id="compare" class="bg-section bg-c3">
+        <h2><b>3</b>Compare the bids</h2>
+        <p>Open a package and you'll see every vendor side by side, grouped by building type, with your budget in the second column.</p>
         <ul>
-            <li>The lowest price on each line is shaded and picked as the <strong>Winner</strong>.</li>
-            <li>Change any winner to split the package, e.g. Foundations to one vendor and Termite to another.</li>
-            <li>Click a <strong>budget</strong> to change it. The bar under the table shows your picks against the budget.</li>
-            <li>A bid came in by email or phone? Use <strong>+ Add a bid</strong>.</li>
-            <li><strong>Remind waiting</strong> nudges everyone who hasn't answered.</li>
+            <li>The cheapest price on each line is shaded, and that vendor is picked as the winner.</li>
+            <li>Want a different vendor on a line? Change the <strong>Winner</strong> dropdown. That's how you split a package, like Foundations to GBS and Termite to Reaves.</li>
+            <li>Click any budget to change it.</li>
+            <li>The bar under the table adds up your picks and shows how you're doing against budget.</li>
         </ul>
+
+        <div class="bg-callout bg-callout--caution">
+            <strong>Prices are per building</strong>
+            <p>When you add a bid that came in by email or phone (<strong>+ Add a bid</strong>), type the price for <em>one</em> building. The portal multiplies it by the number of buildings. If you type the total, it'll be counted three times on a three-building type.</p>
+        </div>
+
+        <div class="bg-callout bg-callout--tip">
+            <strong>"Partial" under a total</strong>
+            <p>That vendor didn't price every line, so their total isn't a fair comparison. They can still win the lines they did price.</p>
+        </div>
     </section>
 
-    <section id="award">
-        <h2>4. Award</h2>
-        <p>Click <strong>Award picks</strong>. You'll see each winner with what they won and their total. If you negotiated a lower number, type it as the contract amount. Choose whether to email the winners (they're also asked for their COI) and the vendors who weren't picked, then confirm.</p>
-        <p>Each winner gets one contract for what they won. Generate it from the project's <strong>Accounts</strong> page. If the project has no COI template yet, you'll be asked to post one first.</p>
+    <section id="award" class="bg-section bg-c4">
+        <h2><b>4</b>Award the work</h2>
+        <p>Click <strong>Award picks</strong>. You'll see each winner, what they're getting and their total. If you talked someone down, type the new number in <strong>Negotiated contract amount</strong>. Then choose who gets an email and confirm.</p>
+
+        <div class="bg-callout bg-callout--warning">
+            <strong>Double-check before you award</strong>
+            <p>The emails go out as soon as you confirm, and there's no undo button on the page. Winners are told they got the job and asked for their COI. Everyone else is told they weren't picked. Uncheck the emails if you're not ready to tell people yet.</p>
+        </div>
+
+        <div class="bg-callout bg-callout--caution">
+            <strong>You need a COI template first</strong>
+            <p>The award email asks the winner for their COI, so the project needs a COI template posted. If it doesn't have one, the award popup will ask you to add it before you can continue.</p>
+        </div>
+
+        <p>Each winner gets one contract for everything they won. Make it from the project's <strong>Accounts</strong> page.</p>
     </section>
 
-    <section id="quickbooks">
-        <h2>5. QuickBooks</h2>
-        <p>Until the portal connects to QuickBooks Desktop, use <strong>Export for QuickBooks</strong> on the Bids tab. It downloads two files:</p>
+    <section id="quickbooks" class="bg-section bg-c5">
+        <h2><b>5</b>Get it into QuickBooks</h2>
+        <p>We don't have a direct connection to QuickBooks Desktop yet. Until we do, click <strong>Export for QuickBooks</strong> on the Bids tab and you'll get two files:</p>
         <ul>
-            <li><strong>An IIF file</strong> with this project as a job and every awarded vendor. In QuickBooks Desktop: File › Utilities › Import › IIF Files. Tax IDs aren't included; add them in QuickBooks.</li>
-            <li><strong>An Excel file</strong> with budgets by cost code and building, and each winner's contract amount.</li>
+            <li><strong>An IIF file</strong> with the project as a job and every vendor you've awarded. In QuickBooks, go to File › Utilities › Import › IIF Files.</li>
+            <li><strong>An Excel file</strong> with the budgets by cost code and building, plus each winner's contract amount.</li>
         </ul>
-        <p>The data stays in the portal, so you can export again any time.</p>
+
+        <div class="bg-callout bg-callout--warning">
+            <strong>Back up QuickBooks before importing</strong>
+            <p>An IIF import can't be undone in QuickBooks. Make a backup of the company file first, just in case something comes in wrong.</p>
+        </div>
+
+        <div class="bg-callout bg-callout--tip">
+            <strong>Tax IDs aren't in the file</strong>
+            <p>We leave them out on purpose so they don't end up sitting in a download folder. Add them in QuickBooks.</p>
+        </div>
     </section>
 
-    <section id="terms">
-        <h2>Terms</h2>
-        <dl class="bl-guide-dl bl-guide-dl--plain">
-            <dt>Bid package</dt><dd>One trade you're asking vendors to price, with its cost codes and due date.</dd>
-            <dt>Building type</dt><dd>A group of identical buildings. Vendors price one building; the portal multiplies.</dd>
-            <dt>Site-wide section</dt><dd>Site Work, Hardscape &amp; Landscape or Amenities. Priced once for the whole site.</dd>
-            <dt>Cost code</dt><dd>The number and name for a line of work, like 3002 Foundations - Turn-Key. Same list as the workbook.</dd>
-            <dt>Winner</dt><dd>The vendor picked for one cost code on one building type.</dd>
-            <dt>Contract amount</dt><dd>What a winner gets for everything they won: their prices × buildings, or the negotiated amount you typed.</dd>
-        </dl>
-    </section>
-
-    <section id="faq">
-        <h2>Questions</h2>
-        <div class="bl-guide-faq"><strong>Where did Bid Invites and Bid Leveling go?</strong><span>They're one tab now: Bids. Old links open it.</span></div>
-        <div class="bl-guide-faq"><strong>We added a building. Do vendors need to re-bid?</strong><span>No. Change the count in Edit buildings and every total updates.</span></div>
-        <div class="bl-guide-faq"><strong>A vendor only priced some lines.</strong><span>That's fine. Their total shows "partial", and they can only win lines they priced.</span></div>
-        <div class="bl-guide-faq"><strong>Can I still get the workbook in Excel?</strong><span>Export for QuickBooks includes an Excel file with budgets and contract amounts.</span></div>
-        <div class="bl-guide-faq"><strong>I don't see Bids.</strong><span>Ask IT to turn on Send Bid Invites or Manage Bid Invites for your workgroup. Awarding needs Manage Bid Invites.</span></div>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Where did Bid Invites and Bid Leveling go?</strong><span>They're one tab now, called Bids. Old links and bookmarks still land in the right place.</span></div>
+        <div class="bl-guide-faq"><strong>We added a building. Does everyone have to re-bid?</strong><span>No. Update the count in Edit buildings and every total changes with it.</span></div>
+        <div class="bl-guide-faq"><strong>Can I remove a building type?</strong><span>Yes, but any bids and budgets on it are deleted with it. You'll get a warning first.</span></div>
+        <div class="bl-guide-faq"><strong>Some older packages only show one total per vendor.</strong><span>Those were sent before cost codes were added. They still work: pick the winner and award like normal, they just can't be split.</span></div>
+        <div class="bl-guide-faq"><strong>I can't see the Bids tab.</strong><span>Ask IT to turn on Send Bid Invites or Manage Bid Invites for your workgroup. You need Manage Bid Invites to award.</span></div>
     </section>
 </main>
 
