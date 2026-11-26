@@ -21048,3 +21048,57 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
 @media (max-width: 768px) {
   .bg-hero { padding: 24px 20px; }
 }
+
+/* ============================================================
+   HELP CENTER (pages/help.html) + guide screenshots — Nov 26 2026
+============================================================ */
+.bg-hero-kicker a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.hc-hero h1 { font-size: 2.2rem; }
+.hc-search { position: relative; display: flex; align-items: center; margin-top: 18px; max-width: 520px; }
+.hc-search .bl-search-icon { position: absolute; left: 16px; color: #5b6b7a; }
+.hc-search input { width: 100%; min-height: 50px; padding: 0 16px 0 44px; border: none; border-radius: 12px; font: inherit; font-size: 1rem;
+  background: #fff; color: var(--text); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15); }
+.hc-search input:focus { outline: 3px solid rgba(255, 255, 255, 0.55); }
+.hc-h2 { margin: 30px 0 12px; font-size: 1.1rem; }
+.hc-guide { padding: 4px 0 18px; border-bottom: 1px solid var(--border); }
+.hc-guide-main { display: flex; align-items: center; gap: 16px; padding: 10px 0; text-decoration: none; color: var(--text); }
+.hc-guide-icon { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 14px; background: var(--c);
+  -webkit-mask: none; position: relative; }
+.hc-guide-icon::after { content: ""; position: absolute; inset: 12px; background: #fff;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6M8 13h8M8 17h5'/%3E%3C/svg%3E") center / contain no-repeat; }
+.hc-guide-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.hc-guide-text strong { font-size: 1.15rem; color: var(--c); }
+.hc-guide-text span { color: var(--text-soft); line-height: 1.5; }
+.hc-arrow { font-size: 1.8rem; color: var(--c); line-height: 1; }
+.hc-guide-main:hover .hc-guide-text strong { text-decoration: underline; }
+.hc-guide-links { display: flex; flex-wrap: wrap; gap: 6px 8px; padding-left: 64px; }
+.hc-guide-links a { padding: 5px 12px; border-radius: 999px; background: var(--c-soft); color: var(--c); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+.hc-guide-links a:hover { filter: brightness(0.95); }
+.hc-results { margin-top: 6px; }
+.hc-hit { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 4px; border-bottom: 1px solid var(--border); text-decoration: none; }
+.hc-hit strong { color: var(--c); }
+.hc-hit span { font-size: 0.85rem; color: var(--text-soft); }
+.hc-none { color: var(--text-soft); }
+.hc-soon-copy { margin: 0 0 12px; color: var(--text-soft); }
+.hc-soon-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.hc-soon-list span { padding: 6px 12px; border-radius: 999px; border: 1px dashed #c3ccd5; color: #6b7886; font-size: 0.85rem; font-weight: 600; }
+.hc-foot { margin-top: 36px; font-size: 0.9rem; color: var(--text-soft); }
+
+.hc-shot { margin: 18px 0 22px; }
+.hc-shot img { display: block; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 10px 28px rgba(10, 24, 36, 0.10); background: #eef2f6; }
+.hc-shot figcaption { margin-top: 8px; font-size: 0.85rem; color: var(--text-soft); }
+@media (min-width: 900px) {
+  .hc-shot img[src*="new-"], .hc-shot img[src*="award"], .hc-shot img[src*="add-bid"] { max-width: 520px; }
+}
+@media (max-width: 768px) {
+  .hc-guide-links { padding-left: 0; }
+}
+
+/* Profile menu: Help center link (notification dropdown) */
+.notification-help-link { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-top: 1px solid var(--border);
+  color: var(--accent-strong); font-size: 14px; font-weight: 600; text-decoration: none; }
+.notification-help-link:hover { background: var(--accent-soft); }
+.notification-help-link-icon { width: 16px; height: 16px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01'/%3E%3C/svg%3E") center / contain no-repeat; }

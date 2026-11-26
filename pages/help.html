@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Help Center | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Help center (2026-11-26): home for every how-to guide. Opened from
+     "Help center" in the profile menu (notification dropdown footer).
+     To add a guide: write pages/<topic>-help.html like bids-help.html,
+     then add it to GUIDES below (and drop it from SOON). -->
+<a href="/pages/dashboard.html" class="auth-button changelog-back" id="hcBack">&larr; Back</a>
+
+<main class="changelog-main bl-guide bg-guide hc">
+    <header class="bg-hero hc-hero">
+        <p class="bg-hero-kicker">The Leeward Group staff portal</p>
+        <h1>Help center</h1>
+        <p>Step-by-step guides for the portal. Search for what you're trying to do, or pick a guide below.</p>
+        <label class="hc-search">
+            <span class="bl-search-icon" aria-hidden="true"></span>
+            <input type="search" id="hcSearch" placeholder="Try &quot;award&quot; or &quot;QuickBooks&quot;" aria-label="Search the help center" autocomplete="off">
+        </label>
+    </header>
+
+    <section class="hc-results hidden" id="hcResults" aria-live="polite"></section>
+
+    <section id="hcGuides">
+        <h2 class="hc-h2">Guides</h2>
+        <div id="hcGuideList"></div>
+    </section>
+
+    <section class="hc-soon">
+        <h2 class="hc-h2">On the way</h2>
+        <p class="hc-soon-copy">Guides for the rest of the portal are being written. Until then, ask someone in the office or send a note with Report a problem.</p>
+        <div class="hc-soon-list" id="hcSoon"></div>
+    </section>
+
+    <p class="hc-foot">Something not working? <a href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report a problem</a> · See what's new in <a href="/pages/changelog.html">Release Notes</a></p>
+</main>
+
+<script>
+(function () {
+    // Every guide and its sections. Search looks at the titles and the words in "text".
+    var GUIDES = [
+        {
+            title: "Bids", url: "/pages/bids-help.html", color: "bg-c1",
+            summary: "Send bid packages, compare prices from vendors, award the work and export it for QuickBooks.",
+            sections: [
+                { title: "Send a bid package", anchor: "new", text: "new bid package cost codes buildings due date more options scope plans walkthrough draft set up buildings" },
+                { title: "Pick who bids", anchor: "who", text: "vendors approved invite trade search who" },
+                { title: "What vendors do", anchor: "vendors", text: "vendor portal email view invite price per building proposal reminders" },
+                { title: "Compare the bids", anchor: "compare", text: "compare lowest winner split budget partial add a bid email phone" },
+                { title: "Award the work", anchor: "award", text: "award negotiated contract amount emails not selected coi template accounts contract" },
+                { title: "Get it into QuickBooks", anchor: "quickbooks", text: "quickbooks desktop export iif excel import backup tax id" },
+                { title: "Questions about bids", anchor: "faq", text: "bid invites bid leveling building type remove access permission" }
+            ]
+        }
+    ];
+    var SOON = ["Projects", "Project files", "Accounts & contracts", "Vendors", "Calendar", "To-Do", "Timeline", "Form logs"];
+
+    function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
+
+    document.getElementById("hcGuideList").innerHTML = GUIDES.map(function (g) {
+        return '<div class="hc-guide ' + g.color + '">' +
+            '<a class="hc-guide-main" href="' + g.url + '"><span class="hc-guide-icon" aria-hidden="true"></span>' +
+            '<span class="hc-guide-text"><strong>' + esc(g.title) + '</strong><span>' + esc(g.summary) + '</span></span><span class="hc-arrow" aria-hidden="true">›</span></a>' +
+            '<div class="hc-guide-links">' + g.sections.map(function (s) {
+                return '<a href="' + g.url + '#' + s.anchor + '">' + esc(s.title) + '</a>';
+            }).join("") + '</div></div>';
+    }).join("");
+    document.getElementById("hcSoon").innerHTML = SOON.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join("");
+
+    var input = document.getElementById("hcSearch");
+    var results = document.getElementById("hcResults");
+    function search() {
+        var q = input.value.trim().toLowerCase();
+        if (!q) { results.classList.add("hidden"); results.innerHTML = ""; return; }
+        var words = q.split(/\s+/);
+        var hits = [];
+        GUIDES.forEach(function (g) {
+            g.sections.forEach(function (s) {
+                var hay = (g.title + " " + s.title + " " + s.text).toLowerCase();
+                if (words.every(function (w) { return hay.indexOf(w) !== -1; })) hits.push({ g: g, s: s });
+            });
+        });
+        results.classList.remove("hidden");
+        results.innerHTML = hits.length
+            ? '<h2 class="hc-h2">' + hits.length + ' result' + (hits.length === 1 ? "" : "s") + '</h2>' + hits.map(function (h) {
+                return '<a class="hc-hit ' + h.g.color + '" href="' + h.g.url + '#' + h.s.anchor + '"><strong>' + esc(h.s.title) + '</strong><span>' + esc(h.g.title) + ' guide</span></a>';
+            }).join("")
+            : '<p class="hc-none">Nothing matches "' + esc(input.value.trim()) + '" yet. Try another word, or <a href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">tell us what you were looking for</a>.</p>';
+    }
+    input.addEventListener("input", search);
+    var startQ = new URLSearchParams(window.location.search).get("q");
+    if (startQ) { input.value = startQ; search(); }
+
+    // Back goes to the page you came from (not another help page).
+    var back = document.getElementById("hcBack");
+    if (document.referrer && new URL(document.referrer).origin === window.location.origin && !/help/.test(document.referrer)) back.href = document.referrer;
+})();
+</script>
+
+</body>
+</html>

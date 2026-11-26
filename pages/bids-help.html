@@ -33,7 +33,7 @@
 
 <main class="changelog-main bl-guide bg-guide">
     <header class="bg-hero">
-        <p class="bg-hero-kicker">Help · Bids</p>
+        <p class="bg-hero-kicker"><a href="/pages/help.html">Help center</a> › Bids</p>
         <h1>How bidding works</h1>
         <p>You send a bid package, vendors send back prices, and you pick who gets the work. It all happens on the project's <strong>Bids</strong> tab.</p>
     </header>
@@ -50,6 +50,7 @@
     <section id="new" class="bg-section bg-c1">
         <h2><b>1</b>Send a bid package</h2>
         <p>A bid package is one trade you want priced, like Concrete or Framing. Click <strong>+ New bid package</strong> and fill in two short steps.</p>
+        <figure class="hc-shot"><img src="/assets/help/bids/list.webp" alt="The Bids tab listing bid packages with due dates, bids received, best total, budget and status" loading="lazy"><figcaption>The Bids tab. Every package on the project is listed here, with the best price against your budget.</figcaption></figure>
         <p>First time on this project? You'll set up the buildings before anything else: each building type, how many there are, and whether there's Site Work, Hardscape or Amenities. It takes a minute, and you can change it later with <strong>Edit</strong> on the buildings line.</p>
 
         <h3 id="what">Step 1: What you need priced</h3>
@@ -59,10 +60,12 @@
             <li>All the buildings are checked. Uncheck any this trade isn't doing.</li>
             <li>Pick the date and time bids are due.</li>
         </ul>
+        <figure class="hc-shot"><img src="/assets/help/bids/new-what.webp" alt="New bid package popup, step 1, with package name, cost codes, buildings and due date" loading="lazy"><figcaption>Step 1. Two cost codes added and every building checked.</figcaption></figure>
         <p>Scope, plans, a walkthrough, your contact info and reminders are tucked under <strong>More options</strong>. You don't have to touch them, but attaching the plans saves you a lot of phone calls.</p>
 
         <h3 id="who">Step 2: Who should bid</h3>
         <p>Anyone who's priced these cost codes for us before is already checked. Uncheck who you don't want, or search by trade or name to add more. When it looks right, click <strong>Send</strong>. If you're not ready, <strong>Save draft</strong> and come back to it.</p>
+        <figure class="hc-shot"><img src="/assets/help/bids/new-who.webp" alt="New bid package popup, step 2, with approved vendors checked" loading="lazy"><figcaption>Step 2. Vendors who bid these cost codes before are already checked.</figcaption></figure>
 
         <div class="bg-callout bg-callout--caution">
             <strong>Only approved vendors can be invited</strong>
@@ -79,6 +82,7 @@
     <section id="compare" class="bg-section bg-c3">
         <h2><b>3</b>Compare the bids</h2>
         <p>Open a package and you'll see every vendor side by side, grouped by building type, with your budget in the second column.</p>
+        <figure class="hc-shot"><img src="/assets/help/bids/compare.webp" alt="Bid comparison with vendors in columns, the lowest price shaded and a winner dropdown on each line" loading="lazy"><figcaption>Foundations on the Pool House switched to Reaves. Everything else stays with GBS, the low bidder.</figcaption></figure>
         <ul>
             <li>The cheapest price on each line is shaded, and that vendor is picked as the winner.</li>
             <li>Want a different vendor on a line? Change the <strong>Winner</strong> dropdown. That's how you split a package, like Foundations to GBS and Termite to Reaves.</li>
@@ -91,11 +95,13 @@
             <strong>Prices are per building</strong>
             <p>When you add a bid that came in by email or phone (<strong>+ Add a bid</strong>), type the price for <em>one</em> building. The portal multiplies it by the number of buildings. If you type the total, it'll be counted three times on a three-building type.</p>
         </div>
+        <figure class="hc-shot"><img src="/assets/help/bids/add-bid.webp" alt="Add a bid popup with a price per building for each cost code" loading="lazy"><figcaption>Adding a bid by hand: one price per building, and blank where they didn't bid.</figcaption></figure>
     </section>
 
     <section id="award" class="bg-section bg-c4">
         <h2><b>4</b>Award the work</h2>
         <p>Click <strong>Award picks</strong>. You'll see each winner, what they're getting and their total. If you talked someone down, type the new number in <strong>Negotiated contract amount</strong>. Then choose who gets an email and confirm.</p>
+        <figure class="hc-shot"><img src="/assets/help/bids/award.webp" alt="Award popup showing two winners, a negotiated amount and the email option" loading="lazy"><figcaption>The award popup for a split package. GBS was talked down to $905,000.</figcaption></figure>
 
         <div class="bg-callout bg-callout--warning">
             <strong>Double-check before you award</strong>
@@ -136,6 +142,7 @@
     var id = new URLSearchParams(window.location.search).get("id");
     var back = document.getElementById("blHelpBack");
     if (id) back.href = "/pages/project-bids.html?id=" + encodeURIComponent(id);
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
     else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
         back.href = document.referrer;
         back.textContent = "\u2190 Back";
