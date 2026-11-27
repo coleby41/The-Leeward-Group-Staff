@@ -1,7 +1,7 @@
 /* ===========================================================
    HELP BUDDIES (help center + guides) — 2026-11-26
 
-   Theo, our little hard-hat helper (in a few colors), and the soft
+   Theo, our little hard-hat helper (full body: boots, jeans, safety vest) (in a few colors), and the soft
    background color blobs for the help pages. Put
    <span class="hc-buddy" data-buddy="search"></span>
    where you want one; this swaps in the drawing. Hover him and he says
@@ -38,13 +38,23 @@
                     <stop offset="0" stop-color="${light}"/><stop offset="1" stop-color="${dark}"/>
                 </radialGradient>
             </defs>
-            <ellipse cx="70" cy="132" rx="34" ry="5" fill="#0b2236" opacity=".08" class="hcb-shadow"/>
+            <ellipse cx="70" cy="163" rx="38" ry="5" fill="#0b2236" opacity=".08" class="hcb-shadow"/>
+            <g class="hcb-legs">
+                <rect x="49" y="112" width="17" height="38" rx="8" fill="#2c4a6b"/>
+                <rect x="74" y="112" width="17" height="38" rx="8" fill="#2c4a6b"/>
+                <path d="M42 148 h26 a3 3 0 0 1 3 3 v7 h-32 v-4 a6 6 0 0 1 3 -6z" fill="#8a5424"/>
+                <path d="M72 148 h26 a6 6 0 0 1 3 6 v4 h-32 v-7 a3 3 0 0 1 3 -3z" fill="#8a5424"/>
+                <rect x="39" y="156" width="32" height="4" rx="2" fill="#4a2c10"/>
+                <rect x="69" y="156" width="32" height="4" rx="2" fill="#4a2c10"/>
+            </g>
             <g class="hcb-bob">
                 <circle cx="70" cy="80" r="44" fill="url(#${id})"/>
                 <ellipse cx="54" cy="58" rx="12" ry="7" fill="#fff" opacity=".18"/>
                 <path d="M31 63 A39 34 0 0 1 109 63 Z" fill="#f5b83d"/>
                 <rect x="64" y="30" width="12" height="33" rx="6" fill="#ffd56e"/>
                 <rect x="22" y="59" width="96" height="10" rx="5" fill="#e09a1f"/>
+                <path d="M30 96 Q70 116 110 96 Q108 114 96 120 Q70 132 44 120 Q32 114 30 96 Z" fill="#f28c28"/>
+                <path d="M35 106 Q70 124 105 106" stroke="#fff3b0" stroke-width="3" fill="none" stroke-linecap="round"/>
                 <g class="hcb-eyes">
                     <ellipse cx="56" cy="86" rx="5.5" ry="7" fill="#0b2236"/>
                     <ellipse cx="84" cy="86" rx="5.5" ry="7" fill="#0b2236"/>
@@ -96,7 +106,7 @@
         const wide = kind === "cone" || kind === "search";
         const say = el.dataset.say || "Hi, I'm Theo!";
         el.innerHTML = `<span class="hc-say" role="tooltip">${say.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))}</span>`
-            + `<svg viewBox="0 0 ${wide ? 170 : 150} 140" aria-hidden="true" focusable="false">${body(kind)}</svg>`;
+            + `<svg viewBox="0 0 ${wide ? 170 : 150} 168" aria-hidden="true" focusable="false">${body(kind)}</svg>`;
         el.setAttribute("aria-label", "Theo");
     }
 
