@@ -21455,3 +21455,26 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .pav-locked { max-width: 720px; }
 .pav-locked .bd-setup-theo { margin: 0 0 18px; }
 .pav-locked .bd-setup-say { margin: 0; color: var(--text); }
+
+/* Project Overview › Team checklist with Theo (js/project-checklist.js) */
+.pcl { padding: 18px 20px; border-radius: 16px; background: #fff; border: 1px solid var(--border); }
+.pcl-count { font-size: 0.85rem; font-weight: 700; color: var(--text-soft); }
+.pcl-theo { display: flex; align-items: center; gap: 12px; }
+.pcl-buddy { width: 62px; flex: 0 0 auto; }
+.pcl-say { position: relative; margin: 0; padding: 10px 14px; max-width: 560px; border-radius: 14px; background: #f4f8fc; border: 1px solid #dfe8f1; font-size: 0.95rem; line-height: 1.45; color: var(--text); }
+.pcl-say::before { content: ""; position: absolute; left: -7px; top: 50%; width: 12px; height: 12px; margin-top: -6px; background: #f4f8fc; border-left: 1px solid #dfe8f1; border-bottom: 1px solid #dfe8f1; transform: rotate(45deg); }
+.pcl-bar { height: 6px; border-radius: 999px; background: #e6eaef; overflow: hidden; }
+.pcl-bar span { display: block; height: 100%; background: var(--accent-strong); border-radius: 999px; }
+.pcl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.pcl-group { margin: 12px 0 4px; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-soft); }
+.pcl-step { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid #f0f2f5; }
+.pcl-check { flex: 0 0 auto; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #eef1f4; color: var(--text-soft); font-size: 0.78rem; font-weight: 800; }
+.pcl-step.is-done .pcl-check { background: #2f7d32; color: #fff; }
+.pcl-step.is-next .pcl-check { background: var(--accent-strong); color: #fff; }
+.pcl-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pcl-text strong { font-size: 0.92rem; }
+.pcl-text span { font-size: 0.82rem; color: var(--text-soft); }
+.pcl-step.is-done .pcl-text strong { color: var(--text-soft); }
+.pcl-done { font-size: 0.8rem; font-weight: 700; color: #2f7d32; }
+.pcl-go { flex: 0 0 auto; font-size: 0.85rem; font-weight: 700; text-decoration: none; color: var(--accent); }
+.pcl-go--next { padding: 7px 14px; border-radius: 999px; background: var(--accent-strong); color: #fff; }
