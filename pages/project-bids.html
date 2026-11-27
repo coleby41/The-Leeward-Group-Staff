@@ -194,6 +194,21 @@
         <p class="bl-footnote"><strong>Export for QuickBooks</strong> downloads an IIF file (vendors and this job, for QuickBooks Desktop › File › Utilities › Import › IIF Files) and an Excel file (budgets and contract amounts) until the QuickBooks Desktop connection is set up.</p>
     </div>
 
+    <!-- ===== Before the Invite Sheet: setup steps with Theo (2026-11-27) ===== -->
+    <div id="bdSetupView" class="hidden">
+        <div class="hm-head">
+            <div>
+                <p class="hm-date" id="bdSetupKicker">Bids</p>
+                <h1 class="hm-greeting">Get ready to invite</h1>
+            </div>
+            <div class="hm-actions">
+                <a href="/pages/bids-help.html#setup" data-help="setup" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
+            </div>
+        </div>
+        <div class="bd-setup-theo" id="bdSetupTheo"></div>
+        <ol class="bd-setup-list" id="bdSetupSteps"></ol>
+    </div>
+
     <!-- ===== Invite Sheet = the Bids page (2026-11-27) ===== -->
     <div id="bdSheetView" class="hidden">
         <div class="hm-head">
@@ -499,6 +514,7 @@
 <script src="/js/project-shell.js"></script>
 <script src="/js/coi-template.js"></script>
 <script src="/js/vendor-paperwork.js"></script>
+<script src="/js/help-buddies.js"></script>
 <script src="/js/project-bids.js"></script>
 <script>
 // Popup ✕ buttons (data-close="<overlay id>")

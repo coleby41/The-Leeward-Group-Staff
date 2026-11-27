@@ -101,7 +101,9 @@
     }
 
     function blobs() {
-        if (document.querySelector(".hc-blobs")) return;
+        // Only the help pages get the background blobs (Theo also shows up
+        // inside portal pages, like the Bids setup steps).
+        if (document.querySelector(".hc-blobs") || !document.querySelector(".hc-full, .tl")) return;
         const b = document.createElement("div");
         b.className = "hc-blobs";
         b.setAttribute("aria-hidden", "true");

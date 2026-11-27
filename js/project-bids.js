@@ -306,12 +306,15 @@
         const params = new URLSearchParams(window.location.search);
         openPkgId = params.get("package");
         const pkg = openPkgId ? packages.find(p => p.id === openPkgId && p.status !== "draft") : null;
-        const sheet = !pkg && canSend; // the Invite Sheet is the Bids page (2026-11-27)
-        $("bdListView").classList.toggle("hidden", !!pkg || sheet);
+        const setup = !pkg && canSend && needsSetup();
+        const sheet = !pkg && canSend && !setup; // the Invite Sheet is the Bids page (2026-11-27)
+        $("bdListView").classList.toggle("hidden", !!pkg || sheet || setup);
         $("bdPackageView").classList.toggle("hidden", !pkg);
         $("bdSheetView").classList.toggle("hidden", !sheet);
-        $("bdCards").classList.toggle("hidden", !!pkg);
+        $("bdSetupView").classList.toggle("hidden", !setup);
+        $("bdCards").classList.toggle("hidden", !!pkg || setup);
         if (pkg) renderPackage(pkg);
+        else if (setup) renderSetupSteps();
         else if (sheet) renderSheet();
         else renderList();
     }
@@ -1222,6 +1225,64 @@
         await sendNew();
     }
 
+    /* ---------- Before the Invite Sheet: setup steps with Theo (2026-11-27) ----------
+       The sheet needs the project's buildings (budgets and prices are per
+       building) and its COI template (award emails ask for the vendor's COI).
+       Until both are done the Bids page shows these steps instead. Once both
+       are done, step 3 opens the sheet, and later visits go straight to it. */
+
+    const SETUP_DONE_KEY = () => `bidSetupSeen:${project.id}`;
+    function setupDone() { return shownAreas().length > 0 && !!coiTemplate; }
+    function needsSetup() {
+        if (!setupDone()) return true;
+        try { return !localStorage.getItem(SETUP_DONE_KEY()); } catch (e) { return false; }
+    }
+
+    function renderSetupSteps() {
+        const first = String(staffName()).split(/\s+/)[0] || "there";
+        const hasBuildings = shownAreas().length > 0;
+        const hasCoi = !!coiTemplate;
+        const step = !hasBuildings ? 1 : !hasCoi ? 2 : 3;
+        const say = {
+            1: `Hi ${first}! Before we invite anyone to bid on ${project.name || "this project"}, tell me about the buildings. Vendors price one building of each type, and I multiply it out for you.`,
+            2: `Nice, the buildings are set. Next, post the COI template. It shows vendors the insurance this job needs, and award emails can't go out without it.`,
+            3: `You're all set, ${first}! Every cost code is waiting on the Invite Sheet. Check your vendors, add budgets, then Send all.`,
+        }[step];
+        const noAccess = !canManage && step < 3
+            ? `<p class="bd-setup-note">Only people with <strong>Manage Bid Invites</strong> can do this step. Ask them to finish it, then come back.</p>` : "";
+        $("bdSetupKicker").textContent = `${project.name || "Project"} · Bids`;
+        $("bdSetupTheo").innerHTML = `<span class="hc-buddy bd-setup-buddy" data-buddy="${step === 3 ? "wave" : step === 2 ? "clipboard" : "search"}" data-say="That's me, Theo!"></span><div class="bd-setup-bubble">${esc(say)}</div>`;
+        if (window.HelpBuddies) window.HelpBuddies.refresh();
+        const item = (n, title, done, body) => {
+            const state = done ? "is-done" : n === step ? "is-now" : "is-later";
+            return `<li class="bd-setup-step ${state}"><span class="bd-setup-num">${done ? "✓" : n}</span><div class="bd-setup-body"><h3>${title}</h3>${body}</div></li>`;
+        };
+        const b1 = hasBuildings
+            ? `<p>${esc(shownAreas().map(areaFacts).join(" · "))}${canManage ? ` · <button type="button" class="bl-link-btn" data-setup-act="buildings">Edit</button>` : ""}</p>`
+            : `<p>Add each building type, how many there are, and whether the job has Site Work, Hardscape or Amenities. One building, like a church? Add one type and set Buildings to 1.</p>${step === 1 && canManage ? `<button type="button" class="hm-btn hm-btn--primary" data-setup-act="buildings">Set up buildings</button>` : ""}${step === 1 ? noAccess : ""}`;
+        const b2 = hasCoi
+            ? `<p>Posted. Awarded vendors download it in the Vendor Portal.</p>`
+            : `<p>Upload a sample COI (PDF) showing the coverage and additional-insured wording this job needs.</p>${step === 2 ? `<div id="bdSetupCoi"></div>${noAccess}` : ""}`;
+        const b3 = `<p>Every cost code with the vendors tagged for it. Check who should bid, add the budget and details, then Send all.</p>${step === 3 ? `<button type="button" class="hm-btn hm-btn--primary" data-setup-act="open">Open the Invite Sheet</button>` : ""}`;
+        $("bdSetupSteps").innerHTML = item(1, "Set up the buildings", hasBuildings, b1) + item(2, "Post the COI template", hasCoi, b2) + item(3, "Open the Invite Sheet", false, b3);
+        if (step === 2 && window.CoiTemplate && $("bdSetupCoi")) {
+            window.CoiTemplate.mount($("bdSetupCoi"), { project, canManage, intro: "" });
+        }
+    }
+
+    function wireSetupSteps() {
+        $("bdSetupView").addEventListener("click", e => {
+            const b = e.target.closest("[data-setup-act]");
+            if (!b) return;
+            if (b.dataset.setupAct === "buildings") openSetup(() => render());
+            if (b.dataset.setupAct === "open") {
+                try { localStorage.setItem(SETUP_DONE_KEY(), "1"); } catch (err) { /* fine */ }
+                render();
+                window.scrollTo(0, 0);
+            }
+        });
+    }
+
     /* ---------- Invite Sheet = the Bids page (2026-11-27) ----------
        One row per cost code (the numbered Trade tags). Every row that's
        still showing has to be filled out before Send all turns on; codes the
@@ -1842,6 +1903,7 @@
         $("bdExportBtn").addEventListener("click", exportQuickBooks);
         $("bdSheetExportBtn").addEventListener("click", exportQuickBooks);
         wireSheet();
+        wireSetupSteps();
         document.addEventListener("keydown", e => {
             if (e.key !== "Escape") return;
             ["bdAwardOverlay", "bdBidOverlay", "bdSetupOverlay", "bdNewOverlay"].some(id => {
@@ -1851,7 +1913,10 @@
             });
         });
         window.addEventListener("coi-template:changed", e => {
-            if (project && String(e.detail.projectId) === String(project.id)) coiTemplate = e.detail.template;
+            if (project && String(e.detail.projectId) === String(project.id)) {
+                coiTemplate = e.detail.template;
+                if (!$("bdSetupView").classList.contains("hidden")) renderSetupSteps();
+            }
         });
     }
 
