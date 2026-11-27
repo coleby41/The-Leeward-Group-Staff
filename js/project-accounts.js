@@ -845,7 +845,6 @@
             panel.prepend(box);
         }
         const pct = Math.round((bidLock.awarded / bidLock.total) * 100);
-        const sample = bidLock.left.slice(0, 4).join(", ") + (bidLock.left.length > 4 ? `, and ${bidLock.left.length - 4} more` : "");
         let me = window.currentSupabaseProfile;
         if (!me) { try { me = JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch (e) { me = null; } }
         const first = String((me && (me.full_name || me.username)) || "").split(/\s+/)[0] || "there";
@@ -858,7 +857,7 @@
             <h2>Vendors unlock when bidding is done</h2>
             <p>Contracts, W-9s and COIs open up once every cost code on this project's Bids page has been awarded. Hide the codes this job doesn't need there.</p>
             <div class="pav-locked-bar"><span style="width:${pct}%"></span></div>
-            <p class="pav-locked-count"><strong>${bidLock.awarded} of ${bidLock.total}</strong> cost codes awarded · still open: ${esc(sample)}</p>
+            <p class="pav-locked-count"><strong>${bidLock.awarded} of ${bidLock.total}</strong> cost codes awarded</p>
             <a class="auth-button pav-locked-btn" href="/pages/project-bids.html?id=${encodeURIComponent(currentProject.id)}">Go to Bids</a>
             <p class="pav-locked-note">Utility Accounts is open any time.</p>`;
         if (window.HelpBuddies) window.HelpBuddies.refresh();

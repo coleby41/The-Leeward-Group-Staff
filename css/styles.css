@@ -21454,3 +21454,4 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .pav-locked-btn { min-height: 44px; align-items: center; justify-content: center; }
 .pav-locked { max-width: 720px; }
 .pav-locked .bd-setup-theo { margin: 0 0 18px; }
+.pav-locked .bd-setup-say { margin: 0; color: var(--text); }
