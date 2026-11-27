@@ -17,6 +17,9 @@
                Award picks -> one confirm -> bid-invites "award_split".
                Old packages without cost codes: one total per vendor,
                awarded with the original "award" action.
+     Sheet     Invite Sheet (?sheet=1): every cost code with the vendors tagged
+               for it; check who to invite and Send (one package per code).
+               Codes a job doesn't need can be hidden for that project.
      Export    Export for QuickBooks (Desktop): IIF (vendors + the job) and
                Excel (budgets, awarded contract amounts) until the
                QuickBooks Web Connector bridge exists.
@@ -58,6 +61,8 @@
     let openPkgId = null;            // package view
     let picks = new Map();           // "areaId|code" -> invite id (package view, unsaved)
     let coiTemplate = null;
+    let hiddenCodes = new Set();     // cost codes hidden on this project (Invite Sheet)
+    let sheetReady = true;           // false until sql/supabase-bid-invite-sheet-setup.sql is run
     let paperwork = null;
     const busy = new Set();
 
@@ -234,6 +239,9 @@
             return;
         }
         coiTemplate = window.CoiTemplate ? await window.CoiTemplate.load(project.id) : null;
+        const hid = await client().from("bid_project_hidden_codes").select("cost_code").eq("project_id", project.id);
+        sheetReady = !hid.error;
+        hiddenCodes = new Set((hid.data || []).map(r => r.cost_code));
         $("bdLoading").style.display = "none";
         render();
     }
@@ -297,14 +305,18 @@
         const params = new URLSearchParams(window.location.search);
         openPkgId = params.get("package");
         const pkg = openPkgId ? packages.find(p => p.id === openPkgId && p.status !== "draft") : null;
-        $("bdListView").classList.toggle("hidden", !!pkg);
+        const sheet = !pkg && params.get("sheet") === "1" && canSend;
+        $("bdListView").classList.toggle("hidden", !!pkg || sheet);
         $("bdPackageView").classList.toggle("hidden", !pkg);
+        $("bdSheetView").classList.toggle("hidden", !sheet);
         if (pkg) renderPackage(pkg);
+        else if (sheet) renderSheet();
         else renderList();
     }
 
     function renderList() {
         $("bdNewBtn").classList.toggle("hidden", !canSend);
+        $("bdSheetBtn").classList.toggle("hidden", !canSend);
         const shown = shownAreas();
         $("bdBuildings").innerHTML = areas.length
             ? `Buildings: ${shown.map(a => esc(areaFacts(a))).join(" · ")}${canManage ? ` · <button type="button" class="bl-link-btn" data-act="setup">Edit</button>` : ""}`
@@ -364,9 +376,10 @@
 
     /* ---------- render: one package ---------- */
 
-    function go(pkgId) {
+    function go(pkgId, opts) {
         const params = new URLSearchParams(window.location.search);
         if (pkgId) params.set("package", pkgId); else params.delete("package");
+        if (opts && opts.sheet) params.set("sheet", "1"); else params.delete("sheet");
         history.pushState(null, "", `${window.location.pathname}?${params.toString()}`);
         picks = new Map();
         render();
@@ -992,7 +1005,7 @@
         const q = $("bdNewCodeSearch").value.trim().toLowerCase();
         const list = $("bdNewCodeList");
         if (!q) { list.innerHTML = ""; list.classList.add("hidden"); return; }
-        const hits = codes.filter(c => !np.codes.has(c.code) && `${c.code} ${c.description} ${c.division_name}`.toLowerCase().includes(q)).slice(0, 12);
+        const hits = codes.filter(c => !np.codes.has(c.code) && !hiddenCodes.has(c.code) && `${c.code} ${c.description} ${c.division_name}`.toLowerCase().includes(q)).slice(0, 12);
         list.classList.remove("hidden");
         list.innerHTML = hits.length
             ? hits.map(c => `<button type="button" class="bd-code-hit" data-np-add="${esc(c.code)}"><span class="bl-code">${esc(c.code)}</span>${esc(c.description)}<span class="bl-soft bl-small">${esc(c.division_name)}</span></button>`).join("")
@@ -1204,6 +1217,250 @@
         await sendNew();
     }
 
+    /* ---------- Invite Sheet (2026-11-27) ----------
+       One row per cost code (the numbered Trade tags), with the approved
+       vendors tagged for it. Check who to invite, set the due date once,
+       Send: every code with checked vendors becomes its own bid package
+       (one package per code), or the new vendors are added to that code's
+       open package. Codes this job doesn't need can be hidden here
+       (bid_project_hidden_codes). Checked boxes are kept in this browser
+       until they're sent, so the sheet can be filled in over time. */
+
+    const SHEET_KEY = () => `bidInviteSheet:${project.id}`;
+    let sheet = null; // { sel: Map(code -> Set(companyId)), extra: Map(code -> Set(companyId)), showHidden }
+
+    function sheetLoad() {
+        if (sheet && sheet.projectId === project.id) return sheet;
+        let saved = null;
+        try { saved = JSON.parse(localStorage.getItem(SHEET_KEY()) || "null"); } catch (e) { saved = null; }
+        const toMap = o => new Map(Object.entries(o || {}).map(([k, v]) => [k, new Set((v || []).map(String))]));
+        sheet = { projectId: project.id, sel: toMap(saved && saved.sel), extra: toMap(saved && saved.extra), showHidden: false, sending: false };
+        return sheet;
+    }
+    function sheetSave() {
+        const toObj = m => Object.fromEntries(Array.from(m.entries()).filter(([, v]) => v.size).map(([k, v]) => [k, Array.from(v)]));
+        try { localStorage.setItem(SHEET_KEY(), JSON.stringify({ sel: toObj(sheet.sel), extra: toObj(sheet.extra) })); } catch (e) { /* best effort */ }
+    }
+
+    const tagCodeOf = name => { const m = String(name || "").trim().match(/^"?(\d{3,6})\b/); return m ? m[1] : null; };
+
+    // The open (or awarded) one-code package for a cost code, if there is one.
+    function packageForCode(code) {
+        return packages.find(p => p.status !== "closed" && Array.isArray(p.cost_codes) && p.cost_codes.length === 1 && p.cost_codes[0] === code) || null;
+    }
+
+    async function renderSheet() {
+        const st = sheetLoad();
+        $("bdSheetKicker").textContent = `${project.name || "Project"} · Bids`;
+        $("bdSheetSetupNote").classList.toggle("hidden", sheetReady);
+        if (!$("bdSheetDueDate").value) {
+            const d = new Date(); d.setDate(d.getDate() + 14);
+            $("bdSheetDueDate").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        }
+        if (!$("bdSheetContactEmail").value) {
+            let saved = null;
+            try { saved = JSON.parse(localStorage.getItem(CONTACT_STORAGE_KEY) || "null"); } catch (e) { saved = null; }
+            const me = profile() || {};
+            $("bdSheetContactName").value = (saved && saved.name) || staffName();
+            $("bdSheetContactEmail").value = (saved && saved.email) || me.email || "";
+        }
+        $("bdSheetTable").innerHTML = `<p class="bl-soft" style="padding:18px">Loading vendors…</p>`;
+        const v = await loadVendorData();
+        // division filter options (once)
+        if ($("bdSheetDivision").options.length <= 1) {
+            const divs = [];
+            codes.forEach(c => { if (!divs.some(d => d[0] === c.division_code)) divs.push([c.division_code, c.division_name]); });
+            $("bdSheetDivision").innerHTML = `<option value="">All divisions</option>` + divs.map(([dc, dn]) => `<option value="${esc(dc)}">${esc(dc)} · ${esc(dn)}</option>`).join("");
+        }
+        const q = $("bdSheetSearch").value.trim().toLowerCase();
+        const div = $("bdSheetDivision").value;
+        const onlyPicked = $("bdSheetOnlyPicked").checked;
+
+        // company id -> Set(codes it's tagged with)
+        const tagCodes = new Map(v.tags.map(t => [String(t.id), tagCodeOf(t.name)]).filter(([, c]) => c));
+        const vendorsByCode = new Map();
+        v.companyTags.forEach(ct => {
+            const code = tagCodes.get(String(ct.tag_id));
+            if (!code) return;
+            if (!vendorsByCode.has(code)) vendorsByCode.set(code, new Set());
+            vendorsByCode.get(code).add(String(ct.company_id));
+        });
+        const coById = new Map(v.companies.map(c => [String(c.id), c]));
+        const approvedWithEmail = v.companies.filter(co => !missingRequirements(v, co).length && emailContacts(v, co.id).length);
+
+        let rows = codes.slice().sort((a, b) => codeSort(a.code, b.code));
+        const hiddenCount = rows.filter(c => hiddenCodes.has(c.code)).length;
+        $("bdSheetShowHidden").textContent = st.showHidden ? "Hide hidden codes" : `Show hidden codes${hiddenCount ? ` (${hiddenCount})` : ""}`;
+        $("bdSheetShowHidden").classList.toggle("hidden", !hiddenCount && !st.showHidden);
+        rows = rows.filter(c => st.showHidden || !hiddenCodes.has(c.code));
+        if (div) rows = rows.filter(c => c.division_code === div);
+        if (q) rows = rows.filter(c => `${c.code} ${c.description} ${c.division_name}`.toLowerCase().includes(q)
+            || Array.from(vendorsByCode.get(c.code) || []).some(id => String(coById.get(id)?.Name || "").toLowerCase().includes(q)));
+        if (onlyPicked) rows = rows.filter(c => (st.sel.get(c.code) || new Set()).size);
+
+        let lastDiv = null;
+        const html = rows.map(c => {
+            const head = c.division_code !== lastDiv ? `<div class="bd-sheet-div">${esc(c.division_code)} · ${esc(c.division_name)}</div>` : "";
+            lastDiv = c.division_code;
+            const hidden = hiddenCodes.has(c.code);
+            const pkg = packageForCode(c.code);
+            const invited = new Map((pkg ? pkgInvites(pkg) : []).map(i => [String(i.company_id), i]));
+            const sel = st.sel.get(c.code) || new Set();
+            const ids = new Set([...(vendorsByCode.get(c.code) || []), ...(st.extra.get(c.code) || []), ...invited.keys()]);
+            const chips = Array.from(ids).map(id => coById.get(id)).filter(Boolean)
+                .sort((a, b) => String(a.Name).localeCompare(String(b.Name)))
+                .map(co => {
+                    const id = String(co.id);
+                    const inv = invited.get(id);
+                    if (inv) return `<span class="bd-sheet-chip is-sent" title="${esc(STATUS[inv.status] || inv.status)}"><span class="bl-check" aria-hidden="true"></span>${esc(co.Name)}<em>${esc(STATUS[inv.status] || inv.status)}</em></span>`;
+                    const miss = missingRequirements(v, co);
+                    const noEmail = !emailContacts(v, co.id).length;
+                    if (miss.length || noEmail) return `<span class="bd-sheet-chip is-blocked" title="${esc(noEmail ? "No contact with an email" : `Not approved: ${miss.join(", ")}`)}">${esc(co.Name)}<em>${noEmail ? "No email" : "Not approved"}</em></span>`;
+                    const extra = (st.extra.get(c.code) || new Set()).has(id);
+                    return `<label class="bd-sheet-chip ${sel.has(id) ? "is-on" : ""}"><input type="checkbox" data-sheet-pick="${esc(c.code)}" value="${esc(id)}" ${sel.has(id) ? "checked" : ""} ${hidden || st.sending ? "disabled" : ""}>${esc(co.Name)}${extra ? `<button type="button" class="bd-sheet-x" data-sheet-unextra="${esc(c.code)}" data-id="${esc(id)}" aria-label="Remove ${esc(co.Name)}">✕</button>` : ""}</label>`;
+                }).join("");
+            const addable = approvedWithEmail.filter(co => !ids.has(String(co.id)));
+            const add = hidden || st.sending ? "" : `<select class="bd-sheet-add" data-sheet-add="${esc(c.code)}" aria-label="Add a vendor to ${esc(c.code)}"><option value="">+ Add vendor</option>${addable.map(co => `<option value="${esc(co.id)}">${esc(co.Name)}</option>`).join("")}</select>`;
+            let status = `<span class="bl-soft">—</span>`;
+            if (pkg) {
+                const t = packageTotals(pkg);
+                status = pkg.status === "draft" ? `<span class="bd-chip bd-chip--warn">Draft</span>`
+                    : `<button type="button" class="bl-link-btn" data-sheet-open="${esc(pkg.id)}">${pkg.status === "awarded" ? "Awarded" : `Sent · ${t.bids} of ${t.invited} bids`}</button>`;
+            }
+            const hideBtn = `<button type="button" class="bl-link-btn bd-sheet-hide" data-sheet-hide="${esc(c.code)}">${hidden ? "Show" : "Hide"}</button>`;
+            return `${head}<div class="bd-sheet-row ${hidden ? "is-hidden" : ""}">
+                <div class="bd-sheet-code"><span class="bl-code">${esc(c.code)}</span><span>${esc(c.description)}</span>${hidden ? `<em>Hidden on this project</em>` : ""}</div>
+                <div class="bd-sheet-vendors">${chips || (hidden ? "" : `<span class="bl-soft bl-small">No vendors tagged with this code.</span>`)}${add}</div>
+                <div class="bd-sheet-status">${status}</div>
+                <div class="bd-sheet-act">${hideBtn}</div>
+            </div>`;
+        }).join("");
+        $("bdSheetTable").innerHTML = `<div class="bd-sheet-row bd-row--head"><div>Cost code</div><div>Vendors to invite</div><div>Status</div><div></div></div>`
+            + (html || `<div class="bl-empty"><p>No cost codes match.</p></div>`);
+        sheetCounts();
+    }
+
+    function sheetCounts() {
+        const st = sheet;
+        let codesN = 0, invitesN = 0;
+        st.sel.forEach((set, code) => { if (set.size && !hiddenCodes.has(code)) { codesN += 1; invitesN += set.size; } });
+        $("bdSheetCount").textContent = invitesN
+            ? `${invitesN} invite${invitesN === 1 ? "" : "s"} · ${codesN} cost code${codesN === 1 ? "" : "s"}`
+            : "Check vendors to invite";
+        $("bdSheetSendBtn").disabled = !invitesN || st.sending;
+        $("bdSheetSendBtn").textContent = st.sending ? "Sending…" : `Send ${invitesN || ""} invite${invitesN === 1 ? "" : "s"}`.replace("  ", " ");
+        $("bdSheetClearBtn").classList.toggle("hidden", !invitesN || st.sending);
+    }
+
+    async function sheetToggleHidden(code) {
+        if (!sheetReady) { toast("Run sql/supabase-bid-invite-sheet-setup.sql in Supabase first.", "error"); return; }
+        const hide = !hiddenCodes.has(code);
+        const res = hide
+            ? await client().from("bid_project_hidden_codes").insert({ project_id: project.id, cost_code: code, hidden_by_name: staffName() })
+            : await client().from("bid_project_hidden_codes").delete().eq("project_id", project.id).eq("cost_code", code);
+        if (res.error) { toast(`Couldn't ${hide ? "hide" : "show"} ${code}: ${res.error.message}`, "error"); return; }
+        if (hide) { hiddenCodes.add(code); sheet.sel.delete(code); sheetSave(); } else hiddenCodes.delete(code);
+        toast(hide ? `${code} hidden on this project` : `${code} is back on this project`);
+        renderSheet();
+    }
+
+    async function sheetSend() {
+        const st = sheet;
+        const v = await loadVendorData();
+        const due = (() => { const d = $("bdSheetDueDate").value, t = $("bdSheetDueTime").value || "14:00"; if (!d) return null; const x = new Date(`${d}T${t}`); return Number.isNaN(x.getTime()) ? null : x.toISOString(); })();
+        const msg = (text, type) => formMsg("bdSheetMessage", text, type);
+        if (!due) { msg("Set when bids are due.", "error"); return; }
+        if (new Date(due) <= new Date()) { msg("The due date has to be in the future.", "error"); return; }
+        const cName = $("bdSheetContactName").value.trim(), cEmail = $("bdSheetContactEmail").value.trim();
+        if (!cName || !isEmail(cEmail)) { msg("Add your name and email (vendors' questions go there).", "error"); return; }
+        if (!shownAreas().length) { msg(""); openSetup(() => go(null, { sheet: true })); return; }
+        const jobs = Array.from(st.sel.entries()).filter(([code, set]) => set.size && !hiddenCodes.has(code));
+        const total = jobs.reduce((n, [, set]) => n + set.size, 0);
+        if (!total) return;
+        if (!confirm(`Send ${total} invite${total === 1 ? "" : "s"} for ${jobs.length} cost code${jobs.length === 1 ? "" : "s"}? Each vendor gets an email right away.`)) return;
+        try { localStorage.setItem(CONTACT_STORAGE_KEY, JSON.stringify({ name: cName, email: cEmail, phone: "" })); } catch (e) { /* fine */ }
+        st.sending = true; sheetCounts(); renderSheet();
+        const areaIds = shownAreas().map(a => a.id);
+        const location = [project.site_address, [project.site_city, project.site_state].filter(Boolean).join(", "), project.site_zip].filter(Boolean).join(" ") || null;
+        let sent = 0; const failed = [];
+        for (const [i, [code, set]] of jobs.entries()) {
+            msg(`Sending ${i + 1} of ${jobs.length}: ${code} ${codeLabel(code)}…`);
+            try {
+                let pkg = packageForCode(code);
+                if (pkg && pkg.status !== "open") pkg = null;
+                if (!pkg) {
+                    const { data, error } = await client().from("bid_packages").insert({
+                        project_id: project.id, name: `${code} ${codeLabel(code)}`, location, due_at: due,
+                        contact_name: cName, contact_email: cEmail, remind_no_response: true, remind_before_due: true,
+                        cost_codes: [code], area_ids: areaIds, status: "open", created_by_name: staffName(),
+                    }).select("*").single();
+                    if (error) throw error;
+                    pkg = data; packages.unshift(pkg);
+                }
+                const already = new Set(pkgInvites(pkg).map(x => String(x.company_id)));
+                const rows = Array.from(set).filter(id => !already.has(id)).map(id => {
+                    const co = v.companies.find(c => String(c.id) === id);
+                    const contact = co ? emailContacts(v, co.id)[0] : null;
+                    return co && contact ? { package_id: pkg.id, company_id: co.id, company_name: String(co.Name || "").trim() || "Vendor", contact_name: contact.Name || null, contact_email: String(contact.Email).trim() } : null;
+                }).filter(Boolean);
+                if (rows.length) {
+                    const { data: ins, error } = await client().from("bid_invites").insert(rows).select("id");
+                    if (error) throw error;
+                    const { data, error: sendErr } = await callBidFunction({ action: "send", package_id: pkg.id, invite_ids: (ins || []).map(r => r.id) });
+                    if (sendErr) throw new Error(sendErr);
+                    sent += (data && data.sent) || rows.length;
+                    if (data && data.failed && data.failed.length) data.failed.forEach(f => failed.push(`${f.company_name} (${code})`));
+                }
+                st.sel.delete(code); st.extra.delete(code); sheetSave();
+            } catch (err) {
+                failed.push(`${code}: ${err && err.message ? err.message : err}`);
+            }
+        }
+        st.sending = false;
+        msg(failed.length ? `Didn't send: ${failed.join("; ")}` : "", failed.length ? "error" : "");
+        toast(failed.length ? `Sent ${sent}; ${failed.length} didn't go out.` : `Sent ${sent} invite${sent === 1 ? "" : "s"}`, failed.length ? "error" : "success");
+        await load();
+    }
+
+    function wireSheet() {
+        $("bdSheetBtn").addEventListener("click", () => go(null, { sheet: true }));
+        $("bdSheetBackBtn").addEventListener("click", e => { e.preventDefault(); go(null); });
+        ["bdSheetSearch", "bdSheetDivision", "bdSheetOnlyPicked"].forEach(id => $(id).addEventListener(id === "bdSheetSearch" ? "input" : "change", () => renderSheet()));
+        $("bdSheetShowHidden").addEventListener("click", () => { sheet.showHidden = !sheet.showHidden; renderSheet(); });
+        $("bdSheetSendBtn").addEventListener("click", sheetSend);
+        $("bdSheetClearBtn").addEventListener("click", () => { if (!confirm("Uncheck every vendor on the sheet?")) return; sheet.sel.clear(); sheetSave(); renderSheet(); });
+        $("bdSheetTable").addEventListener("change", e => {
+            const t = e.target;
+            if (t.dataset.sheetPick) {
+                const code = t.dataset.sheetPick;
+                if (!sheet.sel.has(code)) sheet.sel.set(code, new Set());
+                if (t.checked) sheet.sel.get(code).add(t.value); else sheet.sel.get(code).delete(t.value);
+                t.closest(".bd-sheet-chip").classList.toggle("is-on", t.checked);
+                sheetSave(); sheetCounts();
+            }
+            if (t.dataset.sheetAdd && t.value) {
+                const code = t.dataset.sheetAdd;
+                if (!sheet.extra.has(code)) sheet.extra.set(code, new Set());
+                if (!sheet.sel.has(code)) sheet.sel.set(code, new Set());
+                sheet.extra.get(code).add(t.value); sheet.sel.get(code).add(t.value);
+                sheetSave(); renderSheet();
+            }
+        });
+        $("bdSheetTable").addEventListener("click", e => {
+            const hide = e.target.closest("[data-sheet-hide]");
+            if (hide) { sheetToggleHidden(hide.dataset.sheetHide); return; }
+            const open = e.target.closest("[data-sheet-open]");
+            if (open) { go(open.dataset.sheetOpen); return; }
+            const x = e.target.closest("[data-sheet-unextra]");
+            if (x) {
+                e.preventDefault();
+                const code = x.dataset.sheetUnextra, id = x.dataset.id;
+                sheet.extra.get(code)?.delete(id); sheet.sel.get(code)?.delete(id);
+                sheetSave(); renderSheet();
+            }
+        });
+    }
+
     /* ---------- Export for QuickBooks (Desktop) ---------- */
 
     let xlsxPromise = null;
@@ -1360,6 +1617,7 @@
             if (first) first.click();
         });
         $("bdExportBtn").addEventListener("click", exportQuickBooks);
+        wireSheet();
         document.addEventListener("keydown", e => {
             if (e.key !== "Escape") return;
             ["bdAwardOverlay", "bdBidOverlay", "bdSetupOverlay", "bdNewOverlay"].some(id => {

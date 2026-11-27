@@ -182,6 +182,7 @@
             <div class="hm-actions">
                 <a href="/pages/bids-help.html" data-help="" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
                 <button type="button" class="hm-btn hm-glass" id="bdExportBtn">Export for QuickBooks</button>
+                <button type="button" class="hm-btn hm-glass hidden" id="bdSheetBtn">Invite Sheet</button>
                 <button type="button" class="hm-btn hm-btn--primary hidden" id="bdNewBtn">+ New bid package</button>
             </div>
         </div>
@@ -194,6 +195,46 @@
         <p class="bl-footnote"><strong>Export for QuickBooks</strong> downloads an IIF file (vendors and this job, for QuickBooks Desktop › File › Utilities › Import › IIF Files) and an Excel file (budgets and contract amounts) until the QuickBooks Desktop connection is set up.</p>
         <div class="card bid-package-card" id="bdCoiTemplate" style="display:none"></div>
         <div class="card bid-package-card" id="bdPaperwork" style="display:none"></div>
+    </div>
+
+    <!-- ===== Invite Sheet: every cost code, check vendors, send ===== -->
+    <div id="bdSheetView" class="hidden">
+        <a href="#" class="bd-back" id="bdSheetBackBtn">‹ All bid packages</a>
+        <div class="hm-head">
+            <div>
+                <p class="hm-date" id="bdSheetKicker">Bids</p>
+                <h1 class="hm-greeting">Invite Sheet</h1>
+            </div>
+            <div class="hm-actions">
+                <a href="/pages/bids-help.html#sheet" data-help="sheet" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
+            </div>
+        </div>
+        <p class="bl-facts">Every cost code, with the vendors tagged for it on the Vendors page. Check who should bid, set the due date, and Send. Each cost code goes out as its own bid package. Hide codes this job doesn't need.</p>
+        <p class="workbook-page-message error hidden" id="bdSheetSetupNote">Hiding cost codes needs sql/supabase-bid-invite-sheet-setup.sql (run it in Supabase › SQL Editor). Everything else works.</p>
+        <div class="bd-sheet-tools">
+            <label class="bl-search"><span class="bl-search-icon" aria-hidden="true"></span><input type="search" id="bdSheetSearch" placeholder="Search codes or vendors" aria-label="Search codes or vendors"></label>
+            <select id="bdSheetDivision" aria-label="Division"><option value="">All divisions</option></select>
+            <label class="form-toggle-row bd-sheet-only"><input type="checkbox" id="bdSheetOnlyPicked"><span>Only checked rows</span></label>
+            <button type="button" class="bl-link-btn hidden" id="bdSheetShowHidden">Show hidden codes</button>
+        </div>
+        <div class="bl-table bd-sheet" id="bdSheetTable"></div>
+        <section class="hm-glass bl-strip bd-sheet-bar" aria-label="Send invites">
+            <span class="hm-sheen" aria-hidden="true"></span>
+            <div class="bd-sheet-bar-inner">
+                <div class="bd-sheet-bar-fields">
+                    <label>Bids due <input type="date" id="bdSheetDueDate"></label>
+                    <label>Time <input type="time" id="bdSheetDueTime" value="14:00"></label>
+                    <label>Your name <input type="text" id="bdSheetContactName" maxlength="120"></label>
+                    <label>Your email <input type="email" id="bdSheetContactEmail" maxlength="200"></label>
+                </div>
+                <div class="bd-sheet-bar-send">
+                    <strong id="bdSheetCount">Check vendors to invite</strong>
+                    <button type="button" class="bl-link-btn hidden" id="bdSheetClearBtn">Uncheck all</button>
+                    <button type="button" class="hm-btn hm-btn--primary" id="bdSheetSendBtn" disabled>Send invites</button>
+                </div>
+            </div>
+            <p class="auth-message" id="bdSheetMessage" role="status"></p>
+        </section>
     </div>
 
     <!-- ===== One package: compare + pick winners ===== -->

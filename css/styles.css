@@ -21337,3 +21337,47 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .hc-body .hc-shot--narrow img { max-width: min(100%, 560px); }
 .hc-soon-copy a { color: var(--accent); font-weight: 600; }
 .hc-body .hc-shot--phone img { max-width: min(100%, 330px); }
+
+/* ============================================================
+   BIDS › INVITE SHEET (project-bids.html?sheet=1) — 2026-11-27
+============================================================ */
+.bd-sheet-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 14px 0 12px; }
+.bd-sheet-tools .bl-search { flex: 1 1 260px; max-width: 420px; }
+.bd-sheet-tools select { min-height: 40px; padding: 0 10px; border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 0.88rem; background: var(--surface); }
+.bd-sheet-only { margin: 0; }
+.bd-sheet { overflow: visible; margin-bottom: 150px; }
+.bd-sheet-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(0, 2.6fr) 170px 70px; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid #f0f2f5; }
+.bd-sheet-row.bd-row--head { padding-top: 10px; padding-bottom: 10px; font-size: 0.78rem; font-weight: 600; color: var(--text-soft); background: var(--surface-alt); }
+.bd-sheet-row.is-hidden { opacity: 0.55; background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(11, 34, 54, 0.025) 8px 16px); }
+.bd-sheet-div { padding: 14px 18px 6px; font-size: 0.8rem; font-weight: 800; color: var(--accent-strong); background: #f7f9fc; border-bottom: 1px solid #eef1f4; }
+.bd-sheet-code { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bd-sheet-code span:last-of-type { font-weight: 600; }
+.bd-sheet-code em { font-style: normal; font-size: 0.75rem; font-weight: 700; color: #8a5418; }
+.bd-sheet-vendors { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.bd-sheet-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 0.82rem; font-weight: 600; cursor: pointer; user-select: none; }
+.bd-sheet-chip input { width: 15px; height: 15px; margin: 0; accent-color: var(--accent-strong); }
+.bd-sheet-chip.is-on { border-color: var(--accent-strong); background: #eaf2fa; color: var(--accent-strong); }
+.bd-sheet-chip em { font-style: normal; font-size: 0.72rem; font-weight: 700; }
+.bd-sheet-chip.is-sent { cursor: default; background: #e9f5ec; border-color: #bfe0c8; color: #24613a; }
+.bd-sheet-chip.is-sent .bl-check { width: 12px; height: 12px; }
+.bd-sheet-chip.is-blocked { cursor: not-allowed; color: #8794a1; background: #f4f6f8; border-style: dashed; }
+.bd-sheet-x { border: none; background: none; padding: 0 0 0 2px; cursor: pointer; color: inherit; font-size: 0.7rem; }
+.bd-sheet-add { min-height: 32px; max-width: 170px; padding: 0 8px; border: 1px dashed #b9c6d3; border-radius: 999px; font: inherit; font-size: 0.8rem; color: var(--accent-strong); background: transparent; cursor: pointer; }
+.bd-sheet-status { font-size: 0.82rem; }
+.bd-sheet-act { text-align: right; }
+.bd-sheet-hide { font-size: 0.82rem; }
+.bd-sheet-bar { position: sticky; bottom: 14px; z-index: 5; padding: 0; margin-top: 0; }
+.bd-sheet-bar-inner { position: relative; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; padding: 14px 20px 6px; }
+.bd-sheet-bar-fields { display: flex; flex-wrap: wrap; gap: 10px; }
+.bd-sheet-bar-fields label { display: flex; flex-direction: column; gap: 3px; font-size: 0.74rem; font-weight: 700; color: #3d4b59; }
+.bd-sheet-bar-fields input { min-height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; font: inherit; font-size: 0.85rem; background: #fff; }
+.bd-sheet-bar-fields input[type="text"], .bd-sheet-bar-fields input[type="email"] { width: 170px; }
+.bd-sheet-bar-send { display: flex; align-items: center; gap: 14px; }
+.bd-sheet-bar .auth-message { position: relative; margin: 0; padding: 0 20px 10px; }
+.bd-sheet-bar .auth-message:empty { display: none; }
+@media (max-width: 900px) {
+  .bd-sheet-row { grid-template-columns: 1fr auto; }
+  .bd-sheet-row.bd-row--head { display: none; }
+  .bd-sheet-vendors { grid-column: 1 / -1; }
+  .bd-sheet-bar { bottom: 80px; }
+}
