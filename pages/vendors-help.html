@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Vendors guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers vendors.html and vendor.html.
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Vendors</p>
+            <h1 class="hm-greeting">Vendors</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/vendors.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Vendors</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro"><strong>Vendor Information</strong> is the company-wide list of every subcontractor and supplier. Keep each vendor's details, W-9, COI and contacts here once, and every project uses them.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="wave"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#list" class="bg-c1"><b>1</b>Find a vendor</a>
+        <a href="#approved" class="bg-c2"><b>2</b>Approved</a>
+        <a href="#add" class="bg-c3"><b>3</b>Add or edit</a>
+        <a href="#page" class="bg-c4"><b>4</b>Vendor page</a>
+        <a href="#portal" class="bg-c5"><b>5</b>Vendor Portal</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="list" class="bg-section bg-c1">
+        <h2><b>1</b>Find a vendor</h2>
+        <p>Open <strong>Vendor Information</strong> in the sidebar. Each card shows the address, trade tags, and whether the vendor is approved, with their tax ID, W-9 and COI status.</p><figure class="hc-shot"><img src="/assets/help/vendors/grid.webp" alt="Vendors page with vendor cards showing approval, W-9 and COI status" loading="lazy"><figcaption>The Vendors page. Switch between cards and a list with the buttons next to More Actions.</figcaption></figure><ul><li>Search by name with <strong>Search Vendors</strong>.</li><li>Click <strong>View Vendor</strong> to open their page.</li><li>The pencil button edits the vendor.</li></ul>
+    </section>
+    <section id="approved" class="bg-section bg-c2">
+        <h2><b>2</b>What “Approved” means</h2>
+        <p>A vendor is <strong>Approved</strong> once their record has everything we need. If anything is missing, the card says <strong>Not Approved</strong> and the vendor's page lists what's left.</p><ul><li>Legal name and full address.</li><li>SSN / FID and a W-9 (unless they're W-9 exempt).</li><li>A COI expiration date that hasn't passed (unless they're COI exempt).</li><li>At least one tag from every tag category, like a trade and an area.</li></ul><div class="bg-callout bg-callout--caution"><strong>Only approved vendors can be invited to bid</strong><p>If you need someone on a bid package, finish their record first.</p></div><div class="bg-callout bg-callout--tip"><strong>COIs expire</strong><p>Cards turn to <strong>Expiring soon</strong> before the date and <strong>Expired</strong> after. You can choose who gets reminder emails under <strong>More Actions › COI Notifications</strong>.</p></div>
+    </section>
+    <section id="add" class="bg-section bg-c3">
+        <h2><b>3</b>Add or edit a vendor</h2>
+        <p>Click <strong>More Actions › + Add Vendor</strong>, or the pencil on a card to edit one. Fill in the legal name, a friendly name, the address, the SSN / FID, tags, and upload the W-9. Set the COI expiration date here; the COI PDF itself is filed per project on the vendor's page.</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/vendors/edit.webp" alt="Add Vendor popup with details, tax information and tags" loading="lazy"><figcaption>Adding a vendor.</figcaption></figure><ul><li><strong>Exempt from COI</strong>, <strong>W-9</strong> or <strong>contract</strong> requirements are at the bottom, for vendors who truly don't need them.</li><li><strong>Manage Tags</strong> (under More Actions) adds or renames the tags vendors can be given.</li></ul><div class="bg-callout bg-callout--warning"><strong>Deleting a vendor removes their W-9 too</strong><p>Delete Vendor is at the bottom of the edit popup. It can't be undone.</p></div>
+    </section>
+    <section id="page" class="bg-section bg-c4">
+        <h2><b>4</b>A vendor's page</h2>
+        <p>Click <strong>View Vendor</strong> to open everything about one company.</p><figure class="hc-shot"><img src="/assets/help/vendors/vendor.webp" alt="Vendor page with company details, tax information, notes, projects and contacts" loading="lazy"><figcaption>A vendor's page: details, tax info, notes, projects and contacts.</figcaption></figure><ul><li><strong>Projects</strong> lists every job they're on, with this job's COI. Upload a project's COI here, or use <strong>Manage Projects</strong> to add them to a job.</li><li><strong>Notes</strong> are shared with everyone who can see the vendor.</li><li><strong>Contacts</strong>: add, edit or remove people. A contact with a Vendor Portal login shows <strong>Vendor Dashboard User</strong>.</li><li><strong>Save all to Phone Contacts</strong> downloads the contacts to your phone.</li></ul>
+    </section>
+    <section id="portal" class="bg-section bg-c5">
+        <h2><b>5</b>The Vendor Portal and applications</h2>
+        <p>Vendors have their own portal where they answer bid invites, upload COIs and W-9s, and sign contracts. New companies can apply there. Their requests show up under <strong>More Actions › Vendor Applications</strong>.</p><ul><li>Check the W-9, then <strong>Approve &amp; Send Sign-in Link</strong>. The company is added to Vendors and gets an email to sign in.</li><li>Or <strong>Reject</strong> it, with an optional reason that's included in the email.</li></ul><div class="bg-callout bg-callout--tip"><strong>See what they see</strong><p><strong>More Actions › Vendor Portal Preview</strong> shows the portal the way a vendor sees it.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Why is a vendor Not Approved when everything looks done?</strong><span>Open their page. Under Approval it lists exactly what's missing, often a tag from one of the categories.</span></div><div class="bl-guide-faq"><strong>Is the COI per project or per vendor?</strong><span>Both. The expiration date lives on the vendor record and keeps them approved; the COI PDF is filed for each project.</span></div><div class="bl-guide-faq"><strong>Can I get a list of vendors by trade?</strong><span>Yes. <strong>More Actions › Generate A Report</strong> makes a report by trade or by approval status.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (false) {}
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

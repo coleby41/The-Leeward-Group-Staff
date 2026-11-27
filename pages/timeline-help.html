@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Timeline guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers project-timeline.html (Gantt).
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Timeline</p>
+            <h1 class="hm-greeting">The project timeline</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/project-timeline.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Timeline</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro">The <strong>Project Timeline</strong> is the job's schedule: phases, tasks and milestones on a chart you can drag. The Overview's numbers and the project cards all come from it.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="cone"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#read" class="bg-c1"><b>1</b>Read it</a>
+        <a href="#add" class="bg-c2"><b>2</b>Add work</a>
+        <a href="#change" class="bg-c3"><b>3</b>Change dates</a>
+        <a href="#plan" class="bg-c4"><b>4</b>Lock the plan</a>
+        <a href="#delete" class="bg-c5"><b>5</b>Delete</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="read" class="bg-section bg-c1">
+        <h2><b>1</b>Read the timeline</h2>
+        <p>Open a project and click <strong>Project Timeline</strong>. The list on the left shows each phase with its tasks and milestones; the chart on the right shows when they happen.</p><figure class="hc-shot"><img src="/assets/help/timeline/gantt.webp" alt="Gantt chart with phases, tasks, milestones and status" loading="lazy"><figcaption>The timeline, grouped by phase.</figcaption></figure><ul><li>Switch the chart between <strong>Day</strong>, <strong>Week</strong>, <strong>Month</strong>, <strong>Quarter</strong> and <strong>Year</strong>. <strong>Today</strong> scrolls to today.</li><li>The tabs across the top (<strong>Pre-Construction</strong>, <strong>Buy Out</strong>, <strong>Construction</strong>, <strong>Close-Out</strong>) show one kind of phase.</li><li><strong>Filters</strong> narrows it by status, priority, person, contractor, dates, or critical tasks only.</li><li>A red <strong>⛔</strong> marks a critical task. Diamonds are milestones.</li></ul><div class="bg-callout bg-callout--caution"><strong>Use a computer for this one</strong><p>The timeline is a drag-and-drop chart that needs a bigger screen. On a phone you'll see a note and a button back to the Overview.</p></div>
+    </section>
+    <section id="add" class="bg-section bg-c2">
+        <h2><b>2</b>Add phases, tasks and milestones</h2>
+        <p>Start with a <strong>+ Phase</strong>, then add <strong>+ Task</strong> and <strong>+ Milestone</strong> items to it. Every task belongs to a phase.</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/timeline/drawer.webp" alt="Task editor with dates, status, priority, progress, person and contractor" loading="lazy"><figcaption>Editing a task.</figcaption></figure><ul><li>Set the start and end dates, status, priority and how far along it is.</li><li>Assign a person and the contractor doing the work.</li><li>Check <strong>Critical task</strong> if a delay would push out the finish, or <strong>Weather delay</strong> if weather held it up.</li><li>Under <strong>Dependencies</strong>, say what has to happen first (save the task once before adding them).</li></ul>
+    </section>
+    <section id="change" class="bg-section bg-c3">
+        <h2><b>3</b>Move and update work</h2>
+        <p>Drag a bar to move it, or drag its end to make it longer or shorter. Click any item to open it and change the details. Mark tasks <strong>Complete</strong> as they finish so the Overview stays right.</p><div class="bg-callout bg-callout--tip"><strong>Status colors</strong><p><strong>At risk</strong> and <strong>Delayed</strong> stand out on the chart and feed the project's Needs attention list.</p></div>
+    </section>
+    <section id="plan" class="bg-section bg-c4">
+        <h2><b>4</b>Lock the plan</h2>
+        <p>Once the schedule is set, click <strong>Lock plan</strong>. Every task's current dates become the plan. From then on, the Overview and the project card show whether the job is ahead of or behind that plan.</p><div class="bg-callout bg-callout--caution"><strong>Locking replaces the old plan</strong><p>If you click <strong>Update plan</strong> later, today's dates become the new plan and the old comparison is gone. Only do it when the schedule has truly been reset, like after a change order.</p></div><p>The two dates at the top show the <strong>Current Scheduled Completion</strong> and the <strong>Projected Completion</strong>.</p>
+    </section>
+    <section id="delete" class="bg-section bg-c5">
+        <h2><b>5</b>Delete an item</h2>
+        <p>Open the item and click <strong>Delete</strong>. You'll need to type to confirm.</p><div class="bg-callout bg-callout--warning"><strong>This can't be undone</strong><p>Deleting a phase or task removes it from the schedule and every number that uses it.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Why does the Overview say “plan 44%”?</strong><span>That's how much of the work should be done by today, based on the locked plan. The big number is how much actually is.</span></div><div class="bl-guide-faq"><strong>What are the dependency types?</strong><span>Finish-to-Start is the usual one: B starts after A finishes. You can also tie starts or finishes together, with a lag in days.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (id) back.href = "/pages/project-timeline.html?id=" + encodeURIComponent(id);
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

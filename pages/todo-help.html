@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- To-Do guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers project-todo.html and staff-todo.html.
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › To-Do</p>
+            <h1 class="hm-greeting">To-dos and tasks</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/project-todo.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to To-do</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro">There are two kinds of to-dos. Each project has its own <strong>To-do</strong> list for the team, and your personal <strong>To-Do</strong> page pulls together everything assigned to you.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="clipboard"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#project" class="bg-c1"><b>1</b>Project to-do</a>
+        <a href="#mine" class="bg-c2"><b>2</b>My To-Do</a>
+        <a href="#delete" class="bg-c3"><b>3</b>Delete</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="project" class="bg-section bg-c1">
+        <h2><b>1</b>A project's to-do list</h2>
+        <p>Open a project and click <strong>To-do</strong>. Type in <strong>+ New task</strong> and press Enter to add a big item, like <em>Framing inspection, Bldg 2</em>.</p><figure class="hc-shot"><img src="/assets/help/todo/project.webp" alt="Project To-Do list with big items and checkboxes" loading="lazy"><figcaption>A project's to-do list.</figcaption></figure><p>Click an item's name to open its checklist on the side. Each checklist row can have its own due date and the person responsible.</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/todo/panel.webp" alt="Side panel with checklist rows, people and due dates" loading="lazy"><figcaption>An item's checklist, with who's doing what and when.</figcaption></figure><div class="bg-callout bg-callout--tip"><strong>Checking off the big item</strong><p>The big item has its own checkbox. Tick it when the whole thing is done, even if you didn't use every checklist row.</p></div>
+    </section>
+    <section id="mine" class="bg-section bg-c2">
+        <h2><b>2</b>Your To-Do page</h2>
+        <p>Your personal <strong>To-Do</strong> page (open it from your tasks on the Home page) has two parts:</p><ul><li><strong>My Task</strong>: your own tasks. Type a task, pick a due date, and press Enter.</li><li><strong>Project To-Do</strong>: every open checklist row assigned to you, on every project, grouped by project.</li></ul><figure class="hc-shot"><img src="/assets/help/todo/mine.webp" alt="Staff To-Do page with My Task and Project To-Do sections" loading="lazy"><figcaption>Your To-Do page.</figcaption></figure><p>Checking something off here checks it off on the project too.</p><div class="bg-callout bg-callout--tip"><strong>They show on your calendar</strong><p>Tasks and to-dos with a due date show on your Calendar under Tasks, and on the Home page.</p></div>
+    </section>
+    <section id="delete" class="bg-section bg-c3">
+        <h2><b>3</b>Delete an item</h2>
+        <p>Open the item and use <strong>Delete item</strong>. You'll be asked to confirm.</p><div class="bg-callout bg-callout--warning"><strong>Deleting removes the whole checklist</strong><p>Every checklist row under that item goes with it, and it can't be undone. If the work is just finished, check it off instead.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Someone assigned me something. Where do I see it?</strong><span>On your To-Do page under Project To-Do, on your Calendar, and on the Home page.</span></div><div class="bl-guide-faq"><strong>What's the difference between the timeline and the to-do list?</strong><span>The timeline is the schedule of the work itself. The to-do list is for the team's own follow-ups, like ordering windows or calling the inspector.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (id) back.href = "/pages/project-todo.html?id=" + encodeURIComponent(id);
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

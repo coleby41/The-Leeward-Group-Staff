@@ -21332,3 +21332,8 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .tl-cta a { color: var(--accent); }
 .tl-fine { color: #7a8794 !important; }
 @media (max-width: 520px) { .tl-point { border-top-color: rgba(11,34,54,0.08); } }
+
+/* Help guides: popup screenshots stay small (2026-11-27) */
+.hc-body .hc-shot--narrow img { max-width: min(100%, 560px); }
+.hc-soon-copy a { color: var(--accent); font-weight: 600; }
+.hc-body .hc-shot--phone img { max-width: min(100%, 330px); }

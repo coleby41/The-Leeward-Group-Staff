@@ -27,7 +27,7 @@
 <!-- Help center (2026-11-26): home for every how-to guide. Opened from
      "Help center" in the profile menu (notification dropdown footer).
      To add a guide: write pages/<topic>-help.html like bids-help.html,
-     then add it to GUIDES below (and drop it from SOON). -->
+     then add it to GUIDES below (SOON lists planned guides as labels). -->
 
 <main class="changelog-main bl-guide bg-guide hc hc-full">
     <div class="hm-head">
@@ -59,8 +59,8 @@
     </section>
 
     <section class="hc-soon">
-        <div class="hc-soon-head"><span class="hc-buddy hc-buddy--small" data-buddy="cone"></span><h2 class="hc-h2">On the way</h2></div>
-        <p class="hc-soon-copy">Guides for the rest of the portal are being written. Until then, ask someone in the office or send a note with Report a problem.</p>
+        <div class="hc-soon-head"><span class="hc-buddy hc-buddy--small" data-buddy="cone"></span><h2 class="hc-h2">Don't see what you need?</h2></div>
+        <p class="hc-soon-copy">More guides are on the way. Tell us what to write next with <a href="https://tally.so/r/QKyGj8" target="_blank" rel="noopener">Report a problem</a>, or ask someone in the office.</p>
         <div class="hc-soon-list" id="hcSoon"></div>
     </section>
 
@@ -84,9 +84,102 @@
                 { title: "Get it into QuickBooks", anchor: "quickbooks", text: "quickbooks desktop export iif excel import backup tax id" },
                 { title: "Questions about bids", anchor: "faq", text: "bid invites bid leveling building type remove access permission" }
             ]
+        },
+        {
+            title: "Projects", url: "/pages/projects-help.html", color: "bg-c2",
+            summary: "Find a project, start a new one, change its status and read the Overview.",
+            sections: [
+                { title: "Find a project", anchor: "list", text: "open project overview sidebar every card each shows progress contract amount much been spent finish month manager projects page tabs filter status search name active onboarding hold completed archived narrow list type find code address right tells plan behind many items overdue click" },
+                { title: "Start a new project", anchor: "new", text: "click project setup takes four short steps skip them come back later name code like site address street city state owner lender legal entity contact county contract start cover photo value date permit number step save finish keeps what typed early incident reports charges vpos" },
+                { title: "Change a project's status", anchor: "status", text: "click status card next name overview pick save moving archived takes normal list still find under change" },
+                { title: "Read the Overview", anchor: "overview", text: "opening project lands overview nothing typed hand numbers come from timeline invoices bids vendor paperwork they stay date their four schedule much work done compared plan projected finish spent against contract plus vpos open tasks still many overdue draw latest status each phase month-by-month strip" },
+                { title: "On your phone", anchor: "phone", text: "phone project tabs move bottom screen round camera button lets take site photos pick them from your library they saved marketing photography folder overview with" },
+                { title: "Archive and offload old projects", anchor: "archive", text: "when done completed later archived year after super admins banner overview with download project archive button that builds every file record ready save hard drive nothing gets deleted click saved mark offloaded stays portal either" },
+                { title: "Questions", anchor: "faq", text: "does card plan behind that compares timeline someone locked project many items overdue instead delete open with edit bottom setup have type name confirm undone archive unless made mistake" }
+            ]
+        },
+        {
+            title: "Project files", url: "/pages/files-help.html", color: "bg-c3",
+            summary: "Find, upload, preview, share and delete a project's files.",
+            sections: [
+                { title: "Find a file", anchor: "folders", text: "open project click files folders numbered same every from acquisition diligence closeout folder subfolders then pick list view left right shows tree with next tiles instead number each many looking something know where went magnifying glass sidebar searches file name" },
+                { title: "Upload files", anchor: "upload", text: "open subfolder file belongs click upload drag files from your computer straight onto list drop several once pick right folder first into whichever wrong place easiest delete again some folders also show fill button that opens form like daily report when submitted finished itself automatically" },
+                { title: "Open, rename and share", anchor: "actions", text: "click file name preview right portal button each rest menu download rename copy link gives paste email stops working after while send fresh someone asks later template pdfs only makes that vendors when they awarded work delete make list drag column header move edge wider" },
+                { title: "Files that come from elsewhere", anchor: "special", text: "some files land here their invoices from accounting page signed contracts proposals approved incident reports back charges vpos phone photos they show right folder without anyone uploading them managed rename delete invoice portal sends instead that keeps file getting sync" },
+                { title: "Delete a file", anchor: "delete", text: "choose delete from file menu asked type name check before goes deleting permanent there trash undo download copy first chance need" },
+                { title: "Questions", anchor: "faq", text: "make folders every project uses same files always place whoever filed them folder missing rename delete some change uploaded someone else only changed admins manager invoices handled accounting page there size limit very large take while upload slow connection keep open until finishes" }
+            ]
+        },
+        {
+            title: "Accounts & accounting", url: "/pages/accounts-help.html", color: "bg-c4",
+            summary: "Vendor paperwork, contracts, utility accounts, invoices, draws and the budget.",
+            sections: [
+                { title: "Vendors on the job", anchor: "vendors", text: "open accounts contacts every vendor working this listed whether they were added their page sent invoice vendors only invited show grayed until awarded paperwork contract missing waiting signature signed comes from record same certificate insurance when expires cleared site turns done numbers across count what" },
+                { title: "Contracts and COIs", anchor: "contracts", text: "click vendor open their paperwork from there generate contract builds leeward subcontract project awarded goes portal initials signs then manager upload already have that signed mark needed this view download request emails them only generated contracts countersigned whoever until shows waiting" },
+                { title: "Utility accounts", anchor: "utilities", text: "utility accounts keeps water sewer electric trash similar place provider account number phone service address meter when started closed click" },
+                { title: "Invoices", anchor: "invoices", text: "open accounting invoices every invoice filter paid search vendor number click file name project pick fill date total attach snap photos paper combined into named saved financial adding site camera button overview your phone from photo" },
+                { title: "Draws and the budget", anchor: "draws", text: "accounting super admins project also draws budget every line group with equity loan split retainage import from workbook lines hand each monthly draw open payment this period amounts give invoice save type invoices without aren counted overview needs attention list tells when some missing" },
+                { title: "Questions", anchor: "faq", text: "vendor this list they were awarded added project their page manage projects sent invoice invited where does come from record upload once vendors counts every draws budget only accounting super admins manager edit delete invoices that buttons missing" }
+            ]
+        },
+        {
+            title: "Vendors", url: "/pages/vendors-help.html", color: "bg-c5",
+            summary: "Add and approve vendors, keep W-9s and COIs current, and manage contacts.",
+            sections: [
+                { title: "Find a vendor", anchor: "list", text: "open vendor information sidebar each card shows address trade tags whether approved with their status vendors page switch between cards list buttons next more actions search name click view pencil button edits" },
+                { title: "What \u201cApproved\u201d means", anchor: "approved", text: "vendor approved once their record everything need anything missing card says page lists what left legal name full address unless they exempt expiration date that hasn passed least from every category like trade area only vendors invited someone package finish first cois expire cards turn" },
+                { title: "Add or edit a vendor", anchor: "add", text: "click more actions vendor pencil card edit fill legal name friendly address tags upload expiration date here itself filed project page adding exempt from contract requirements bottom vendors truly need them manage under adds renames given deleting removes their delete popup undone" },
+                { title: "A vendor's page", anchor: "page", text: "click view vendor open everything about company page details info notes projects contacts lists every they with this upload project here manage them shared everyone edit remove people contact portal login shows dashboard user save phone downloads your" },
+                { title: "The Vendor Portal and applications", anchor: "portal", text: "vendors have their portal where they answer invites upload cois w-9s sign contracts companies apply there requests show under more actions vendor applications check then approve send sign-in link company added gets email reject with optional reason that included what preview shows sees" },
+                { title: "Questions", anchor: "faq", text: "vendor approved when everything looks done open their page under approval lists exactly what missing often from categories project both expiration date lives record keeps them filed each list vendors trade more actions generate report makes status" }
+            ]
+        },
+        {
+            title: "Calendar", url: "/pages/calendar-help.html", color: "bg-c1",
+            summary: "Events, invites, tasks, deadlines, and linking Google or Apple calendars.",
+            sections: [
+                { title: "Find your way around", anchor: "views", text: "switch between week month agenda arrows small calendar left move around today jump back view turn calendars under events assigned tasks your project to-dos with date deadlines timeline milestones that expirations every vendor overdue moves task deadline past done shows marked doesn lost" },
+                { title: "Create an event", anchor: "create", text: "click create empty time slot double-click month view title location notes repeat need creating event invite people when want answer they accept decline shows dashed their calendar until assign just someone needed find that works checks everyone working hours move drag" },
+                { title: "Google and Apple calendars", anchor: "google", text: "there ways connect both bring your google calendar paste secret ical address events show portal read-only apple make private link then phone keep anyone with gets shared mistake settings stops working updates aren instant within hours about hour change from" },
+                { title: "Settings", anchor: "settings", text: "gear button opens calendar settings your working hours week starts colors phone reminders morning summary heads-up days before vendor expires changes save their setup checklist again time" },
+                { title: "Questions", anchor: "faq", text: "event dashed invite haven answered open accept decline edit google here events read-only portal change them they update reminders phone turn notifications first setup checklist walks through iphone added your home screen" }
+            ]
+        },
+        {
+            title: "To-Do", url: "/pages/todo-help.html", color: "bg-c2",
+            summary: "Project to-do lists and your own To-Do page.",
+            sections: [
+                { title: "A project's to-do list", anchor: "project", text: "open project click to-do type task press enter item like framing inspection bldg list name checklist side each have date person responsible with doing what when checking checkbox tick whole thing done even didn every" },
+                { title: "Your To-Do page", anchor: "mine", text: "your personal to-do page open from tasks home parts task type pick date press enter project every checklist assigned grouped checking something here checks they show calendar to-dos with under" },
+                { title: "Delete an item", anchor: "delete", text: "open item delete asked confirm deleting removes whole checklist every under that goes with undone work just finished check instead" },
+                { title: "Questions", anchor: "faq", text: "someone assigned something where your to-do page under project calendar home what difference between timeline list schedule work itself team follow-ups like ordering windows calling inspector" }
+            ]
+        },
+        {
+            title: "Timeline", url: "/pages/timeline-help.html", color: "bg-c3",
+            summary: "Build the schedule, move work around and lock the plan.",
+            sections: [
+                { title: "Read the timeline", anchor: "read", text: "open project click timeline list left shows each phase with tasks milestones chart right when they happen grouped switch between week month quarter year today scrolls tabs across pre-construction construction close-out show kind filters narrows status priority person contractor dates critical only marks task diamonds" },
+                { title: "Add phases, tasks and milestones", anchor: "add", text: "start with phase then task milestone items every belongs editing dates status priority along assign person contractor doing work check critical delay would push finish weather held under dependencies what happen first save once before adding them" },
+                { title: "Move and update work", anchor: "change", text: "drag move make longer shorter click item open change details mark tasks complete they finish overview stays right status colors risk delayed stand chart feed project needs attention list" },
+                { title: "Lock the plan", anchor: "plan", text: "once schedule click lock plan every task current dates become from then overview project card show whether ahead behind that locking replaces update later today comparison gone only when truly been reset like after change order scheduled completion projected" },
+                { title: "Delete an item", anchor: "delete", text: "open item click delete need type confirm this undone deleting phase task removes from schedule every number that uses" },
+                { title: "Questions", anchor: "faq", text: "does overview plan that much work should done today based locked number actually what dependency types finish-to-start usual starts after finishes also together with days" }
+            ]
+        },
+        {
+            title: "Form logs", url: "/pages/form-logs-help.html", color: "bg-c4",
+            summary: "VPOs, back charges and incident reports, and where they come from.",
+            sections: [
+                { title: "Read the log", anchor: "read", text: "open project click form logs there table each kind newest first variance purchase orders back charges approved incident reports filed column links report came from shows running total" },
+                { title: "Where VPOs and back charges come from", anchor: "flow", text: "nothing typed into form logs directly starts with incident report someone fills from sidebar project person approver approves rejects account activity right after approving they choose make back charge credit pick vendor neither reason filled filed files entry shows here needs code numbers like bc-hv-001" },
+                { title: "Delete a VPO or back charge", anchor: "delete", text: "delete deleting leave numbers newest next form reuses number from middle that simply skipped undone" },
+                { title: "Submit old forms", anchor: "old", text: "submit forms temporary tool bringing vpos from before portal pick batch pdfs check what read each table create them once going away this button will removed" },
+                { title: "Questions", anchor: "faq", text: "clickable record saved wasn filed retry filing account activity where incident report that approved only reports listed here yours until" }
+            ]
         }
     ];
-    var SOON = ["Projects", "Project files", "Accounts & contracts", "Vendors", "Calendar", "To-Do", "Timeline", "Form logs"];
+    var SOON = [];
 
     function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : s; return d.innerHTML; }
 

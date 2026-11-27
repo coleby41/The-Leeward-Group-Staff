@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Form logs guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers project-form-logs.html, with the IR / BC / VPO flow from incident-report.html and account-activity.html.
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Form logs</p>
+            <h1 class="hm-greeting">Form logs</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/project-form-logs.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Form Logs</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro"><strong>Form Logs</strong> is the record of every VPO, back charge and approved incident report on a project, with their numbers, vendors and amounts.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="search"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#read" class="bg-c1"><b>1</b>Read the log</a>
+        <a href="#flow" class="bg-c2"><b>2</b>Where they come from</a>
+        <a href="#delete" class="bg-c3"><b>3</b>Delete</a>
+        <a href="#old" class="bg-c4"><b>4</b>Old forms</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="read" class="bg-section bg-c1">
+        <h2><b>1</b>Read the log</h2>
+        <p>Open a project and click <strong>Form Logs</strong>. There's a table for each kind of form, newest first:</p><ul><li><strong>VPO</strong>: variance purchase orders.</li><li><strong>BC</strong>: back charges.</li><li><strong>IR</strong>: approved incident reports.</li></ul><figure class="hc-shot"><img src="/assets/help/form-logs/logs.webp" alt="Form Logs page with VPO, BC and IR tables" loading="lazy"><figcaption>Form Logs for a project.</figcaption></figure><p>Click an ID to open the filed PDF. The <strong>IR ID</strong> column on a VPO or BC links back to the incident report it came from. The VPO table shows the running total at the top.</p>
+    </section>
+    <section id="flow" class="bg-section bg-c2">
+        <h2><b>2</b>Where VPOs and back charges come from</h2>
+        <p>Nothing is typed into Form Logs directly. It all starts with an incident report:</p><ul><li>Someone fills out an <strong>Incident Report</strong> (from the sidebar) for a project.</li><li>The person set as the approver approves or rejects it on <strong>Account Activity</strong>.</li><li>Right after approving, they choose: make it a <strong>Back Charge</strong> (who to charge, who to credit), make it a <strong>VPO</strong> (pick the vendor), or neither, with a reason.</li><li>The PDF is filled out and filed in Project Files, and the entry shows up here.</li></ul><div class="bg-callout bg-callout--caution"><strong>The project needs a code</strong><p>Numbers like <em>BC-HV-001</em> are built from the project code. If the project doesn't have one, set it in the project's Edit setup first.</p></div>
+    </section>
+    <section id="delete" class="bg-section bg-c3">
+        <h2><b>3</b>Delete a VPO or back charge</h2>
+        <p>Use <strong>Delete</strong> on the row.</p><div class="bg-callout bg-callout--warning"><strong>Deleting can leave a gap in the numbers</strong><p>If you delete the newest one, the next form reuses its number. Delete one from the middle and that number is simply skipped. It can't be undone.</p></div>
+    </section>
+    <section id="old" class="bg-section bg-c4">
+        <h2><b>4</b>Submit old forms</h2>
+        <p><strong>Submit Old Forms</strong> is a temporary tool for bringing in BCs and VPOs from before the portal. Pick a batch of PDFs, check what was read from each one in the table, and create them all at once.</p><div class="bg-callout bg-callout--tip"><strong>It's going away</strong><p>Once the old forms are in, this button will be removed.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>An ID isn't clickable.</strong><span>The record was saved but its PDF wasn't filed yet. Use <strong>Retry filing</strong> on Account Activity.</span></div><div class="bl-guide-faq"><strong>Where's my incident report that isn't approved yet?</strong><span>Only approved reports are listed here. Yours is on Account Activity until it's approved.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (id) back.href = "/pages/project-form-logs.html?id=" + encodeURIComponent(id);
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

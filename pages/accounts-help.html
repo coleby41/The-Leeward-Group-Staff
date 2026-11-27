@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Accounts & accounting guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers project-accounts.html (vendors, contracts, utility accounts) and project-accounting.html (invoices, draws, budget).
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Accounts & accounting</p>
+            <h1 class="hm-greeting">Accounts &amp; accounting</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/project-accounts.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Accounts</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro">Two tabs on every project keep the money and paperwork straight. <strong>Accounts / Contacts</strong> tracks each vendor's contract, W-9 and COI. <strong>Accounting</strong> holds the invoices, draws and budget.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="clipboard"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#vendors" class="bg-c1"><b>1</b>Vendors on the job</a>
+        <a href="#contracts" class="bg-c2"><b>2</b>Contracts</a>
+        <a href="#utilities" class="bg-c3"><b>3</b>Utility accounts</a>
+        <a href="#invoices" class="bg-c4"><b>4</b>Invoices</a>
+        <a href="#draws" class="bg-c5"><b>5</b>Draws & budget</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="vendors" class="bg-section bg-c1">
+        <h2><b>1</b>Vendors on the job</h2>
+        <p>Open <strong>Accounts / Contacts</strong>. Every vendor working this job is listed, whether they won a bid, were added on their vendor page, or sent an invoice. Vendors who were only invited to bid show up grayed out until they're awarded.</p><figure class="hc-shot"><img src="/assets/help/accounts/vendors.webp" alt="Vendors table with contract, W-9 and COI status and Cleared for Site" loading="lazy"><figcaption>Accounts / Contacts: the paperwork for every vendor on the job.</figcaption></figure><ul><li><strong>Contract</strong>: this job only. Missing, waiting on a signature, or signed.</li><li><strong>W-9</strong>: comes from the vendor record, so it's the same on every job.</li><li><strong>COI (this job)</strong>: this job's certificate of insurance and when it expires.</li><li><strong>Cleared for Site</strong>: turns to Yes only when the contract, W-9 and COI are all done.</li></ul><p>The numbers across the top count what's still missing. Use <strong>Everything › Needs attention</strong> to show only the vendors who still owe you something.</p><div class="bg-callout bg-callout--caution"><strong>Check Cleared for Site before a crew shows up</strong><p>A vendor marked <strong>No</strong> is missing at least one document. Hover over the tag to see which one.</p></div>
+    </section>
+    <section id="contracts" class="bg-section bg-c2">
+        <h2><b>2</b>Contracts and COIs</h2>
+        <p>Click a vendor's row to open their paperwork. From there you can:</p><ul><li><strong>Generate contract</strong>: builds Leeward's subcontract from the project and the awarded bid. It goes to the Vendor Portal, the vendor initials and signs it, and then the project's Project Manager signs for Leeward.</li><li>Upload a contract you already have, or one that's already signed.</li><li>Mark the contract <strong>Not needed</strong> for this job.</li><li>View or download the W-9 and this job's COI. For a vendor who won a bid, <strong>Request COI</strong> emails them to upload one.</li></ul><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/accounts/vendor-popup.webp" alt="Vendor popup with Contract, W-9 and COI sections" loading="lazy"><figcaption>A vendor's paperwork for this job.</figcaption></figure><div class="bg-callout bg-callout--tip"><strong>Only the PM signs for Leeward</strong><p>Generated contracts are countersigned by whoever is set as this project's Project Manager. Until then the contract shows <strong>Waiting on PM</strong>.</p></div>
+    </section>
+    <section id="utilities" class="bg-section bg-c3">
+        <h2><b>3</b>Utility accounts</h2>
+        <p>The <strong>Utility Accounts</strong> tab keeps the job's water, sewer, electric, trash and similar accounts in one place: provider, account number, phone, service address, meter number, and when the account started or was closed. Click <strong>+ Add Utility Account</strong> to add one.</p><figure class="hc-shot"><img src="/assets/help/accounts/utilities.webp" alt="Utility Accounts tab listing water, electric and trash accounts" loading="lazy"><figcaption>Utility accounts for the job.</figcaption></figure>
+    </section>
+    <section id="invoices" class="bg-section bg-c4">
+        <h2><b>4</b>Invoices</h2>
+        <p>Open <strong>Accounting › Invoices</strong> to see every invoice on the job. Filter by <strong>Not paid</strong> or <strong>Paid</strong>, or search by vendor or invoice number. Click a file name to open the PDF.</p><figure class="hc-shot"><img src="/assets/help/accounts/invoices.webp" alt="Invoices tab with vendor, invoice number, date, total and paid status" loading="lazy"><figcaption>Every invoice on the project.</figcaption></figure><p>Click <strong>+ Add invoice</strong>, pick the vendor, and fill in the invoice number, date and total. You can attach a PDF or snap photos of a paper invoice; photos are combined into one PDF. The file is named for you and saved in <strong>07 Financial › Invoices</strong>.</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/accounts/add-invoice.webp" alt="Add invoice popup" loading="lazy"><figcaption>Adding an invoice.</figcaption></figure><div class="bg-callout bg-callout--tip"><strong>On the job site?</strong><p>The camera button on a project's Overview (on your phone) can add an invoice from a photo too.</p></div>
+    </section>
+    <section id="draws" class="bg-section bg-c5">
+        <h2><b>5</b>Draws and the budget</h2>
+        <p>Accounting, Super Admins and the project's PM also see <strong>Draws</strong> and <strong>Budget</strong>.</p><ul><li><strong>Budget</strong>: every budget line by group, with the equity and loan split and retainage. You can import it from the AIA workbook or add lines by hand.</li><li><strong>Draws</strong>: each monthly draw. Open one to see the payment due, add this period's amounts, and give every invoice a budget line. Amounts save as you type.</li></ul><figure class="hc-shot"><img src="/assets/help/accounts/draws.webp" alt="Draws tab with the current draw and totals" loading="lazy"><figcaption>The Draws tab.</figcaption></figure><div class="bg-callout bg-callout--caution"><strong>Give every invoice a budget line</strong><p>Invoices without a budget line aren't counted in a draw. The Overview's Needs attention list tells you when some are missing.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Why is a vendor on this list?</strong><span>They were awarded a bid, added to the project on their vendor page (Manage Projects), sent an invoice on this job, or were invited to bid.</span></div><div class="bl-guide-faq"><strong>Where does the W-9 come from?</strong><span>From the vendor's record. Upload it once on the Vendors page and it counts on every job.</span></div><div class="bl-guide-faq"><strong>I don't see Draws or Budget.</strong><span>They're only for Accounting, Super Admins and the project's Project Manager.</span></div><div class="bl-guide-faq"><strong>Who can edit or delete invoices?</strong><span>That's set per project. If the buttons are missing, ask the project's PM.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (id) back.href = "/pages/project-accounts.html?id=" + encodeURIComponent(id);
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

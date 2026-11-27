@@ -103,8 +103,12 @@
         if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return NaN;
         return Number(cleaned);
     }
+    // Lenient on purpose (2026-11-27): "12,500 sf", "$0", "N/A" and "-" are
+    // all fine. Blank / N/A means "doesn't apply" (a church has no units).
     function parseCount(text) {
-        const cleaned = String(text ?? "").replace(/[,\s]/g, "");
+        const raw = String(text ?? "").trim().toLowerCase();
+        if (/^(n\/?a|none|-+|—|–)$/.test(raw)) return 0;
+        const cleaned = raw.replace(/sq\.?\s*ft\.?|sqft|sf|units?|bldgs?|buildings?|[$,\s]/g, "");
         if (cleaned === "") return 0;
         if (!/^\d+(\.\d+)?$/.test(cleaned)) return NaN;
         return Number(cleaned);
@@ -849,9 +853,9 @@
                 <label class="bl-setup-field bl-setup-name"><span>Name</span><input type="text" data-field="name" maxlength="80" value="${esc(r.name)}" placeholder="e.g. 24 Unit 1BR &amp; 2BR"></label>
                 <label class="bl-setup-field"><span>Buildings</span><input type="text" inputmode="numeric" data-field="building_count" value="${esc(r.building_count)}"></label>
                 <label class="bl-setup-field"><span>Building #s</span><input type="text" data-field="building_numbers" maxlength="80" value="${esc(r.building_numbers)}" placeholder="3, 4, 5"></label>
-                <label class="bl-setup-field"><span>Units / bldg</span><input type="text" inputmode="numeric" data-field="units" value="${esc(r.units)}"></label>
-                <label class="bl-setup-field"><span>GBSF / bldg</span><input type="text" inputmode="decimal" data-field="gbsf" value="${esc(r.gbsf)}"></label>
-                <label class="bl-setup-field"><span>Leasable SF</span><input type="text" inputmode="decimal" data-field="leasable_sf" value="${esc(r.leasable_sf)}"></label>
+                <label class="bl-setup-field"><span>Units / bldg</span><input type="text" inputmode="numeric" data-field="units" value="${esc(r.units)}" placeholder="Optional"></label>
+                <label class="bl-setup-field"><span>GBSF / bldg</span><input type="text" inputmode="decimal" data-field="gbsf" value="${esc(r.gbsf)}" placeholder="Optional"></label>
+                <label class="bl-setup-field"><span>Leasable SF</span><input type="text" inputmode="decimal" data-field="leasable_sf" value="${esc(r.leasable_sf)}" placeholder="Optional"></label>
                 <button type="button" class="bl-icon-btn" data-act="remove-building" data-index="${i}" aria-label="Remove ${esc(r.name || "this building type")}"><span class="bl-trash" aria-hidden="true"></span></button>
             </div>`).join("");
     }
@@ -865,8 +869,13 @@
             if (!r.name.trim()) { formMsg("bdSetupMessage", "Give every building type a name.", "error"); return; }
             const n = parseCount(r.building_count);
             if (!Number.isInteger(n) || n < 1) { formMsg("bdSetupMessage", `"${r.name}": Buildings has to be a whole number, 1 or more.`, "error"); return; }
-            if (["units", "gbsf", "leasable_sf"].some(f => Number.isNaN(parseCount(r[f]))) || !Number.isInteger(parseCount(r.units))) {
-                formMsg("bdSetupMessage", `"${r.name}": check the numbers.`, "error"); return;
+            const units = parseCount(r.units);
+            if (Number.isNaN(units) || !Number.isInteger(units)) {
+                formMsg("bdSetupMessage", `"${r.name}": Units has to be a whole number, like 24. Leave it blank if the building has no units (a church or an office).`, "error"); return;
+            }
+            const badSf = [["gbsf", "GBSF"], ["leasable_sf", "Leasable SF"]].find(([f]) => Number.isNaN(parseCount(r[f])));
+            if (badSf) {
+                formMsg("bdSetupMessage", `"${r.name}": ${badSf[1]} has to be a number, like 12500. Leave it blank if you don't know it.`, "error"); return;
             }
         }
         const kept = new Set(rows.filter(r => r.id).map(r => r.id));

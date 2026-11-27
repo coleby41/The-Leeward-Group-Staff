@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Project files guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers project-files.html (All Files).
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Project files</p>
+            <h1 class="hm-greeting">Project files</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/project-files.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Project Files</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro">Every document for a job lives in its <strong>Project Files</strong>, sorted into the same numbered folders on every project. Plans, permits, contracts, invoices and photos all end up here.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="search"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#folders" class="bg-c1"><b>1</b>The folders</a>
+        <a href="#upload" class="bg-c2"><b>2</b>Upload</a>
+        <a href="#actions" class="bg-c3"><b>3</b>File actions</a>
+        <a href="#special" class="bg-c4"><b>4</b>Special files</a>
+        <a href="#delete" class="bg-c5"><b>5</b>Delete</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="folders" class="bg-section bg-c1">
+        <h2><b>1</b>Find a file</h2>
+        <p>Open a project and click <strong>Project Files</strong>. The folders are numbered the same way on every job, from <strong>01 Acquisition &amp; Due Diligence</strong> to <strong>11 Closeout</strong>. Open a folder to see its subfolders, then pick one to see the files.</p><figure class="hc-shot"><img src="/assets/help/files/list.webp" alt="Project Files list view with the folder tree and a list of files" loading="lazy"><figcaption>List view: folders on the left, the files in the open folder on the right.</figcaption></figure><ul><li><strong>List</strong> shows the folder tree with the files next to it. <strong>Folders</strong> shows big folder tiles instead.</li><li>The number next to each folder is how many files are in it.</li><li>Looking for something and don't know where it went? Use the magnifying glass at the top of the project sidebar. It searches every file name on the project.</li></ul>
+    </section>
+    <section id="upload" class="bg-section bg-c2">
+        <h2><b>2</b>Upload files</h2>
+        <p>Open the subfolder the file belongs in and click <strong>+ Upload File(s)</strong>, or drag files from your computer straight onto the list. You can drop several at once.</p><div class="bg-callout bg-callout--caution"><strong>Pick the right folder first</strong><p>Files go into whichever subfolder is open. If you drop a file in the wrong place, it's easiest to delete it and upload it again in the right folder.</p></div><p>Some folders also show a <strong>+ Fill …</strong> button. That opens a form (like a daily report); when it's submitted, the finished PDF files itself in that folder automatically.</p>
+    </section>
+    <section id="actions" class="bg-section bg-c3">
+        <h2><b>3</b>Open, rename and share</h2>
+        <p>Click a file's name to preview it right in the portal. The <strong>⋯</strong> button on each row has the rest:</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/files/menu.webp" alt="File actions menu with Preview, Download, Rename, Copy link and Delete" loading="lazy"><figcaption>The file menu.</figcaption></figure><ul><li><strong>Preview</strong> and <strong>Download</strong>.</li><li><strong>Rename</strong> the file.</li><li><strong>Copy link</strong> gives you a link you can paste in an email. It stops working after a while, so send a fresh one if someone asks later.</li><li><strong>Set as COI template</strong> (PDFs only) makes that file the COI template vendors see when they're awarded work.</li><li><strong>Delete</strong>.</li></ul><div class="bg-callout bg-callout--tip"><strong>Make the list work for you</strong><p>Drag a column header to move it, or drag its edge to make it wider. The portal remembers your layout.</p></div>
+    </section>
+    <section id="special" class="bg-section bg-c4">
+        <h2><b>4</b>Files that come from elsewhere</h2>
+        <p>Some files land here on their own: invoices from the Accounting page, signed contracts, bid proposals, approved incident reports, back charges, VPOs and phone photos. They show up in the right folder without anyone uploading them.</p><div class="bg-callout bg-callout--caution"><strong>Invoices are managed on Accounting</strong><p>If you try to rename or delete an invoice PDF here, the portal sends you to the Accounting page instead. That keeps the invoice and its file from getting out of sync.</p></div>
+    </section>
+    <section id="delete" class="bg-section bg-c5">
+        <h2><b>5</b>Delete a file</h2>
+        <p>Choose <strong>Delete</strong> from the file's <strong>⋯</strong> menu. You'll be asked to type the file name and check a box before it goes.</p><div class="bg-callout bg-callout--warning"><strong>Deleting is permanent</strong><p>There's no trash or undo. Download a copy first if there's any chance you'll need it.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Can I make my own folders?</strong><span>No. Every project uses the same folders so files are always in the same place, whoever filed them. If a folder is missing, ask IT.</span></div><div class="bl-guide-faq"><strong>Why can't I rename or delete some files?</strong><span>You can always change files you uploaded. Files someone else uploaded can only be changed by the project's admins and Project Manager, and invoices are always handled on the Accounting page.</span></div><div class="bl-guide-faq"><strong>Is there a size limit?</strong><span>Very large files can take a while to upload on a slow connection. Keep the page open until the upload finishes.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (id) back.href = "/pages/project-files.html?id=" + encodeURIComponent(id);
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

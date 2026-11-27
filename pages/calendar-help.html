@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Calendar guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers calendar.html and calendar-settings.html.
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Calendar</p>
+            <h1 class="hm-greeting">Your calendar</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/calendar.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Calendar</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro">The <strong>Calendar</strong> puts your meetings, tasks, project deadlines and COI expirations in one place, and can show your Google calendar next to them.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="clipboard"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#views" class="bg-c1"><b>1</b>Find your way</a>
+        <a href="#create" class="bg-c2"><b>2</b>Create an event</a>
+        <a href="#google" class="bg-c3"><b>3</b>Google & Apple</a>
+        <a href="#settings" class="bg-c4"><b>4</b>Settings</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="views" class="bg-section bg-c1">
+        <h2><b>1</b>Find your way around</h2>
+        <p>Switch between <strong>Day</strong>, <strong>Week</strong>, <strong>Month</strong> and <strong>Agenda</strong> at the top. Use the arrows or the small calendar on the left to move around, and <strong>Today</strong> to jump back.</p><figure class="hc-shot"><img src="/assets/help/calendar/week.webp" alt="Calendar week view with events, tasks and overdue items" loading="lazy"><figcaption>The week view.</figcaption></figure><p>Turn calendars on and off under <strong>My calendars</strong>:</p><ul><li><strong>My events</strong> and <strong>Assigned to me</strong>.</li><li><strong>Tasks</strong>: your own tasks and project to-dos with a due date.</li><li><strong>Project deadlines</strong>: timeline tasks and milestones that end that day.</li><li><strong>COI expirations</strong>, in red, for every vendor.</li></ul><div class="bg-callout bg-callout--tip"><strong>Overdue moves to today</strong><p>A task or deadline that's past due and not done shows on today, marked <strong>Overdue</strong>, so it doesn't get lost.</p></div>
+    </section>
+    <section id="create" class="bg-section bg-c2">
+        <h2><b>2</b>Create an event</h2>
+        <p>Click <strong>+ Create</strong>, or click an empty time slot (double-click a day in Month view). Add a title, time, location and notes, and set it to repeat if you need to.</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/calendar/editor.webp" alt="New event popup with title, time, people and repeat options" loading="lazy"><figcaption>Creating an event.</figcaption></figure><ul><li><strong>Invite</strong> people when you want an answer. They can accept or decline, and it shows dashed on their calendar until they do.</li><li><strong>Assign</strong> it when you just want it on someone's calendar, no answer needed.</li><li><strong>Find a time that works</strong> checks everyone's calendar and working hours.</li></ul><p>To move an event, drag it to a new day or time.</p>
+    </section>
+    <section id="google" class="bg-section bg-c3">
+        <h2><b>3</b>Google and Apple calendars</h2>
+        <p>There are two ways to connect, and you can do both:</p><ul><li><strong>Bring in your Google calendar</strong>: paste your Google calendar's secret iCal address. Your Google events show in the portal, read-only.</li><li><strong>Show the portal calendar in Google or Apple</strong>: make your private link and add it to Google or Apple Calendar. Portal events then show on your phone's calendar.</li></ul><div class="bg-callout bg-callout--caution"><strong>Keep your private link private</strong><p>Anyone with the link can see your portal calendar. If it gets shared by mistake, make a new link in Calendar settings; the old one stops working.</p></div><div class="bg-callout bg-callout--tip"><strong>Updates aren't instant</strong><p>Portal events show up in Google within a few hours and in Apple within about an hour. Change Google events in Google; the portal updates from there.</p></div>
+    </section>
+    <section id="settings" class="bg-section bg-c4">
+        <h2><b>4</b>Settings</h2>
+        <p>The gear button opens Calendar settings: your working hours, the day your week starts, colors, phone reminders, the morning summary, and a COI heads-up a few days before a vendor's COI expires. Changes save on their own.</p><p>The <strong>?</strong> button opens the setup checklist again any time.</p>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Why is an event dashed?</strong><span>It's an invite you haven't answered yet. Open it to accept or decline.</span></div><div class="bl-guide-faq"><strong>Can I edit a Google event here?</strong><span>No. Google events are read-only in the portal. Change them in Google and they'll update here.</span></div><div class="bl-guide-faq"><strong>Why don't I get reminders on my phone?</strong><span>Turn on phone notifications first (the setup checklist walks you through it). On iPhone the portal has to be added to your Home Screen.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (false) {}
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>

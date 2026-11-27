@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Installable "Add to Home Screen" app (manifest.webmanifest + assets/icons/). -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png?v=xmas2026b">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Leeward Staff">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
+    <title>Bids Guide | The Leeward Group</title>
+
+    <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/assets/logos/leewaed-logo.png">
+    <!-- Vercel Web Analytics -->
+    <script>window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };</script>
+    <script defer src="/_vercel/insights/script.js"></script>
+</head>
+
+<body class="changelog-page">
+
+<!-- Projects guide (2026-11-27). Help center article, same layout as
+     bids-help.html (built by the help-center generator). Covers project-home.html (list + New project) and projects.html (Overview).
+     Colors and callouts: .bg-* / .hc-* in css/styles.css. -->
+
+<main class="changelog-main bl-guide bg-guide hc-full">
+    <div class="hm-head">
+        <div>
+            <p class="hm-date"><a href="/pages/help.html">Help center</a> › Projects</p>
+            <h1 class="hm-greeting">Working with projects</h1>
+        </div>
+        <div class="hm-actions">
+            <a href="/pages/project-home.html" class="hm-btn hm-glass" id="blHelpBack">&larr; Back to Projects</a>
+        </div>
+    </div>
+    <div class="hc-top">
+        <p class="hc-intro">Every job lives on its own project. Start one from the <strong>Projects</strong> page, and everything else (files, bids, the timeline, invoices) hangs off it.</p>
+        <span class="hc-buddy hc-buddy--big" data-buddy="wave"></span>
+    </div>
+
+    <div class="hc-layout">
+    <nav class="bg-toc hc-toc" aria-label="On this page">
+        <a href="#list" class="bg-c1"><b>1</b>Find a project</a>
+        <a href="#new" class="bg-c2"><b>2</b>Start a project</a>
+        <a href="#status" class="bg-c3"><b>3</b>Change the status</a>
+        <a href="#overview" class="bg-c4"><b>4</b>The Overview</a>
+        <a href="#phone" class="bg-c5"><b>5</b>On your phone</a>
+        <a href="#archive" class="bg-c1"><b>6</b>Old projects</a>
+        <a href="#faq" class="bg-c0"><b>?</b>Questions</a>
+    </nav>
+    <div class="hc-body">
+
+    <section id="list" class="bg-section bg-c1">
+        <h2><b>1</b>Find a project</h2>
+        <p>Open <strong>Project Overview</strong> in the sidebar to see every project as a card. Each card shows the progress, the contract amount, how much has been spent, the finish month and the project manager.</p><figure class="hc-shot"><img src="/assets/help/projects/list.webp" alt="Projects page with status tabs and project cards" loading="lazy"><figcaption>The Projects page. Use the tabs to filter by status, or search by name.</figcaption></figure><ul><li>Use the tabs (<strong>Active</strong>, <strong>Onboarding</strong>, <strong>On Hold</strong>, <strong>Completed</strong>, <strong>Archived</strong>) to narrow the list.</li><li>Type in <strong>Search projects</strong> to find one by name, code or address.</li><li>The tag in the top right of a card tells you if the job is on plan, behind, or how many items are overdue.</li><li>Click a card to open the project.</li></ul>
+    </section>
+    <section id="new" class="bg-section bg-c2">
+        <h2><b>2</b>Start a new project</h2>
+        <p>Click <strong>+ New project</strong>. The setup takes four short steps, and you can skip any of them and come back later.</p><ul><li><strong>Job Name</strong>: the project name and a short project code, like <em>HV</em>.</li><li><strong>Job Site Address</strong>: street, city, state and zip.</li><li><strong>Owner &amp; Lender</strong>: the legal owner entity, owner contact, county and lender.</li><li><strong>Contract &amp; Start</strong>: a cover photo, the contract value, the start date and the permit number.</li></ul><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/projects/new.webp" alt="New Project Onboarding popup on step 1, Job Name" loading="lazy"><figcaption>Step 1 of the setup. Save &amp; Finish Later keeps what you've typed.</figcaption></figure><div class="bg-callout bg-callout--caution"><strong>Set the project code early</strong><p>Incident reports, back charges and VPOs are numbered from the project code (like <em>BC-HV-001</em>). They can't be created until the project has one.</p></div><p>To change any of this later, click the <strong>⋮</strong> button on the project's card, or <strong>Edit</strong> on its Overview.</p>
+    </section>
+    <section id="status" class="bg-section bg-c3">
+        <h2><b>3</b>Change a project's status</h2>
+        <p>Click the status tag on a card (or next to the name on the Overview), pick the new status and save. Moving a job to <strong>Archived</strong> takes it out of the normal list; you'll still find it under the Archived tab.</p><figure class="hc-shot hc-shot--narrow"><img src="/assets/help/projects/status.webp" alt="Update project status popup" loading="lazy"><figcaption>Click the status tag to change it.</figcaption></figure>
+    </section>
+    <section id="overview" class="bg-section bg-c4">
+        <h2><b>4</b>Read the Overview</h2>
+        <p>Opening a project lands you on its <strong>Overview</strong>. Nothing on it is typed in by hand. The numbers come from the timeline, invoices, bids and vendor paperwork, so they stay up to date on their own.</p><figure class="hc-shot"><img src="/assets/help/projects/overview.webp" alt="Project Overview with Schedule, Spent, Open tasks and Draw numbers and a phase timeline" loading="lazy"><figcaption>The top of the Overview: four numbers and the timeline.</figcaption></figure><ul><li><strong>Schedule</strong>: how much of the work is done compared to the plan, and the projected finish.</li><li><strong>Spent</strong>: invoices so far against the contract (plus any VPOs).</li><li><strong>Open tasks</strong>: tasks still open on the timeline, and how many are overdue.</li><li><strong>Draw</strong>: the latest draw and its status.</li><li><strong>Timeline</strong>: each phase on a month-by-month strip, with a red line for today.</li></ul><p>Further down, <strong>Needs attention</strong> lists what someone should deal with (overdue tasks, expired COIs, bids that are due, invoices without a budget line). <strong>Coming up</strong> shows the next two weeks. On the right you'll find the money, the latest photos and recent activity.</p><figure class="hc-shot"><img src="/assets/help/projects/overview-lower.webp" alt="Needs attention list, Coming up list and Money summary on the Overview" loading="lazy"><figcaption>Needs attention, Coming up and Money. Click any row to go fix it.</figcaption></figure><div class="bg-callout bg-callout--tip"><strong>Moving around a project</strong><p>The sidebar on a project has a tab for each part of the job: Overview, Project Files, Form Logs, Bids, Project Timeline, To-do, Accounts / Contacts and Accounting. The magnifying glass at the top searches everything on the project at once.</p></div>
+    </section>
+    <section id="phone" class="bg-section bg-c5">
+        <h2><b>5</b>On your phone</h2>
+        <p>On a phone, the project tabs move to a bar at the bottom of the screen. The round camera button lets you take site photos or pick them from your library. They're saved to the project's <strong>09 Marketing › Photography</strong> folder.</p><figure class="hc-shot hc-shot--phone"><img src="/assets/help/projects/phone.webp" alt="Project Overview on a phone with a camera button and bottom tab bar" loading="lazy"><figcaption>The Overview on a phone, with the camera button and tab bar.</figcaption></figure>
+    </section>
+    <section id="archive" class="bg-section bg-c1">
+        <h2><b>6</b>Archive and offload old projects</h2>
+        <p>When a job is done, set it to <strong>Completed</strong>, and later to <strong>Archived</strong>. A year after it's archived, IT and Super Admins see a banner on its Overview with a <strong>Download project archive</strong> button. That builds one zip with every file and record, ready to save on a hard drive.</p><div class="bg-callout bg-callout--tip"><strong>Nothing gets deleted</strong><p>After the download you click <strong>I saved it</strong> to mark it offloaded. The project stays in the portal either way.</p></div>
+    </section>
+    <section id="faq" class="bg-section bg-c0">
+        <h2><b>?</b>Questions</h2>
+        <div class="bl-guide-faq"><strong>Why does a card say “On plan” or “Behind”?</strong><span>That compares the timeline to the plan someone locked on the Project Timeline. If no plan is locked yet, you'll see how many items are overdue instead.</span></div><div class="bl-guide-faq"><strong>How do I delete a project?</strong><span>Open it with <strong>Edit</strong>. Delete is at the bottom of the setup, and you have to type the project's name to confirm. It can't be undone, so archive it instead unless it was made by mistake.</span></div>
+    </section>
+    </div>
+</div>
+</main>
+
+<script src="/js/help-buddies.js"></script>
+<script>
+// "Back" returns to the page this guide is about (with ?id=<project> for project pages).
+(function () {
+    var id = new URLSearchParams(window.location.search).get("id");
+    var back = document.getElementById("blHelpBack");
+    if (false) {}
+    else if (!document.referrer || /help\.html/.test(document.referrer)) { back.href = "/pages/help.html"; back.textContent = "\u2190 Help center"; }
+    else if (document.referrer && new URL(document.referrer).origin === window.location.origin) {
+        back.href = document.referrer;
+        back.textContent = "\u2190 Back";
+    }
+})();
+</script>
+
+</body>
+</html>
