@@ -1251,27 +1251,29 @@
         const bText = bCount === 1 ? "one building" : `${bCount} buildings`;
         const nCodes = codes.filter(c => !hiddenCodes.has(c.code)).length;
         const say = {
-            1: `${hello}, ${first}! Let's get ${pname}${where} ready for bids. First, tell me about the buildings: what types there are and how many. Vendors will price one building of each type, and I'll do the math for the rest.`,
-            2: `Great work, ${first}. ${pname} has ${bText} set up. One more thing before we invite anyone: post the COI template, so vendors know exactly what insurance this job needs when they win work.`,
-            3: `${pname} is ready, ${first}! I've lined up all ${nCodes} cost codes with the vendors tagged for each one. Check who you want, add your budgets, and send them all at once. I've got your back.`,
+            1: `${hello}, ${first}! Let's get ${pname}${where} ready for bids. First up: the buildings.`,
+            2: `Nice, ${first}. ${pname} has ${bText} set up. Last thing: the COI template.`,
+            3: `${pname} is ready, ${first}! All ${nCodes} cost codes are lined up with their vendors.`,
         }[step];
         const noAccess = !canManage && step < 3
-            ? `<p class="bd-setup-note">Only people with <strong>Manage Bid Invites</strong> can do this step. Ask them to finish it, then come back.</p>` : "";
+            ? `<p class="bd-setup-note">Only people with <strong>Manage Bid Invites</strong> can do this step. Ask one of them to finish it, then come back.</p>` : "";
         $("bdSetupKicker").textContent = `${project.name || "Project"} · Bids`;
-        $("bdSetupTheo").innerHTML = `<span class="hc-buddy bd-setup-buddy" data-buddy="${step === 3 ? "wave" : step === 2 ? "clipboard" : "search"}" data-say="That's me, Theo!"></span><div class="bd-setup-bubble">${esc(say)}</div>`;
+        $("bdSetupDots").innerHTML = [1, 2, 3].map(n => `<span class="${n <= step ? "is-on" : ""}"></span>`).join("") + `<em>Step ${step} of 3</em>`;
+        $("bdSetupTheo").innerHTML = `<span class="hc-buddy bd-setup-buddy" data-buddy="${step === 3 ? "wave" : step === 2 ? "clipboard" : "search"}" data-say="Hi, I'm Theo!"></span><p class="bd-setup-say">${esc(say)}</p>`;
         if (window.HelpBuddies) window.HelpBuddies.refresh();
-        const item = (n, title, done, body) => {
-            const state = done ? "is-done" : n === step ? "is-now" : "is-later";
-            return `<li class="bd-setup-step ${state}"><span class="bd-setup-num">${done ? "✓" : n}</span><div class="bd-setup-body"><h3>${title}</h3>${body}</div></li>`;
-        };
-        const b1 = hasBuildings
-            ? `<p>${esc(shownAreas().map(areaFacts).join(" · "))}${canManage ? ` · <button type="button" class="bl-link-btn" data-setup-act="buildings">Edit</button>` : ""}</p>`
-            : `<p>Add each building type, how many there are, and whether the job has Site Work, Hardscape or Amenities. One building, like a church? Add one type and set Buildings to 1.</p>${step === 1 && canManage ? `<button type="button" class="hm-btn hm-btn--primary" data-setup-act="buildings">Set up buildings</button>` : ""}${step === 1 ? noAccess : ""}`;
-        const b2 = hasCoi
-            ? `<p>Posted. Awarded vendors download it in the Vendor Portal.</p>`
-            : `<p>Upload a sample COI (PDF) showing the coverage and additional-insured wording this job needs.</p>${step === 2 ? `<div id="bdSetupCoi"></div>${noAccess}` : ""}`;
-        const b3 = `<p>Every cost code with the vendors tagged for it. Check who should bid, add the budget and details, then Send all.</p>${step === 3 ? `<button type="button" class="hm-btn hm-btn--primary" data-setup-act="open">Open the Invite Sheet</button>` : ""}`;
-        $("bdSetupSteps").innerHTML = item(1, "Set up the buildings", hasBuildings, b1) + item(2, "Post the COI template", hasCoi, b2) + item(3, "Open the Invite Sheet", false, b3);
+        const body = {
+            1: `<h2>Set up the buildings</h2>
+                <p>Add each building type and how many there are, plus Site Work, Hardscape or Amenities if the job has them. Vendors price one building of each type. Just one building, like a church? Add one type and set Buildings to 1.</p>
+                ${canManage ? `<button type="button" class="hm-btn hm-btn--primary" data-setup-act="buildings">Set up buildings</button>` : noAccess}`,
+            2: `<h2>Post the COI template</h2>
+                <p>A sample COI showing the coverage and additional-insured wording this job needs. Award emails ask vendors for their COI, so this has to be posted first.</p>
+                <div id="bdSetupCoi"></div>${noAccess}
+                <p class="bd-setup-back">Buildings: ${esc(shownAreas().map(areaFacts).join(" · "))}${canManage ? ` · <button type="button" class="bl-link-btn" data-setup-act="buildings">Edit</button>` : ""}</p>`,
+            3: `<h2>Open the Invite Sheet</h2>
+                <p>Every cost code with the vendors tagged for it. Check who should bid, add your budgets and details, then send them all at once.</p>
+                <button type="button" class="hm-btn hm-btn--primary" data-setup-act="open">Open the Invite Sheet</button>`,
+        }[step];
+        $("bdSetupSteps").innerHTML = body;
         if (step === 2 && window.CoiTemplate && $("bdSetupCoi")) {
             window.CoiTemplate.mount($("bdSetupCoi"), { project, canManage, intro: "" });
         }

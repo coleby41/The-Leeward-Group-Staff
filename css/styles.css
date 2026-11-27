@@ -21420,28 +21420,17 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .bd-sheet-bar.hm-glass { background: rgba(255, 255, 255, 0.94); }
 .bd-sheet-details + .bd-sheet-div, .bd-sheet { scroll-margin-bottom: 140px; }
 
-/* Bids › setup steps with Theo (2026-11-27) */
-.bd-setup-theo { display: flex; align-items: center; gap: 18px; max-width: 860px; margin: 6px 0 26px; }
-.bd-setup-buddy { width: 120px; flex: 0 0 auto; }
-.bd-setup-bubble { position: relative; padding: 16px 20px; border-radius: 18px; background: #fff; border: 1px solid var(--border); box-shadow: 0 8px 22px rgba(10, 24, 36, 0.08); font-size: 1rem; line-height: 1.55; color: var(--text); animation: hc-bubble-in 0.4s ease-out both; }
-.bd-setup-bubble::before { content: ""; position: absolute; left: -8px; top: 50%; width: 14px; height: 14px; margin-top: -7px; background: #fff; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); transform: rotate(45deg); }
-.bd-setup-list { list-style: none; margin: 0; padding: 0; max-width: 860px; display: flex; flex-direction: column; gap: 12px; }
-.bd-setup-step { display: flex; gap: 16px; padding: 18px 20px; border-radius: 14px; background: #fff; border: 1px solid var(--border); }
-.bd-setup-step.is-now { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(8, 92, 152, 0.12); }
-.bd-setup-step.is-later { opacity: 0.6; }
-.bd-setup-num { flex: 0 0 auto; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #e6eaef; color: var(--text-soft); font-weight: 800; }
-.bd-setup-step.is-now .bd-setup-num { background: var(--accent-strong); color: #fff; }
-.bd-setup-step.is-done .bd-setup-num { background: #2f7d32; color: #fff; }
-.bd-setup-body { flex: 1; min-width: 0; }
-.bd-setup-body h3 { margin: 4px 0 4px; font-size: 1.05rem; }
-.bd-setup-body p { margin: 0 0 10px; color: var(--text-soft); line-height: 1.55; }
-.bd-setup-note { font-size: 0.88rem; color: #8a5418 !important; }
-@media (max-width: 700px) { .bd-setup-theo { flex-direction: column; align-items: flex-start; } .bd-setup-buddy { width: 90px; } .bd-setup-bubble::before { display: none; } }
-/* Bids setup steps: centered (2026-11-27) */
-#bdSetupView { max-width: 860px; margin: 0 auto; }
-#bdSetupView .hm-head { flex-direction: column; align-items: center; text-align: center; gap: 10px; }
-.bd-setup-theo { flex-direction: column; align-items: center; text-align: center; margin: 4px auto 26px; }
-.bd-setup-bubble { max-width: 640px; }
-.bd-setup-bubble::before { left: 50%; top: -8px; margin: 0 0 0 -7px; border-left: 1px solid var(--border); border-bottom: none; border-top: 1px solid var(--border); }
-.bd-setup-list { margin: 0 auto; }
-@media (max-width: 700px) { .bd-setup-theo { align-items: center; } }
+/* Bids › setup, one step at a time with Theo (2026-11-27) */
+#bdSetupView { max-width: 720px; }
+.bd-setup-dots { display: flex; align-items: center; gap: 6px; margin-right: 8px; }
+.bd-setup-dots span { width: 9px; height: 9px; border-radius: 50%; background: #d5dde5; }
+.bd-setup-dots span.is-on { background: var(--accent-strong); }
+.bd-setup-dots em { margin-left: 6px; font-style: normal; font-size: 0.82rem; font-weight: 600; color: var(--text-soft); }
+.bd-setup-theo { display: flex; align-items: center; gap: 14px; margin: 4px 0 22px; }
+.bd-setup-buddy { width: 76px; flex: 0 0 auto; }
+.bd-setup-say { margin: 0; font-size: 1.05rem; line-height: 1.5; color: var(--text); }
+.bd-setup-step h2 { margin: 0 0 6px; font-size: 1.3rem; }
+.bd-setup-step p { margin: 0 0 16px; color: var(--text-soft); line-height: 1.6; }
+.bd-setup-step #bdSetupCoi { margin-bottom: 16px; }
+.bd-setup-back { margin-top: 18px !important; font-size: 0.88rem; }
+.bd-setup-note { color: #8a5418 !important; }
