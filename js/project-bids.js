@@ -1243,10 +1243,17 @@
         const hasBuildings = shownAreas().length > 0;
         const hasCoi = !!coiTemplate;
         const step = !hasBuildings ? 1 : !hasCoi ? 2 : 3;
+        const h = new Date().getHours();
+        const hello = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+        const where = project.site_city ? ` in ${project.site_city}` : "";
+        const pname = project.name || "this project";
+        const bCount = shownAreas().filter(a => !isSection(a)).reduce((n, a) => n + (Number(a.building_count) || 0), 0);
+        const bText = bCount === 1 ? "one building" : `${bCount} buildings`;
+        const nCodes = codes.filter(c => !hiddenCodes.has(c.code)).length;
         const say = {
-            1: `Hi ${first}! Before we invite anyone to bid on ${project.name || "this project"}, tell me about the buildings. Vendors price one building of each type, and I multiply it out for you.`,
-            2: `Nice, the buildings are set. Next, post the COI template. It shows vendors the insurance this job needs, and award emails can't go out without it.`,
-            3: `You're all set, ${first}! Every cost code is waiting on the Invite Sheet. Check your vendors, add budgets, then Send all.`,
+            1: `${hello}, ${first}! Let's get ${pname}${where} ready for bids. First, tell me about the buildings: what types there are and how many. Vendors will price one building of each type, and I'll do the math for the rest.`,
+            2: `Great work, ${first}. ${pname} has ${bText} set up. One more thing before we invite anyone: post the COI template, so vendors know exactly what insurance this job needs when they win work.`,
+            3: `${pname} is ready, ${first}! I've lined up all ${nCodes} cost codes with the vendors tagged for each one. Check who you want, add your budgets, and send them all at once. I've got your back.`,
         }[step];
         const noAccess = !canManage && step < 3
             ? `<p class="bd-setup-note">Only people with <strong>Manage Bid Invites</strong> can do this step. Ask them to finish it, then come back.</p>` : "";

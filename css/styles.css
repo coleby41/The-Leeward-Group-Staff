@@ -21437,3 +21437,11 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .bd-setup-body p { margin: 0 0 10px; color: var(--text-soft); line-height: 1.55; }
 .bd-setup-note { font-size: 0.88rem; color: #8a5418 !important; }
 @media (max-width: 700px) { .bd-setup-theo { flex-direction: column; align-items: flex-start; } .bd-setup-buddy { width: 90px; } .bd-setup-bubble::before { display: none; } }
+/* Bids setup steps: centered (2026-11-27) */
+#bdSetupView { max-width: 860px; margin: 0 auto; }
+#bdSetupView .hm-head { flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.bd-setup-theo { flex-direction: column; align-items: center; text-align: center; margin: 4px auto 26px; }
+.bd-setup-bubble { max-width: 640px; }
+.bd-setup-bubble::before { left: 50%; top: -8px; margin: 0 0 0 -7px; border-left: 1px solid var(--border); border-bottom: none; border-top: 1px solid var(--border); }
+.bd-setup-list { margin: 0 auto; }
+@media (max-width: 700px) { .bd-setup-theo { align-items: center; } }
