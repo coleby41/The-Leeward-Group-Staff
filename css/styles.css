@@ -21438,3 +21438,19 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .bd-setup-step #bdSetupCoi { margin-bottom: 16px; }
 .bd-setup-back { margin-top: 18px !important; font-size: 0.88rem; }
 .bd-setup-note { color: #8a5418 !important; }
+
+/* Accounts › Vendors locked until bids are awarded (2026-11-27) */
+.hidden-by-lock { display: none !important; }
+.pav-tab-lock { margin-left: 6px; font-size: 0.8rem; }
+.pav-locked { max-width: 620px; margin: 24px 0; padding: 26px 28px; border-radius: 16px; background: #fff; border: 1px solid var(--border); }
+.pav-locked-icon { font-size: 1.6rem; }
+.pav-locked h2 { margin: 8px 0 6px; font-size: 1.25rem; }
+.pav-locked p { margin: 0 0 14px; color: var(--text-soft); line-height: 1.55; }
+.pav-locked-bar { height: 8px; border-radius: 999px; background: #e6eaef; overflow: hidden; margin-bottom: 8px; }
+.pav-locked-bar span { display: block; height: 100%; background: var(--accent-strong); border-radius: 999px; }
+.pav-locked-count { font-size: 0.88rem; }
+.pav-locked-btn { display: inline-flex; width: auto; padding: 0 22px; text-decoration: none; }
+.pav-locked-note { margin: 14px 0 0 !important; font-size: 0.85rem; }
+.pav-locked-btn { min-height: 44px; align-items: center; justify-content: center; }
+.pav-locked { max-width: 720px; }
+.pav-locked .bd-setup-theo { margin: 0 0 18px; }

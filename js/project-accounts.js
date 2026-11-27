@@ -2,7 +2,8 @@
    PROJECT › ACCOUNTS (pages/project-accounts.html)
    Redesign, Coleby 2026-10-31. Two tabs:
 
-   Vendors — every vendor tied to this project (awarded a bid, added in
+   Vendors — locked until every cost code on the Bids page is awarded
+     (2026-11-27; Utility Accounts stays open). Every vendor tied to this project (awarded a bid, added in
      Manage Projects, has an invoice here, or invited to bid), from the
      project_vendors() SQL function. Each row shows:
        Contract  this job only (project_vendor_contracts). Staff upload it
@@ -799,6 +800,70 @@
         setPageMessage("Deleted.", "success");
     }
 
+    /* ---------- Vendors locked until every cost code is awarded (2026-11-27) ----------
+       Vendors (contracts, W-9s, COIs) unlocks once every cost code still
+       showing on the project's Bids page has been awarded, i.e. it's on a
+       bid package with status 'awarded'. Codes hidden on that project don't
+       count. Utility Accounts is never locked. If the bid tables aren't set
+       up yet, nothing is locked. */
+
+    let bidLock = null; // null = unlocked, else { total, awarded, left: [code labels] }
+
+    async function loadBidLock() {
+        bidLock = null;
+        try {
+            const [codesRes, hiddenRes, pkgRes] = await Promise.all([
+                db().from("bid_cost_codes").select("code, description, sort_order").eq("active", true).order("sort_order"),
+                db().from("bid_project_hidden_codes").select("cost_code").eq("project_id", currentProject.id),
+                db().from("bid_packages").select("cost_codes, status").eq("project_id", currentProject.id),
+            ]);
+            if (codesRes.error || pkgRes.error) return; // bids not set up: don't lock
+            const hidden = new Set((hiddenRes.data || []).map(r => r.cost_code));
+            const visible = (codesRes.data || []).filter(c => !hidden.has(c.code));
+            if (!visible.length) return;
+            const awarded = new Set();
+            (pkgRes.data || []).forEach(p => { if (p.status === "awarded") (p.cost_codes || []).forEach(c => awarded.add(c)); });
+            const left = visible.filter(c => !awarded.has(c.code));
+            if (left.length) bidLock = { total: visible.length, awarded: visible.length - left.length, left: left.map(c => `${c.code} ${c.description}`) };
+        } catch (err) {
+            console.warn("Couldn't check the bids lock:", err);
+            bidLock = null;
+        }
+    }
+
+    function applyBidLock() {
+        const panel = $("tabPanelVendors");
+        let box = $("vendorsLockedBox");
+        const locked = !!bidLock;
+        panel.querySelectorAll(":scope > *:not(#vendorsLockedBox)").forEach(el => el.classList.toggle("hidden-by-lock", locked));
+        if (!locked) { if (box) box.remove(); $("vendorsTabLock")?.classList.add("hidden"); return; }
+        $("vendorsTabLock")?.classList.remove("hidden");
+        if (!box) {
+            box = document.createElement("div");
+            box.id = "vendorsLockedBox";
+            box.className = "pav-locked";
+            panel.prepend(box);
+        }
+        const pct = Math.round((bidLock.awarded / bidLock.total) * 100);
+        const sample = bidLock.left.slice(0, 4).join(", ") + (bidLock.left.length > 4 ? `, and ${bidLock.left.length - 4} more` : "");
+        let me = window.currentSupabaseProfile;
+        if (!me) { try { me = JSON.parse(localStorage.getItem("staffProfile") || "null"); } catch (e) { me = null; } }
+        const first = String((me && (me.full_name || me.username)) || "").split(/\s+/)[0] || "there";
+        const left = bidLock.total - bidLock.awarded;
+        const say = bidLock.awarded === 0
+            ? `Hang tight, ${first}! Nothing's been awarded on ${currentProject.name || "this project"} yet. Once bidding wraps up, I'll open up contracts, W-9s and COIs right here.`
+            : `Almost there, ${first}! ${bidLock.awarded} of ${bidLock.total} cost codes are awarded on ${currentProject.name || "this project"}. ${left} to go, then I'll unlock the vendors.`;
+        box.innerHTML = `
+            <div class="bd-setup-theo"><span class="hc-buddy bd-setup-buddy" data-buddy="cone" data-say="Hi, I'm Theo!"></span><p class="bd-setup-say">${esc(say)}</p></div>
+            <h2>Vendors unlock when bidding is done</h2>
+            <p>Contracts, W-9s and COIs open up once every cost code on this project's Bids page has been awarded. Hide the codes this job doesn't need there.</p>
+            <div class="pav-locked-bar"><span style="width:${pct}%"></span></div>
+            <p class="pav-locked-count"><strong>${bidLock.awarded} of ${bidLock.total}</strong> cost codes awarded · still open: ${esc(sample)}</p>
+            <a class="auth-button pav-locked-btn" href="/pages/project-bids.html?id=${encodeURIComponent(currentProject.id)}">Go to Bids</a>
+            <p class="pav-locked-note">Utility Accounts is open any time.</p>`;
+        if (window.HelpBuddies) window.HelpBuddies.refresh();
+    }
+
     /* ---------- tabs + wiring ---------- */
 
     function switchTab(key) {
@@ -896,9 +961,10 @@
         currentProject = project;
         wire();
         try { await window.Permissions?.initPermissions?.(); } catch { /* fails open */ }
-        await Promise.all([loadVendors(), loadUtilities(), loadPmRole()]);
+        await Promise.all([loadVendors(), loadUtilities(), loadPmRole(), loadBidLock()]);
         renderVendors();
         renderUtilities();
+        applyBidLock();
         $("accountsLoadingState").style.display = "none";
         $("accountsBody").style.display = "block";
     });
