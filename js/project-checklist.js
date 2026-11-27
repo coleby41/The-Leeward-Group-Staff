@@ -3,7 +3,9 @@
 
    What the Leeward team needs to do on a job, in order, with Theo on top.
    Every step checks itself off from what's already in the portal; nobody
-   ticks anything by hand. Goes away once the project is Archived.
+   ticks anything by hand. Shown only while the project is Onboarding: the
+   rest of the Overview (numbers, timeline, money...) stays hidden until the
+   project is set to Active, then the checklist goes away (2026-11-27).
 
      Setup & bidding
        1  Finish project setup        code, address and owner entity
@@ -128,7 +130,7 @@
         const name = f.p.name || "this project";
         const done = list.filter(s => s.done).length;
         const next = list.find(s => !s.done);
-        if (!next) return `Look at that, ${first}! Everything's done for ${name}. I'll keep an eye on things from here.`;
+        if (!next) return `Look at that, ${first}! Everything's done for ${name}. Set it to Active and I'll switch this page over to the project dashboard.`;
         if (done === 0) return `Hi ${first}! Here's what ${name} needs from the team. Let's start with: ${next.title.toLowerCase()}.`;
         if (done >= list.length - 2) return `So close, ${first}! ${done} of ${list.length} done on ${name}. Next up: ${next.title.toLowerCase()}.`;
         return `Nice work, ${first}. ${done} of ${list.length} done on ${name}. Next up: ${next.title.toLowerCase()}.`;
@@ -137,9 +139,13 @@
     async function render(project) {
         const box = $("povChecklist");
         if (!box || !project || !db()) return;
-        if ((project.status || "") === "archived") { box.hidden = true; return; }
+        const body = $("povBody");
+        const onboarding = s => (s || "onboarding") === "onboarding";
+        const showDashboard = () => { box.hidden = true; body && body.classList.remove("pov-onboarding"); };
+        if (!onboarding(project.status)) { showDashboard(); return; }
+        body && body.classList.add("pov-onboarding");
         const f = await facts(project);
-        if ((f.p.status || "") === "archived") { box.hidden = true; return; }
+        if (!onboarding(f.p.status)) { showDashboard(); return; }
         const list = steps(f);
         const done = list.filter(s => s.done).length;
         const next = list.findIndex(s => !s.done);
@@ -158,12 +164,31 @@
             <div class="pov-section-head"><h2>Team checklist</h2><span class="pcl-count">${done} of ${list.length} done</span></div>
             <div class="pcl-theo"><span class="hc-buddy pcl-buddy" data-buddy="${done === list.length ? "wave" : "clipboard"}" data-say="Hi, I'm Theo!"></span><p class="pcl-say">${esc(theoLine(list, f))}</p></div>
             <div class="pcl-bar" aria-hidden="true"><span style="width:${Math.round((done / list.length) * 100)}%"></span></div>
-            <ol class="pcl-list">${rows}</ol>`;
+            <ol class="pcl-list">${rows}</ol>
+            <div class="pcl-activate">
+                <p>${done === list.length ? "Everything's done." : "The project dashboard shows up once the project is Active."}</p>
+                <button type="button" class="${done === list.length ? "hm-btn hm-btn--primary" : "bl-link-btn"}" data-pcl-activate>Set project to Active</button>
+            </div>`;
         box.hidden = false;
         if (window.HelpBuddies) window.HelpBuddies.refresh();
     }
 
+    let current = null;
+    async function activate(btn) {
+        const left = document.querySelectorAll("#povChecklist .pcl-step:not(.is-done)").length;
+        if (left && !confirm(`${left} step${left === 1 ? " is" : "s are"} still open. Set the project to Active anyway?`)) return;
+        btn.disabled = true;
+        const { error } = await db().from((window.ProjectFields && window.ProjectFields.PROJECTS_TABLE) || "projects").update({ status: "active" }).eq("id", current.id);
+        if (error) { btn.disabled = false; (window.showToast || alert)(`Couldn't update the status: ${error.message}`, { type: "error" }); return; }
+        window.location.reload();
+    }
+    document.addEventListener("click", e => {
+        const b = e.target.closest("[data-pcl-activate]");
+        if (b && current) activate(b);
+    });
+
     window.addEventListener("project-shell:ready", e => {
+        current = e.detail && e.detail.project;
         const project = e.detail && e.detail.project;
         if (project) render(project);
     });

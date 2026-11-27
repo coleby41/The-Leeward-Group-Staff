@@ -21478,3 +21478,7 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .pcl-done { font-size: 0.8rem; font-weight: 700; color: #2f7d32; }
 .pcl-go { flex: 0 0 auto; font-size: 0.85rem; font-weight: 700; text-decoration: none; color: var(--accent); }
 .pcl-go--next { padding: 7px 14px; border-radius: 999px; background: var(--accent-strong); color: #fff; }
+/* Onboarding projects: only the Team checklist shows on the Overview */
+#povBody.pov-onboarding > :not(#povChecklist) { display: none !important; }
+.pcl-activate { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid #f0f2f5; }
+.pcl-activate p { margin: 0; font-size: 0.85rem; color: var(--text-soft); }
