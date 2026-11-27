@@ -463,11 +463,11 @@
                 <a href="/pages/vendor-portal-preview.html" class="vendor-toolbar-menu-item hidden" id="vendorPreviewLink">Vendor Portal Preview</a>
                 <!-- Bid Invites (beta) — hidden until js/bid-invites.js confirms
                      the vendors.send_bid_invites permission. -->
-                <div class="vendor-toolbar-menu-divider hidden" id="inviteBidDivider"></div>
-                <button type="button" class="vendor-toolbar-menu-item vendor-toolbar-menu-item--with-badge hidden" id="inviteBidBtn">
-                    Generate A Invite Bid
-                    <span class="bid-beta-pill">Beta</span>
-                </button>
+                <!-- "Generate A Invite Bid" removed 2026-11-27: invites are sent from each
+                     project's Bids tab (the Invite Sheet). These stay hidden so
+                     js/bid-invites.js still loads cleanly. -->
+                <div class="vendor-toolbar-menu-divider hidden" id="inviteBidDivider" hidden></div>
+                <button type="button" class="hidden" id="inviteBidBtn" hidden aria-hidden="true" tabindex="-1"></button>
             </div>
         </div>
     </div>

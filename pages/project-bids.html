@@ -182,7 +182,6 @@
             <div class="hm-actions">
                 <a href="/pages/bids-help.html" data-help="" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
                 <button type="button" class="hm-btn hm-glass" id="bdExportBtn">Export for QuickBooks</button>
-                <button type="button" class="hm-btn hm-glass hidden" id="bdSheetBtn">Invite Sheet</button>
                 <button type="button" class="hm-btn hm-btn--primary hidden" id="bdNewBtn">+ New bid package</button>
             </div>
         </div>
@@ -193,53 +192,56 @@
         </section>
         <div class="bl-table" id="bdTable"></div>
         <p class="bl-footnote"><strong>Export for QuickBooks</strong> downloads an IIF file (vendors and this job, for QuickBooks Desktop › File › Utilities › Import › IIF Files) and an Excel file (budgets and contract amounts) until the QuickBooks Desktop connection is set up.</p>
-        <div class="card bid-package-card" id="bdCoiTemplate" style="display:none"></div>
-        <div class="card bid-package-card" id="bdPaperwork" style="display:none"></div>
     </div>
 
-    <!-- ===== Invite Sheet: every cost code, check vendors, send ===== -->
+    <!-- ===== Invite Sheet = the Bids page (2026-11-27) ===== -->
     <div id="bdSheetView" class="hidden">
-        <a href="#" class="bd-back" id="bdSheetBackBtn">‹ All bid packages</a>
         <div class="hm-head">
             <div>
                 <p class="hm-date" id="bdSheetKicker">Bids</p>
-                <h1 class="hm-greeting">Invite Sheet</h1>
+                <h1 class="hm-greeting">Bids</h1>
             </div>
             <div class="hm-actions">
                 <a href="/pages/bids-help.html#sheet" data-help="sheet" class="hm-btn hm-glass bl-help-btn"><span class="bl-help-icon" aria-hidden="true"></span>Help</a>
+                <button type="button" class="hm-btn hm-glass" id="bdSheetExportBtn">Export for QuickBooks</button>
             </div>
         </div>
-        <p class="bl-facts">Every cost code, with the vendors tagged for it on the Vendors page. Check who should bid, set the due date, and Send. Each cost code goes out as its own bid package. Hide codes this job doesn't need.</p>
-        <p class="workbook-page-message error hidden" id="bdSheetSetupNote">Hiding cost codes needs sql/supabase-bid-invite-sheet-setup.sql (run it in Supabase › SQL Editor). Everything else works.</p>
+        <p class="bl-facts" id="bdSheetBuildings"></p>
+        <p class="bl-facts">Every cost code, with the vendors tagged for it on the Vendors page. For each one, check who should bid (3 is the goal), add the budget, and fill in the Details. Hide the codes this job doesn't need. When every row still showing is ready, <strong>Send all</strong> emails every vendor at once.</p>
+        <p class="workbook-page-message error hidden" id="bdSheetSetupNote">Hiding cost codes needs sql/supabase-bid-invite-sheet-setup.sql (run it in Supabase › SQL Editor).</p>
         <div class="bd-sheet-tools">
             <label class="bl-search"><span class="bl-search-icon" aria-hidden="true"></span><input type="search" id="bdSheetSearch" placeholder="Search codes or vendors" aria-label="Search codes or vendors"></label>
             <select id="bdSheetDivision" aria-label="Division"><option value="">All divisions</option></select>
-            <label class="form-toggle-row bd-sheet-only"><input type="checkbox" id="bdSheetOnlyPicked"><span>Only checked rows</span></label>
             <button type="button" class="bl-link-btn hidden" id="bdSheetShowHidden">Show hidden codes</button>
         </div>
         <div class="bl-table bd-sheet" id="bdSheetTable"></div>
-        <section class="hm-glass bl-strip bd-sheet-bar" aria-label="Send invites">
+        <section class="hm-glass bl-strip bd-sheet-bar" aria-label="Send all">
             <span class="hm-sheen" aria-hidden="true"></span>
             <div class="bd-sheet-bar-inner">
                 <div class="bd-sheet-bar-fields">
+                    <span class="bd-sheet-bar-label">For every row</span>
                     <label>Bids due <input type="date" id="bdSheetDueDate"></label>
                     <label>Time <input type="time" id="bdSheetDueTime" value="14:00"></label>
-                    <label>Your name <input type="text" id="bdSheetContactName" maxlength="120"></label>
-                    <label>Your email <input type="email" id="bdSheetContactEmail" maxlength="200"></label>
+                    <label>Contact name <input type="text" id="bdSheetContactName" maxlength="120"></label>
+                    <label>Contact email <input type="email" id="bdSheetContactEmail" maxlength="200"></label>
                 </div>
                 <div class="bd-sheet-bar-send">
-                    <strong id="bdSheetCount">Check vendors to invite</strong>
-                    <button type="button" class="bl-link-btn hidden" id="bdSheetClearBtn">Uncheck all</button>
-                    <button type="button" class="hm-btn hm-btn--primary" id="bdSheetSendBtn" disabled>Send invites</button>
+                    <span id="bdSheetCount"></span>
+                    <button type="button" class="hm-btn hm-btn--primary" id="bdSheetSendBtn" disabled>Send all</button>
                 </div>
             </div>
             <p class="auth-message" id="bdSheetMessage" role="status"></p>
         </section>
     </div>
 
+    <div id="bdCards">
+        <div class="card bid-package-card" id="bdCoiTemplate" style="display:none"></div>
+        <div class="card bid-package-card" id="bdPaperwork" style="display:none"></div>
+    </div>
+
     <!-- ===== One package: compare + pick winners ===== -->
     <div id="bdPackageView" class="hidden">
-        <a href="#" class="bd-back" id="bdBackBtn">‹ All bid packages</a>
+        <a href="#" class="bd-back" id="bdBackBtn">‹ Back to Bids</a>
         <div class="hm-head">
             <div>
                 <p class="hm-date" id="bdPkgKicker"></p>

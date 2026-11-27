@@ -17,9 +17,10 @@
                Award picks -> one confirm -> bid-invites "award_split".
                Old packages without cost codes: one total per vendor,
                awarded with the original "award" action.
-     Sheet     Invite Sheet (?sheet=1): every cost code with the vendors tagged
-               for it; check who to invite and Send (one package per code).
-               Codes a job doesn't need can be hidden for that project.
+     Sheet     The Invite Sheet is the Bids page (2026-11-27): every cost code with
+               the vendors tagged for it, a budget per building, and Details
+               (scope, plans, dates, contact, email preview). Send all once every
+               row still showing is ready; one package per code.
      Export    Export for QuickBooks (Desktop): IIF (vendors + the job) and
                Excel (budgets, awarded contract amounts) until the
                QuickBooks Web Connector bridge exists.
@@ -305,10 +306,11 @@
         const params = new URLSearchParams(window.location.search);
         openPkgId = params.get("package");
         const pkg = openPkgId ? packages.find(p => p.id === openPkgId && p.status !== "draft") : null;
-        const sheet = !pkg && params.get("sheet") === "1" && canSend;
+        const sheet = !pkg && canSend; // the Invite Sheet is the Bids page (2026-11-27)
         $("bdListView").classList.toggle("hidden", !!pkg || sheet);
         $("bdPackageView").classList.toggle("hidden", !pkg);
         $("bdSheetView").classList.toggle("hidden", !sheet);
+        $("bdCards").classList.toggle("hidden", !!pkg);
         if (pkg) renderPackage(pkg);
         else if (sheet) renderSheet();
         else renderList();
@@ -316,7 +318,6 @@
 
     function renderList() {
         $("bdNewBtn").classList.toggle("hidden", !canSend);
-        $("bdSheetBtn").classList.toggle("hidden", !canSend);
         const shown = shownAreas();
         $("bdBuildings").innerHTML = areas.length
             ? `Buildings: ${shown.map(a => esc(areaFacts(a))).join(" · ")}${canManage ? ` · <button type="button" class="bl-link-btn" data-act="setup">Edit</button>` : ""}`
@@ -363,7 +364,11 @@
             $("bdTable").innerHTML = html;
         }
 
-        // Cards carried over from Bid Invites.
+        mountCards();
+    }
+
+    // COI template + Vendor Paperwork cards (carried over from Bid Invites).
+    function mountCards() {
         if (window.CoiTemplate && !$("bdCoiTemplate").dataset.mounted) {
             $("bdCoiTemplate").dataset.mounted = "1";
             window.CoiTemplate.mount($("bdCoiTemplate"), { project, canManage });
@@ -1217,42 +1222,116 @@
         await sendNew();
     }
 
-    /* ---------- Invite Sheet (2026-11-27) ----------
-       One row per cost code (the numbered Trade tags), with the approved
-       vendors tagged for it. Check who to invite, set the due date once,
-       Send: every code with checked vendors becomes its own bid package
-       (one package per code), or the new vendors are added to that code's
-       open package. Codes this job doesn't need can be hidden here
-       (bid_project_hidden_codes). Checked boxes are kept in this browser
-       until they're sent, so the sheet can be filled in over time. */
+    /* ---------- Invite Sheet = the Bids page (2026-11-27) ----------
+       One row per cost code (the numbered Trade tags). Every row that's
+       still showing has to be filled out before Send all turns on; codes the
+       job doesn't need are hidden (bid_project_hidden_codes).
+
+       A row is ready when it has:
+         vendors   at least one checked (fewer than 3 shows a warning)
+         budget    one per building type (per building) and per site section
+                   -> saved straight to bid_lines, same budget the compare
+                      view shows
+         scope     what the code covers
+         due date  + contact (the bar at the bottom fills these in for every
+                   row; a row can change them in Details)
+       Optional per row: plans & specs (Project Files), walkthrough,
+       questions-due. Details also shows the email each vendor gets.
+
+       Send all: each unsent row becomes its own bid package (one package per
+       code) and its vendors are emailed. Rows that already went out are done;
+       vendors checked on them later are added to that package. Everything
+       except budgets is kept in this browser until it's sent. */
 
     const SHEET_KEY = () => `bidInviteSheet:${project.id}`;
-    let sheet = null; // { sel: Map(code -> Set(companyId)), extra: Map(code -> Set(companyId)), showHidden }
+    let sheet = null;        // { projectId, sel, extra, rows, open, showHidden, needOnly, sending }
+    let sheetFiles = null;   // project_files for the plans pickers
+    let sheetVendors = null; // loadVendorData() result, once
+    const budgetTimers = new Map();
 
     function sheetLoad() {
         if (sheet && sheet.projectId === project.id) return sheet;
         let saved = null;
         try { saved = JSON.parse(localStorage.getItem(SHEET_KEY()) || "null"); } catch (e) { saved = null; }
         const toMap = o => new Map(Object.entries(o || {}).map(([k, v]) => [k, new Set((v || []).map(String))]));
-        sheet = { projectId: project.id, sel: toMap(saved && saved.sel), extra: toMap(saved && saved.extra), showHidden: false, sending: false };
+        sheet = {
+            projectId: project.id,
+            sel: toMap(saved && saved.sel),
+            extra: toMap(saved && saved.extra),
+            rows: new Map(Object.entries((saved && saved.rows) || {})),
+            open: new Set(), showHidden: false, needOnly: false, sending: false,
+        };
         return sheet;
     }
     function sheetSave() {
         const toObj = m => Object.fromEntries(Array.from(m.entries()).filter(([, v]) => v.size).map(([k, v]) => [k, Array.from(v)]));
-        try { localStorage.setItem(SHEET_KEY(), JSON.stringify({ sel: toObj(sheet.sel), extra: toObj(sheet.extra) })); } catch (e) { /* best effort */ }
+        const rows = Object.fromEntries(Array.from(sheet.rows.entries()).filter(([, r]) => r && Object.values(r).some(x => x && (!Array.isArray(x) || x.length))));
+        try { localStorage.setItem(SHEET_KEY(), JSON.stringify({ sel: toObj(sheet.sel), extra: toObj(sheet.extra), rows })); } catch (e) { /* best effort */ }
+    }
+    function rowData(code) {
+        if (!sheet.rows.has(code)) sheet.rows.set(code, {});
+        return sheet.rows.get(code);
     }
 
     const tagCodeOf = name => { const m = String(name || "").trim().match(/^"?(\d{3,6})\b/); return m ? m[1] : null; };
 
-    // The open (or awarded) one-code package for a cost code, if there is one.
+    // The one-code package already sent for a cost code, if there is one.
     function packageForCode(code) {
-        return packages.find(p => p.status !== "closed" && Array.isArray(p.cost_codes) && p.cost_codes.length === 1 && p.cost_codes[0] === code) || null;
+        return packages.find(p => p.status !== "closed" && p.status !== "draft" && Array.isArray(p.cost_codes) && p.cost_codes.length === 1 && p.cost_codes[0] === code) || null;
     }
+
+    // Sheet-wide defaults (the bar at the bottom).
+    function sheetDefaults() {
+        return {
+            due: $("bdSheetDueDate").value, time: $("bdSheetDueTime").value || "14:00",
+            cname: $("bdSheetContactName").value.trim(), cemail: $("bdSheetContactEmail").value.trim(),
+        };
+    }
+    function rowValues(code) {
+        const r = rowData(code), d = sheetDefaults();
+        return {
+            scope: (r.scope || "").trim(),
+            files: Array.isArray(r.files) ? r.files : [],
+            due: r.due || d.due, time: r.time || d.time,
+            walk: r.walk || "", walkWhere: r.walkWhere || "", questions: r.questions || "",
+            cname: (r.cname || d.cname || "").trim(), cemail: (r.cemail || d.cemail || "").trim(),
+            remindNo: r.remindNo !== false, remindDue: r.remindDue !== false,
+        };
+    }
+    function dueIsoFor(vals) {
+        if (!vals.due) return null;
+        const x = new Date(`${vals.due}T${vals.time || "14:00"}`);
+        return Number.isNaN(x.getTime()) ? null : x.toISOString();
+    }
+    function budgetFor(areaId, code) {
+        const l = lines.find(x => x.area_id === areaId && x.cost_code === code);
+        return l && l.budget != null ? Number(l.budget) : null;
+    }
+
+    // What a row still needs. [] = ready. Sent rows are always ready.
+    function rowMissing(code) {
+        if (packageForCode(code)) return [];
+        const miss = [];
+        const picked = (sheet.sel.get(code) || new Set()).size;
+        if (!picked) miss.push("vendors");
+        if (!shownAreas().length || shownAreas().some(a => budgetFor(a.id, code) == null)) miss.push("budget");
+        const v = rowValues(code);
+        if (!v.scope) miss.push("scope");
+        const due = dueIsoFor(v);
+        if (!due) miss.push("due date"); else if (new Date(due) <= new Date()) miss.push("due date (in the past)");
+        if (!v.cname || !isEmail(v.cemail)) miss.push("contact");
+        return miss;
+    }
+    function visibleCodes() { return codes.filter(c => !hiddenCodes.has(c.code)).map(c => c.code); }
 
     async function renderSheet() {
         const st = sheetLoad();
         $("bdSheetKicker").textContent = `${project.name || "Project"} · Bids`;
         $("bdSheetSetupNote").classList.toggle("hidden", sheetReady);
+        const areasShown = shownAreas();
+        $("bdSheetBuildings").innerHTML = areas.length
+            ? `Buildings: ${areasShown.map(a => esc(areaFacts(a))).join(" · ")}${canManage ? ` · <button type="button" class="bl-link-btn" data-sheet-setup>Edit</button>` : ""}`
+            : `<strong>Set up the buildings first</strong> so budgets and prices can be per building.${canManage ? ` <button type="button" class="bl-link-btn" data-sheet-setup>Set up buildings</button>` : ""}`;
         if (!$("bdSheetDueDate").value) {
             const d = new Date(); d.setDate(d.getDate() + 14);
             $("bdSheetDueDate").value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -1264,9 +1343,12 @@
             $("bdSheetContactName").value = (saved && saved.name) || staffName();
             $("bdSheetContactEmail").value = (saved && saved.email) || me.email || "";
         }
-        $("bdSheetTable").innerHTML = `<p class="bl-soft" style="padding:18px">Loading vendors…</p>`;
-        const v = await loadVendorData();
-        // division filter options (once)
+        if (!sheetVendors) $("bdSheetTable").innerHTML = `<p class="bl-soft" style="padding:18px">Loading vendors…</p>`;
+        const v = sheetVendors || (sheetVendors = await loadVendorData());
+        if (!sheetFiles) {
+            const { data } = await client().from("project_files").select("id, file_name, bucket, storage_path, category, created_at").eq("project_id", project.id).order("created_at", { ascending: false });
+            sheetFiles = data || [];
+        }
         if ($("bdSheetDivision").options.length <= 1) {
             const divs = [];
             codes.forEach(c => { if (!divs.some(d => d[0] === c.division_code)) divs.push([c.division_code, c.division_name]); });
@@ -1274,9 +1356,7 @@
         }
         const q = $("bdSheetSearch").value.trim().toLowerCase();
         const div = $("bdSheetDivision").value;
-        const onlyPicked = $("bdSheetOnlyPicked").checked;
 
-        // company id -> Set(codes it's tagged with)
         const tagCodes = new Map(v.tags.map(t => [String(t.id), tagCodeOf(t.name)]).filter(([, c]) => c));
         const vendorsByCode = new Map();
         v.companyTags.forEach(ct => {
@@ -1296,60 +1376,141 @@
         if (div) rows = rows.filter(c => c.division_code === div);
         if (q) rows = rows.filter(c => `${c.code} ${c.description} ${c.division_name}`.toLowerCase().includes(q)
             || Array.from(vendorsByCode.get(c.code) || []).some(id => String(coById.get(id)?.Name || "").toLowerCase().includes(q)));
-        if (onlyPicked) rows = rows.filter(c => (st.sel.get(c.code) || new Set()).size);
+        if (st.needOnly) rows = rows.filter(c => !hiddenCodes.has(c.code) && rowMissing(c.code).length);
 
         let lastDiv = null;
         const html = rows.map(c => {
             const head = c.division_code !== lastDiv ? `<div class="bd-sheet-div">${esc(c.division_code)} · ${esc(c.division_name)}</div>` : "";
             lastDiv = c.division_code;
-            const hidden = hiddenCodes.has(c.code);
-            const pkg = packageForCode(c.code);
-            const invited = new Map((pkg ? pkgInvites(pkg) : []).map(i => [String(i.company_id), i]));
-            const sel = st.sel.get(c.code) || new Set();
-            const ids = new Set([...(vendorsByCode.get(c.code) || []), ...(st.extra.get(c.code) || []), ...invited.keys()]);
-            const chips = Array.from(ids).map(id => coById.get(id)).filter(Boolean)
-                .sort((a, b) => String(a.Name).localeCompare(String(b.Name)))
-                .map(co => {
-                    const id = String(co.id);
-                    const inv = invited.get(id);
-                    if (inv) return `<span class="bd-sheet-chip is-sent" title="${esc(STATUS[inv.status] || inv.status)}"><span class="bl-check" aria-hidden="true"></span>${esc(co.Name)}<em>${esc(STATUS[inv.status] || inv.status)}</em></span>`;
-                    const miss = missingRequirements(v, co);
-                    const noEmail = !emailContacts(v, co.id).length;
-                    if (miss.length || noEmail) return `<span class="bd-sheet-chip is-blocked" title="${esc(noEmail ? "No contact with an email" : `Not approved: ${miss.join(", ")}`)}">${esc(co.Name)}<em>${noEmail ? "No email" : "Not approved"}</em></span>`;
-                    const extra = (st.extra.get(c.code) || new Set()).has(id);
-                    return `<label class="bd-sheet-chip ${sel.has(id) ? "is-on" : ""}"><input type="checkbox" data-sheet-pick="${esc(c.code)}" value="${esc(id)}" ${sel.has(id) ? "checked" : ""} ${hidden || st.sending ? "disabled" : ""}>${esc(co.Name)}${extra ? `<button type="button" class="bd-sheet-x" data-sheet-unextra="${esc(c.code)}" data-id="${esc(id)}" aria-label="Remove ${esc(co.Name)}">✕</button>` : ""}</label>`;
-                }).join("");
-            const addable = approvedWithEmail.filter(co => !ids.has(String(co.id)));
-            const add = hidden || st.sending ? "" : `<select class="bd-sheet-add" data-sheet-add="${esc(c.code)}" aria-label="Add a vendor to ${esc(c.code)}"><option value="">+ Add vendor</option>${addable.map(co => `<option value="${esc(co.id)}">${esc(co.Name)}</option>`).join("")}</select>`;
-            let status = `<span class="bl-soft">—</span>`;
-            if (pkg) {
-                const t = packageTotals(pkg);
-                status = pkg.status === "draft" ? `<span class="bd-chip bd-chip--warn">Draft</span>`
-                    : `<button type="button" class="bl-link-btn" data-sheet-open="${esc(pkg.id)}">${pkg.status === "awarded" ? "Awarded" : `Sent · ${t.bids} of ${t.invited} bids`}</button>`;
-            }
-            const hideBtn = `<button type="button" class="bl-link-btn bd-sheet-hide" data-sheet-hide="${esc(c.code)}">${hidden ? "Show" : "Hide"}</button>`;
-            return `${head}<div class="bd-sheet-row ${hidden ? "is-hidden" : ""}">
-                <div class="bd-sheet-code"><span class="bl-code">${esc(c.code)}</span><span>${esc(c.description)}</span>${hidden ? `<em>Hidden on this project</em>` : ""}</div>
-                <div class="bd-sheet-vendors">${chips || (hidden ? "" : `<span class="bl-soft bl-small">No vendors tagged with this code.</span>`)}${add}</div>
-                <div class="bd-sheet-status">${status}</div>
-                <div class="bd-sheet-act">${hideBtn}</div>
-            </div>`;
+            return head + sheetRowHtml(c, { v, vendorsByCode, coById, approvedWithEmail });
         }).join("");
-        $("bdSheetTable").innerHTML = `<div class="bd-sheet-row bd-row--head"><div>Cost code</div><div>Vendors to invite</div><div>Status</div><div></div></div>`
-            + (html || `<div class="bl-empty"><p>No cost codes match.</p></div>`);
+        $("bdSheetTable").innerHTML = `<div class="bd-sheet-row bd-row--head"><div>Cost code</div><div>Vendors to invite</div><div>Budget</div><div>Status</div><div></div></div>`
+            + (html || `<div class="bl-empty"><p>${st.needOnly ? "Every cost code is ready." : "No cost codes match."}</p></div>`);
         sheetCounts();
+        mountCards();
+    }
+
+    function sheetRowHtml(c, ctx) {
+        const st = sheet, code = c.code;
+        const { v, vendorsByCode, coById, approvedWithEmail } = ctx;
+        const hidden = hiddenCodes.has(code);
+        const pkg = packageForCode(code);
+        const invited = new Map((pkg ? pkgInvites(pkg) : []).map(i => [String(i.company_id), i]));
+        const sel = st.sel.get(code) || new Set();
+        const lock = hidden || st.sending;
+        const ids = new Set([...(vendorsByCode.get(code) || []), ...(st.extra.get(code) || []), ...invited.keys()]);
+        const chips = Array.from(ids).map(id => coById.get(id)).filter(Boolean)
+            .sort((a, b) => String(a.Name).localeCompare(String(b.Name)))
+            .map(co => {
+                const id = String(co.id);
+                const inv = invited.get(id);
+                if (inv) return `<span class="bd-sheet-chip is-sent" title="${esc(STATUS[inv.status] || inv.status || "")}"><span class="bl-check" aria-hidden="true"></span>${esc(co.Name)}<em>${esc(STATUS[inv.status] || "Invited")}</em></span>`;
+                const miss = missingRequirements(v, co);
+                const noEmail = !emailContacts(v, co.id).length;
+                if (miss.length || noEmail) return `<span class="bd-sheet-chip is-blocked" title="${esc(noEmail ? "No contact with an email" : `Not approved: ${miss.join(", ")}`)}">${esc(co.Name)}<em>${noEmail ? "No email" : "Not approved"}</em></span>`;
+                const extra = (st.extra.get(code) || new Set()).has(id);
+                return `<label class="bd-sheet-chip ${sel.has(id) ? "is-on" : ""}"><input type="checkbox" data-sheet-pick="${esc(code)}" value="${esc(id)}" ${sel.has(id) ? "checked" : ""} ${lock ? "disabled" : ""}>${esc(co.Name)}${extra && !lock ? `<button type="button" class="bd-sheet-x" data-sheet-unextra="${esc(code)}" data-id="${esc(id)}" aria-label="Remove ${esc(co.Name)}">✕</button>` : ""}</label>`;
+            }).join("");
+        const addable = approvedWithEmail.filter(co => !ids.has(String(co.id)));
+        const add = lock ? "" : `<select class="bd-sheet-add" data-sheet-add="${esc(code)}" aria-label="Add a vendor to ${esc(code)}"><option value="">+ Add vendor</option>${addable.map(co => `<option value="${esc(co.id)}">${esc(co.Name)}</option>`).join("")}</select>`;
+        const count = (pkg ? invited.size : 0) + sel.size;
+        const warn3 = !hidden && count > 0 && count < 3 ? `<span class="bd-sheet-warn" title="Three bids per cost code is the goal">Only ${count} vendor${count === 1 ? "" : "s"}, 3 recommended</span>` : "";
+
+        // Budget: one per building type (per building) and per site section.
+        const budget = shownAreas().length
+            ? `<div class="bd-sheet-budgets">${shownAreas().map(a => {
+                const b = budgetFor(a.id, code);
+                return `<label class="bd-sheet-budget" title="${esc(a.name)}${isSection(a) ? " (whole site)" : " (per building)"}"><span>${esc(a.name)}${isSection(a) ? "" : ` <em>/bldg</em>`}</span><span class="bid-money-input"><span>$</span><input type="text" inputmode="decimal" data-sheet-budget="${esc(code)}" data-area="${esc(a.id)}" value="${esc(b == null ? "" : plainAmount(b))}" placeholder="0" ${hidden || !canManage ? "disabled" : ""}></span></label>`;
+            }).join("")}</div>`
+            : `<span class="bl-soft bl-small">Set up buildings</span>`;
+
+        let status;
+        if (hidden) status = `<span class="bl-soft bl-small">Hidden</span>`;
+        else if (pkg) {
+            const t = packageTotals(pkg);
+            status = `<button type="button" class="bl-link-btn" data-sheet-open="${esc(pkg.id)}">${pkg.status === "awarded" ? "Awarded" : `Sent · ${t.bids} of ${t.invited} bids`}</button>`;
+        } else {
+            const miss = rowMissing(code);
+            status = miss.length ? `<span class="bd-chip bd-chip--warn" title="Still needs: ${esc(miss.join(", "))}">Needs ${esc(miss[0])}${miss.length > 1 ? ` +${miss.length - 1}` : ""}</span>` : `<span class="bd-chip bd-chip--done">Ready</span>`;
+        }
+        const isOpen = st.open.has(code);
+        const act = `<div class="bd-sheet-actbtns">${!hidden && !pkg ? `<button type="button" class="bl-link-btn" data-sheet-details="${esc(code)}" aria-expanded="${isOpen}">${isOpen ? "Close" : "Details"}</button>` : ""}<button type="button" class="bl-link-btn bd-sheet-hide" data-sheet-hide="${esc(code)}" ${pkg && !hidden ? "hidden" : ""}>${hidden ? "Show" : "Hide"}</button></div>`;
+        return `<div class="bd-sheet-row ${hidden ? "is-hidden" : ""} ${isOpen ? "is-open" : ""}" data-code="${esc(code)}">
+            <div class="bd-sheet-code"><span class="bl-code">${esc(code)}</span><span>${esc(c.description)}</span>${hidden ? `<em>Hidden on this project</em>` : ""}</div>
+            <div class="bd-sheet-vendors">${chips || (hidden ? "" : `<span class="bl-soft bl-small">No vendors tagged with this code.</span>`)}${add}${warn3}</div>
+            <div class="bd-sheet-budgetcell">${budget}</div>
+            <div class="bd-sheet-status">${status}</div>
+            <div class="bd-sheet-act">${act}</div>
+        </div>${isOpen && !hidden && !pkg ? sheetDetailsHtml(c) : ""}`;
+    }
+
+    function sheetDetailsHtml(c) {
+        const code = c.code, r = rowData(code), d = sheetDefaults(), vals = rowValues(code);
+        const files = new Set(vals.files.map(String));
+        const fq = (r._fileSearch || "").toLowerCase();
+        const fileList = sheetFiles.filter(f => files.has(String(f.id)) || !fq || String(f.file_name).toLowerCase().includes(fq)).slice(0, fq ? 30 : 6);
+        const picked = Array.from(sheet.sel.get(code) || []).map(id => sheetVendors.companies.find(co => String(co.id) === id)).filter(Boolean);
+        const name = `${code} ${codeLabel(code)}`;
+        const field = (key, label, input) => `<label class="bd-sd-field"><span>${label}</span>${input}</label>`;
+        const inp = (key, type, value, ph, extra) => `<input type="${type}" data-sheet-field="${esc(code)}" data-key="${key}" value="${esc(value || "")}" placeholder="${esc(ph || "")}" ${extra || ""}>`;
+        return `<div class="bd-sheet-details" data-details="${esc(code)}">
+            <div class="bd-sd-grid">
+                <div class="bd-sd-col">
+                    <h4>1 · Bid details</h4>
+                    ${field("scope", "Scope of work <b>*</b>", `<textarea rows="4" data-sheet-field="${esc(code)}" data-key="scope" placeholder="What this cost code covers: sheets, inclusions, exclusions">${esc(r.scope || "")}</textarea>`)}
+                    <div class="bd-sd-two">
+                        ${field("due", "Bids due <b>*</b>", inp("due", "date", r.due || "", "", `data-default="${esc(d.due)}"`))}
+                        ${field("time", "Time", inp("time", "time", r.time || d.time))}
+                    </div>
+                    <div class="bd-sd-two">
+                        ${field("walk", "Walkthrough (optional)", inp("walk", "datetime-local", r.walk))}
+                        ${field("walkWhere", "Where to meet", inp("walkWhere", "text", r.walkWhere, "Project site"))}
+                    </div>
+                    ${field("questions", "Questions due (optional)", inp("questions", "datetime-local", r.questions))}
+                    <div class="bd-sd-two">
+                        ${field("cname", "Contact name <b>*</b>", inp("cname", "text", r.cname, d.cname))}
+                        ${field("cemail", "Contact email <b>*</b>", inp("cemail", "email", r.cemail, d.cemail))}
+                    </div>
+                    <p class="bid-field-hint">Blank due date or contact uses the one in the bar at the bottom.</p>
+                </div>
+                <div class="bd-sd-col">
+                    <h4>2 · Plans &amp; specs <em>(optional)</em></h4>
+                    <label class="bl-search"><span class="bl-search-icon" aria-hidden="true"></span><input type="search" data-sheet-filesearch="${esc(code)}" value="${esc(r._fileSearch || "")}" placeholder="Search project files" aria-label="Search project files"></label>
+                    <div class="bd-files">${fileList.length ? fileList.map(f => `<label class="bd-file-pick"><input type="checkbox" data-sheet-file="${esc(code)}" value="${esc(f.id)}" ${files.has(String(f.id)) ? "checked" : ""}><span>${esc(f.file_name)}</span></label>`).join("") : `<p class="bl-soft bl-small">${sheetFiles.length ? "No files match." : "No files in this project yet."}</p>`}</div>
+                    <h4>3 · Review &amp; send</h4>
+                    <div class="bd-sd-email">
+                        <p><span>From</span>The Leeward Group</p>
+                        <p><span>Reply-to</span>${esc(vals.cemail || "—")}</p>
+                        <p><span>Subject</span>Invitation to Bid – ${esc(project.name || "")} – ${esc(name)}</p>
+                        <p><span>Sending to</span>${picked.length ? esc(picked.map(co => co.Name).join(", ")) : "<em>No vendors checked yet</em>"}</p>
+                    </div>
+                    <p class="bid-field-hint">Each vendor gets their own email and can't see the others. They price one building of each type in the Vendor Portal.</p>
+                    <label class="form-toggle-row"><input type="checkbox" data-sheet-field="${esc(code)}" data-key="remindNo" ${vals.remindNo ? "checked" : ""}><span>Remind if no response in 3 days</span></label>
+                    <label class="form-toggle-row"><input type="checkbox" data-sheet-field="${esc(code)}" data-key="remindDue" ${vals.remindDue ? "checked" : ""}><span>Remind 1 day before bids are due</span></label>
+                </div>
+            </div>
+        </div>`;
     }
 
     function sheetCounts() {
         const st = sheet;
-        let codesN = 0, invitesN = 0;
-        st.sel.forEach((set, code) => { if (set.size && !hiddenCodes.has(code)) { codesN += 1; invitesN += set.size; } });
-        $("bdSheetCount").textContent = invitesN
-            ? `${invitesN} invite${invitesN === 1 ? "" : "s"} · ${codesN} cost code${codesN === 1 ? "" : "s"}`
-            : "Check vendors to invite";
-        $("bdSheetSendBtn").disabled = !invitesN || st.sending;
-        $("bdSheetSendBtn").textContent = st.sending ? "Sending…" : `Send ${invitesN || ""} invite${invitesN === 1 ? "" : "s"}`.replace("  ", " ");
-        $("bdSheetClearBtn").classList.toggle("hidden", !invitesN || st.sending);
+        const vis = visibleCodes();
+        const todo = vis.filter(code => !packageForCode(code));
+        const notReady = todo.filter(code => rowMissing(code).length);
+        const ready = todo.length - notReady.length;
+        const adds = vis.filter(code => packageForCode(code) && (st.sel.get(code) || new Set()).size).length;
+        let invitesN = 0;
+        vis.forEach(code => { invitesN += (st.sel.get(code) || new Set()).size; });
+        $("bdSheetCount").innerHTML = !todo.length && !adds
+            ? `Everything showing has been sent.`
+            : notReady.length
+                ? `<strong>${ready} of ${todo.length}</strong> cost codes ready · <button type="button" class="bl-link-btn" data-sheet-needonly>${st.needOnly ? "Show all" : `Show the ${notReady.length} that need work`}</button>`
+                : `<strong>All ${todo.length} cost codes ready</strong> · ${invitesN} invite${invitesN === 1 ? "" : "s"}`;
+        const canSendAll = !st.sending && !notReady.length && (todo.length + adds) > 0 && invitesN > 0;
+        $("bdSheetSendBtn").disabled = !canSendAll;
+        $("bdSheetSendBtn").classList.toggle("is-ready", canSendAll);
+        $("bdSheetSendBtn").textContent = st.sending ? "Sending…" : canSendAll ? `Send all ${invitesN} invites` : "Send all";
+        $("bdSheetSendBtn").title = canSendAll ? "" : "Every cost code still showing needs vendors, a budget, a scope, a due date and a contact. Hide the ones you're not bidding.";
     }
 
     async function sheetToggleHidden(code) {
@@ -1359,46 +1520,75 @@
             ? await client().from("bid_project_hidden_codes").insert({ project_id: project.id, cost_code: code, hidden_by_name: staffName() })
             : await client().from("bid_project_hidden_codes").delete().eq("project_id", project.id).eq("cost_code", code);
         if (res.error) { toast(`Couldn't ${hide ? "hide" : "show"} ${code}: ${res.error.message}`, "error"); return; }
-        if (hide) { hiddenCodes.add(code); sheet.sel.delete(code); sheetSave(); } else hiddenCodes.delete(code);
+        if (hide) { hiddenCodes.add(code); sheet.sel.delete(code); sheet.open.delete(code); sheetSave(); } else hiddenCodes.delete(code);
         toast(hide ? `${code} hidden on this project` : `${code} is back on this project`);
         renderSheet();
     }
 
+    async function saveSheetBudget(code, areaId, text) {
+        const val = parseMoney(text);
+        if (Number.isNaN(val)) { toast("Budgets have to be numbers, like 312000.", "error"); return; }
+        const l = lines.find(x => x.area_id === areaId && x.cost_code === code);
+        if (l && Number(l.budget ?? NaN) === val) return;
+        const res = l
+            ? await client().from("bid_lines").update({ budget: val, updated_by_name: staffName() }).eq("id", l.id).select("*")
+            : await client().from("bid_lines").insert({ project_id: project.id, area_id: areaId, cost_code: code, budget: val, updated_by_name: staffName() }).select("*");
+        if (res.error || !res.data || !res.data.length) { toast(`Couldn't save the budget: ${res.error ? res.error.message : "permission denied"}`, "error"); return; }
+        if (l) Object.assign(l, res.data[0]); else lines.push(res.data[0]);
+        refreshRowStatus(code);
+    }
+
+    // Update one row's status chip and the bar without redrawing the inputs.
+    function refreshRowStatus(code) {
+        const row = document.querySelector(`.bd-sheet-row[data-code="${CSS.escape(code)}"] .bd-sheet-status`);
+        if (row && !packageForCode(code) && !hiddenCodes.has(code)) {
+            const miss = rowMissing(code);
+            row.innerHTML = miss.length ? `<span class="bd-chip bd-chip--warn" title="Still needs: ${esc(miss.join(", "))}">Needs ${esc(miss[0])}${miss.length > 1 ? ` +${miss.length - 1}` : ""}</span>` : `<span class="bd-chip bd-chip--done">Ready</span>`;
+        }
+        sheetCounts();
+    }
+
     async function sheetSend() {
         const st = sheet;
-        const v = await loadVendorData();
-        const due = (() => { const d = $("bdSheetDueDate").value, t = $("bdSheetDueTime").value || "14:00"; if (!d) return null; const x = new Date(`${d}T${t}`); return Number.isNaN(x.getTime()) ? null : x.toISOString(); })();
         const msg = (text, type) => formMsg("bdSheetMessage", text, type);
-        if (!due) { msg("Set when bids are due.", "error"); return; }
-        if (new Date(due) <= new Date()) { msg("The due date has to be in the future.", "error"); return; }
-        const cName = $("bdSheetContactName").value.trim(), cEmail = $("bdSheetContactEmail").value.trim();
-        if (!cName || !isEmail(cEmail)) { msg("Add your name and email (vendors' questions go there).", "error"); return; }
-        if (!shownAreas().length) { msg(""); openSetup(() => go(null, { sheet: true })); return; }
-        const jobs = Array.from(st.sel.entries()).filter(([code, set]) => set.size && !hiddenCodes.has(code));
-        const total = jobs.reduce((n, [, set]) => n + set.size, 0);
+        if (!shownAreas().length) { openSetup(() => renderSheet()); return; }
+        const vis = visibleCodes();
+        if (vis.some(code => rowMissing(code).length)) { sheetCounts(); return; }
+        const jobs = vis.filter(code => (st.sel.get(code) || new Set()).size);
+        const total = jobs.reduce((n, code) => n + st.sel.get(code).size, 0);
         if (!total) return;
         if (!confirm(`Send ${total} invite${total === 1 ? "" : "s"} for ${jobs.length} cost code${jobs.length === 1 ? "" : "s"}? Each vendor gets an email right away.`)) return;
-        try { localStorage.setItem(CONTACT_STORAGE_KEY, JSON.stringify({ name: cName, email: cEmail, phone: "" })); } catch (e) { /* fine */ }
-        st.sending = true; sheetCounts(); renderSheet();
+        const d = sheetDefaults();
+        try { localStorage.setItem(CONTACT_STORAGE_KEY, JSON.stringify({ name: d.cname, email: d.cemail, phone: "" })); } catch (e) { /* fine */ }
+        st.sending = true; st.open.clear(); renderSheet();
+        const v = sheetVendors || await loadVendorData();
         const areaIds = shownAreas().map(a => a.id);
         const location = [project.site_address, [project.site_city, project.site_state].filter(Boolean).join(", "), project.site_zip].filter(Boolean).join(" ") || null;
+        const toIso = x => (x ? new Date(x).toISOString() : null);
         let sent = 0; const failed = [];
-        for (const [i, [code, set]] of jobs.entries()) {
+        for (const [i, code] of jobs.entries()) {
             msg(`Sending ${i + 1} of ${jobs.length}: ${code} ${codeLabel(code)}…`);
             try {
                 let pkg = packageForCode(code);
-                if (pkg && pkg.status !== "open") pkg = null;
+                if (pkg && pkg.status !== "open") throw new Error("that package is already awarded");
                 if (!pkg) {
+                    const vals = rowValues(code);
                     const { data, error } = await client().from("bid_packages").insert({
-                        project_id: project.id, name: `${code} ${codeLabel(code)}`, location, due_at: due,
-                        contact_name: cName, contact_email: cEmail, remind_no_response: true, remind_before_due: true,
+                        project_id: project.id, name: `${code} ${codeLabel(code)}`, scope: vals.scope, location,
+                        due_at: dueIsoFor(vals), walkthrough_at: toIso(vals.walk), walkthrough_location: vals.walk ? (vals.walkWhere || "Project site") : null,
+                        questions_due_at: toIso(vals.questions), contact_name: vals.cname, contact_email: vals.cemail,
+                        remind_no_response: vals.remindNo, remind_before_due: vals.remindDue,
                         cost_codes: [code], area_ids: areaIds, status: "open", created_by_name: staffName(),
                     }).select("*").single();
                     if (error) throw error;
                     pkg = data; packages.unshift(pkg);
+                    if (vals.files.length) {
+                        const { error: fErr } = await client().from("bid_package_files").insert(vals.files.map((f, n) => ({ package_id: pkg.id, project_file_id: f, sort_order: n })));
+                        if (fErr) throw fErr;
+                    }
                 }
                 const already = new Set(pkgInvites(pkg).map(x => String(x.company_id)));
-                const rows = Array.from(set).filter(id => !already.has(id)).map(id => {
+                const rows = Array.from(st.sel.get(code)).filter(id => !already.has(id)).map(id => {
                     const co = v.companies.find(c => String(c.id) === id);
                     const contact = co ? emailContacts(v, co.id)[0] : null;
                     return co && contact ? { package_id: pkg.id, company_id: co.id, company_name: String(co.Name || "").trim() || "Vendor", contact_name: contact.Name || null, contact_email: String(contact.Email).trim() } : null;
@@ -1411,7 +1601,7 @@
                     sent += (data && data.sent) || rows.length;
                     if (data && data.failed && data.failed.length) data.failed.forEach(f => failed.push(`${f.company_name} (${code})`));
                 }
-                st.sel.delete(code); st.extra.delete(code); sheetSave();
+                st.sel.delete(code); st.extra.delete(code); st.rows.delete(code); sheetSave();
             } catch (err) {
                 failed.push(`${code}: ${err && err.message ? err.message : err}`);
             }
@@ -1423,40 +1613,73 @@
     }
 
     function wireSheet() {
-        $("bdSheetBtn").addEventListener("click", () => go(null, { sheet: true }));
-        $("bdSheetBackBtn").addEventListener("click", e => { e.preventDefault(); go(null); });
-        ["bdSheetSearch", "bdSheetDivision", "bdSheetOnlyPicked"].forEach(id => $(id).addEventListener(id === "bdSheetSearch" ? "input" : "change", () => renderSheet()));
+        ["bdSheetSearch", "bdSheetDivision"].forEach(id => $(id).addEventListener(id === "bdSheetSearch" ? "input" : "change", () => renderSheet()));
         $("bdSheetShowHidden").addEventListener("click", () => { sheet.showHidden = !sheet.showHidden; renderSheet(); });
         $("bdSheetSendBtn").addEventListener("click", sheetSend);
-        $("bdSheetClearBtn").addEventListener("click", () => { if (!confirm("Uncheck every vendor on the sheet?")) return; sheet.sel.clear(); sheetSave(); renderSheet(); });
-        $("bdSheetTable").addEventListener("change", e => {
-            const t = e.target;
-            if (t.dataset.sheetPick) {
-                const code = t.dataset.sheetPick;
-                if (!sheet.sel.has(code)) sheet.sel.set(code, new Set());
-                if (t.checked) sheet.sel.get(code).add(t.value); else sheet.sel.get(code).delete(t.value);
-                t.closest(".bd-sheet-chip").classList.toggle("is-on", t.checked);
-                sheetSave(); sheetCounts();
-            }
-            if (t.dataset.sheetAdd && t.value) {
-                const code = t.dataset.sheetAdd;
-                if (!sheet.extra.has(code)) sheet.extra.set(code, new Set());
-                if (!sheet.sel.has(code)) sheet.sel.set(code, new Set());
-                sheet.extra.get(code).add(t.value); sheet.sel.get(code).add(t.value);
-                sheetSave(); renderSheet();
-            }
-        });
-        $("bdSheetTable").addEventListener("click", e => {
+        ["bdSheetDueDate", "bdSheetDueTime", "bdSheetContactName", "bdSheetContactEmail"].forEach(id => $(id).addEventListener("input", () => { if (sheet) renderSheet(); }));
+        $("bdSheetView").addEventListener("click", e => {
+            if (e.target.closest("[data-sheet-setup]")) { openSetup(() => renderSheet()); return; }
+            if (e.target.closest("[data-sheet-needonly]")) { sheet.needOnly = !sheet.needOnly; renderSheet(); return; }
             const hide = e.target.closest("[data-sheet-hide]");
             if (hide) { sheetToggleHidden(hide.dataset.sheetHide); return; }
             const open = e.target.closest("[data-sheet-open]");
             if (open) { go(open.dataset.sheetOpen); return; }
+            const det = e.target.closest("[data-sheet-details]");
+            if (det) { const c = det.dataset.sheetDetails; if (sheet.open.has(c)) sheet.open.delete(c); else sheet.open.add(c); renderSheet(); return; }
             const x = e.target.closest("[data-sheet-unextra]");
             if (x) {
                 e.preventDefault();
                 const code = x.dataset.sheetUnextra, id = x.dataset.id;
                 sheet.extra.get(code)?.delete(id); sheet.sel.get(code)?.delete(id);
                 sheetSave(); renderSheet();
+            }
+        });
+        $("bdSheetTable").addEventListener("change", e => {
+            const t = e.target;
+            if (t.dataset.sheetPick) {
+                const code = t.dataset.sheetPick;
+                if (!sheet.sel.has(code)) sheet.sel.set(code, new Set());
+                if (t.checked) sheet.sel.get(code).add(t.value); else sheet.sel.get(code).delete(t.value);
+                sheetSave(); renderSheet();
+            } else if (t.dataset.sheetAdd && t.value) {
+                const code = t.dataset.sheetAdd;
+                if (!sheet.extra.has(code)) sheet.extra.set(code, new Set());
+                if (!sheet.sel.has(code)) sheet.sel.set(code, new Set());
+                sheet.extra.get(code).add(t.value); sheet.sel.get(code).add(t.value);
+                sheetSave(); renderSheet();
+            } else if (t.dataset.sheetBudget) {
+                saveSheetBudget(t.dataset.sheetBudget, t.dataset.area, t.value);
+            } else if (t.dataset.sheetFile) {
+                const r = rowData(t.dataset.sheetFile);
+                const set = new Set((r.files || []).map(String));
+                if (t.checked) set.add(t.value); else set.delete(t.value);
+                r.files = Array.from(set); sheetSave();
+            } else if (t.dataset.sheetField && t.type === "checkbox") {
+                rowData(t.dataset.sheetField)[t.dataset.key] = t.checked; sheetSave();
+            }
+        });
+        $("bdSheetTable").addEventListener("input", e => {
+            const t = e.target;
+            if (t.dataset.sheetField && t.type !== "checkbox") {
+                const code = t.dataset.sheetField;
+                rowData(code)[t.dataset.key] = t.value; sheetSave();
+                refreshRowStatus(code);
+                if (t.dataset.key === "cemail") {
+                    const p = t.closest(".bd-sheet-details")?.querySelector(".bd-sd-email p:nth-child(2)");
+                    if (p) p.innerHTML = `<span>Reply-to</span>${esc(rowValues(code).cemail || "—")}`;
+                }
+            } else if (t.dataset.sheetFilesearch) {
+                const code = t.dataset.sheetFilesearch;
+                rowData(code)._fileSearch = t.value;
+                const pos = t.selectionStart;
+                renderSheet().then(() => {
+                    const el = document.querySelector(`[data-sheet-filesearch="${CSS.escape(code)}"]`);
+                    if (el) { el.focus(); try { el.setSelectionRange(pos, pos); } catch (err) { /* fine */ } }
+                });
+            } else if (t.dataset.sheetBudget) {
+                const code = t.dataset.sheetBudget, key = `${code}|${t.dataset.area}`;
+                clearTimeout(budgetTimers.get(key));
+                budgetTimers.set(key, setTimeout(() => saveSheetBudget(code, t.dataset.area, t.value), 700));
             }
         });
     }
@@ -1617,6 +1840,7 @@
             if (first) first.click();
         });
         $("bdExportBtn").addEventListener("click", exportQuickBooks);
+        $("bdSheetExportBtn").addEventListener("click", exportQuickBooks);
         wireSheet();
         document.addEventListener("keydown", e => {
             if (e.key !== "Escape") return;

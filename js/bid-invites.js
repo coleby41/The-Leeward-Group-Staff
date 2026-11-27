@@ -1133,16 +1133,16 @@
             try { await window.Permissions.initPermissions(); } catch (e) { /* hasPermission fails open */ }
         }
         const allowed = can(SEND_PERMISSION);
-        $("inviteBidBtn").classList.toggle("hidden", !allowed);
-        const divider = $("inviteBidDivider");
-        if (divider) divider.classList.toggle("hidden", !allowed);
+        // The menu item was removed 2026-11-27 (invites go out from the
+        // project's Bids tab now); keep it hidden.
 
         // Deep link from a project's Bid Invites tab: ?invite=1&project=<id>
         const params = new URLSearchParams(window.location.search);
         if (allowed && params.get("invite") === "1") {
             const projectId = params.get("project");
+            // Old links: send them to the project's Bids tab instead.
+            if (projectId) { window.location.replace(`/pages/project-bids.html?id=${encodeURIComponent(projectId)}`); return; }
             history.replaceState(null, "", window.location.pathname);
-            openWizard(projectId);
         }
     }
 
