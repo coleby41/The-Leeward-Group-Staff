@@ -21428,7 +21428,11 @@ body.theo-page { background: #f7f9fc; color: var(--text); }
 .bd-setup-dots em { margin-left: 6px; font-style: normal; font-size: 0.82rem; font-weight: 600; color: var(--text-soft); }
 .bd-setup-theo { display: flex; align-items: center; gap: 14px; margin: 4px 0 22px; }
 .bd-setup-buddy { width: 76px; flex: 0 0 auto; }
-.bd-setup-say { margin: 0; font-size: 1.05rem; line-height: 1.5; color: var(--text); }
+.bd-setup-say { position: relative; margin: 0; padding: 12px 16px; max-width: 520px; border-radius: 16px; background: #fff; border: 1px solid var(--border); box-shadow: 0 6px 18px rgba(10, 24, 36, 0.07); font-size: 1rem; line-height: 1.5; color: var(--text); animation: hc-bubble-in 0.35s ease-out both; }
+.bd-setup-say::before { content: ""; position: absolute; left: -7px; top: 50%; width: 12px; height: 12px; margin-top: -6px; background: #fff; border-left: 1px solid var(--border); border-bottom: 1px solid var(--border); transform: rotate(45deg); }
+/* Setup step 2: just the upload, no card title, pill or warning box */
+#bdSetupCoi .card-header, #bdSetupCoi .coi-tpl-warning { display: none; }
+#bdSetupCoi { padding: 0; border: 0; background: none; box-shadow: none; }
 .bd-setup-step h2 { margin: 0 0 6px; font-size: 1.3rem; }
 .bd-setup-step p { margin: 0 0 16px; color: var(--text-soft); line-height: 1.6; }
 .bd-setup-step #bdSetupCoi { margin-bottom: 16px; }

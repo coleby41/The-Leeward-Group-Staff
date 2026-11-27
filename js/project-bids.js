@@ -1275,7 +1275,7 @@
         }[step];
         $("bdSetupSteps").innerHTML = body;
         if (step === 2 && window.CoiTemplate && $("bdSetupCoi")) {
-            window.CoiTemplate.mount($("bdSetupCoi"), { project, canManage, intro: "" });
+            window.CoiTemplate.mount($("bdSetupCoi"), { project, canManage, intro: "", compact: true });
         }
     }
 
