@@ -1094,6 +1094,11 @@
         const v = await loadVendorData();
         if (!np.prepicked) {
             np.prepicked = true;
+            // Vendors tagged with these cost codes (Trade tags like
+            // "3002 - Foundations - Turn-Key" are the cost codes, 2026-11-27).
+            const tagCode = name => { const m = String(name || "").trim().match(/^"?(\d{3,6})\b/); return m ? m[1] : null; };
+            const codeTagIds = new Set(v.tags.filter(t => np.codes.has(tagCode(t.name))).map(t => String(t.id)));
+            const taggedCos = new Set(v.companyTags.filter(ct => codeTagIds.has(String(ct.tag_id))).map(ct => String(ct.company_id)));
             const { data: past } = await client().from("bid_invite_prices").select("invite_id").in("cost_code", Array.from(np.codes)).limit(2000);
             const pastInvites = Array.from(new Set((past || []).map(p => p.invite_id)));
             let pastCos = new Set();
@@ -1107,7 +1112,7 @@
                 (data || []).forEach(r => pastCos.add(String(r.company_id)));
             }
             v.companies.forEach(co => {
-                if (!pastCos.has(String(co.id)) || missingRequirements(v, co).length) return;
+                if (!(taggedCos.has(String(co.id)) || pastCos.has(String(co.id))) || missingRequirements(v, co).length) return;
                 const c = emailContacts(v, co.id)[0];
                 if (c) np.vendors.set(String(co.id), String(c.id));
             });
