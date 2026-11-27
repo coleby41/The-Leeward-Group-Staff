@@ -4,7 +4,8 @@
    Theo, our little hard-hat helper (in a few colors), and the soft
    background color blobs for the help pages. Put
    <span class="hc-buddy" data-buddy="search"></span>
-   where you want one; this swaps in the drawing.
+   where you want one; this swaps in the drawing. Hover him and he says
+   "Hi, I'm Theo!" (change it with data-say="...").
 
      search     blue, holding a magnifying glass (help center top)
      clipboard  teal, holding a clipboard (guide headers)
@@ -93,7 +94,10 @@
         el.dataset.drawn = "1";
         const kind = el.dataset.buddy || "search";
         const wide = kind === "cone" || kind === "search";
-        el.innerHTML = `<svg viewBox="0 0 ${wide ? 170 : 150} 140" role="img" aria-hidden="true" focusable="false">${body(kind)}</svg>`;
+        const say = el.dataset.say || "Hi, I'm Theo!";
+        el.innerHTML = `<span class="hc-say" role="tooltip">${say.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]))}</span>`
+            + `<svg viewBox="0 0 ${wide ? 170 : 150} 140" aria-hidden="true" focusable="false">${body(kind)}</svg>`;
+        el.setAttribute("aria-label", "Theo");
     }
 
     function blobs() {

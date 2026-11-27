@@ -21193,3 +21193,142 @@ body.sidebar-collapsed .nav-item-group:has(.subnav-item.active) > .nav-parent {
   .hc-ai-badge { position: static; margin-top: 8px; }
 }
 @media (max-width: 700px) { .hc-full .hc-search .bl-search-icon { top: 18px; } }
+
+/* Theo says hi on hover (every Theo), Theo AI badge is a link */
+.hc-buddy { position: relative; cursor: default; }
+.hc-say { position: absolute; left: 50%; bottom: calc(100% - 6px); z-index: 5; transform: translate(-50%, 6px) scale(0.94); opacity: 0; pointer-events: none;
+  padding: 8px 13px; border-radius: 14px; background: #fff; border: 1px solid var(--border); box-shadow: 0 6px 18px rgba(10, 24, 36, 0.12);
+  font-size: 0.85rem; font-weight: 700; line-height: 1.2; color: var(--accent-strong); white-space: nowrap; transition: opacity 0.18s ease, transform 0.18s ease; }
+.hc-say::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 12px; height: 12px; margin-left: -6px; background: #fff;
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); transform: rotate(45deg); }
+.hc-buddy:hover .hc-say { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.hc-buddy--small .hc-say { font-size: 0.78rem; }
+a.hc-ai-badge { text-decoration: none; cursor: pointer; transition: filter 0.15s ease, transform 0.15s ease; }
+a.hc-ai-badge:hover { filter: brightness(0.96); transform: translateY(-1px); }
+
+/* Theo AI landing page (pages/theo.html) */
+.theo-hero { display: flex; align-items: center; justify-content: space-between; gap: 32px; margin: 10px 0 8px; }
+.theo-hero-text { max-width: 720px; }
+.theo-pill { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px; background: linear-gradient(120deg, #e7f0fb, #efe8fc);
+  color: #4b3a8f; font-size: 0.85rem; font-weight: 700; }
+.theo-pill span { color: #6a4bb5; }
+.theo-lead { margin: 16px 0 10px; font-size: 1.35rem; line-height: 1.5; color: var(--text); font-weight: 600; }
+.theo-sub { margin: 0; color: var(--text-soft); font-size: 1.02rem; line-height: 1.6; }
+.theo-big { width: 230px; margin-right: 40px; }
+.theo-big .hc-say { font-size: 0.95rem; }
+.theo-section { margin-top: 36px; max-width: 980px; }
+.theo-chat { display: flex; flex-direction: column; gap: 12px; padding: 22px 0 6px; border-top: 1px solid var(--border); }
+.theo-chat-note { margin: 0; font-size: 0.8rem; font-weight: 700; color: #6b7886; }
+.theo-msg { max-width: 640px; padding: 12px 16px; border-radius: 16px; line-height: 1.55; font-size: 0.95rem; }
+.theo-msg--you { align-self: flex-end; background: var(--accent-strong); color: #fff; border-bottom-right-radius: 4px; }
+.theo-msg--theo { display: flex; align-items: flex-start; gap: 12px; background: #fff; border: 1px solid var(--border); border-bottom-left-radius: 4px;
+  box-shadow: 0 4px 14px rgba(10, 24, 36, 0.06); }
+.theo-avatar { width: 46px; margin-top: -4px; }
+.theo-avatar .hc-say { font-size: 0.75rem; }
+.theo-list { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
+.theo-item { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.theo-item > b { flex: 0 0 auto; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--c-soft); color: var(--c); font-size: 1.1rem; }
+.theo-item > span { display: flex; flex-direction: column; gap: 2px; color: var(--text-soft); line-height: 1.5; }
+.theo-item strong { color: var(--c); font-size: 1rem; }
+.theo-fine { margin-top: 12px; font-size: 0.85rem; color: #6b7886; }
+.theo-until p { color: var(--text-soft); line-height: 1.6; }
+@media (max-width: 700px) {
+  .theo-hero { flex-direction: column-reverse; align-items: flex-start; gap: 8px; }
+  .theo-big { width: 130px; margin: 10px 0 0 10px; }
+  .theo-lead { font-size: 1.15rem; }
+}
+.hc-top .hc-buddy--big { margin-top: 44px; }
+.theo-big { margin-top: 56px; }
+.theo a:not(.hm-btn), .hc-foot a, .hc-none a { color: var(--accent); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.theo .hm-date a { color: inherit; font-weight: inherit; }
+@media (max-width: 700px) { .hc-top .hc-buddy--big { margin-top: 30px; } .theo-big { margin-top: 36px; } }
+
+/* ============================================================
+   THEO LANDING (pages/theo.html) — startup-style dark page
+============================================================ */
+body.theo-page { background: #060d1a; color: #e6edf5; }
+.theo-page .hc-blobs span { opacity: 0.35; filter: blur(90px); }
+.theo-page .hc-blobs span:nth-child(1) { background: #1f6fd1; }
+.theo-page .hc-blobs span:nth-child(2) { background: #12a38f; }
+.theo-page .hc-blobs span:nth-child(3) { background: #7b55e0; }
+.theo-page .hc-blobs span:nth-child(4) { background: #e98a3a; opacity: 0.18; }
+.theo-page::after { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 56px 56px; mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%); -webkit-mask-image: radial-gradient(ellipse at 50% 30%, #000 30%, transparent 75%); }
+.tl { position: relative; z-index: 1; min-height: 100vh; padding: 24px clamp(20px, 5vw, 72px) 80px; }
+.tl-nav { display: flex; justify-content: space-between; align-items: center; }
+.tl-back { padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06);
+  color: #e6edf5; font-size: 0.88rem; font-weight: 600; text-decoration: none; backdrop-filter: blur(8px); }
+.tl-back:hover { background: rgba(255,255,255,0.12); }
+.tl-brand { font-weight: 800; letter-spacing: 0.01em; }
+.tl-brand span { color: #a98bff; }
+.tl-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: clamp(40px, 8vh, 90px); }
+.tl-pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; border: 1px solid rgba(169,139,255,0.35);
+  background: rgba(123,85,224,0.14); color: #cfc0ff; font-size: 0.82rem; font-weight: 700; letter-spacing: 0.02em; }
+.tl-dot { width: 8px; height: 8px; border-radius: 50%; background: #a98bff; box-shadow: 0 0 0 0 rgba(169,139,255,0.6); animation: tl-pulse 2s infinite; }
+@keyframes tl-pulse { 70% { box-shadow: 0 0 0 10px rgba(169,139,255,0); } 100% { box-shadow: 0 0 0 0 rgba(169,139,255,0); } }
+.tl-title { margin: 22px 0 18px; font-size: clamp(2.4rem, 6vw, 4.6rem); font-weight: 800; line-height: 1.04; letter-spacing: -0.035em; color: #fff; }
+.tl-title span { background: linear-gradient(90deg, #6fb6ff 0%, #5ee0c8 45%, #b99cff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tl-lead { max-width: 680px; margin: 0; font-size: clamp(1.02rem, 1.6vw, 1.2rem); line-height: 1.65; color: #a9b7c6; }
+.tl-theo { position: relative; margin-top: 50px; }
+.tl-glow { position: absolute; left: 50%; top: 55%; width: 340px; height: 340px; transform: translate(-50%, -50%); border-radius: 50%;
+  background: radial-gradient(circle, rgba(94,224,200,0.35), rgba(31,111,209,0.12) 55%, transparent 70%); filter: blur(10px); }
+.tl-buddy { width: 220px; }
+.tl-buddy .hc-say { font-size: 0.95rem; }
+.tl-buddy .hcb-shadow { opacity: 0.35; fill: #000; }
+.tl-points { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; max-width: 1180px; margin: 70px auto 0;
+  border-top: 1px solid rgba(255,255,255,0.10); }
+.tl-point { display: flex; flex-direction: column; gap: 6px; padding: 26px 22px 0; border-left: 1px solid rgba(255,255,255,0.08); }
+.tl-point:first-child { border-left: none; }
+.tl-point b { display: grid; place-items: center; width: 38px; height: 38px; margin-bottom: 8px; border-radius: 11px; font-size: 1.05rem; color: #fff; }
+.tl-i1 { background: linear-gradient(135deg, #1f6fd1, #4fa3ff); }
+.tl-i2 { background: linear-gradient(135deg, #7b55e0, #b99cff); }
+.tl-i3 { background: linear-gradient(135deg, #0f8c7a, #5ee0c8); }
+.tl-i4 { background: linear-gradient(135deg, #c96d22, #f5b83d); }
+.tl-point strong { color: #fff; font-size: 1.02rem; }
+.tl-point span { color: #93a3b5; line-height: 1.55; font-size: 0.93rem; }
+.tl-cta { max-width: 760px; margin: 90px auto 0; text-align: center; }
+.tl-cta h2 { margin: 0 0 10px; font-size: clamp(1.6rem, 3vw, 2.2rem); letter-spacing: -0.02em; color: #fff; }
+.tl-cta p { margin: 0; color: #a9b7c6; line-height: 1.6; }
+.tl-cta a { color: #8cc6ff; text-decoration: underline; text-underline-offset: 3px; }
+.tl-fine { margin-top: 28px !important; font-size: 0.82rem; color: #6f8194 !important; }
+@media (prefers-reduced-motion: reduce) { .tl-dot { animation: none; } }
+@media (max-width: 860px) {
+  .tl-points { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tl-point:nth-child(3) { border-left: none; }
+  .tl-point { padding-bottom: 22px; }
+}
+@media (max-width: 520px) {
+  .tl-points { grid-template-columns: minmax(0, 1fr); }
+  .tl-point { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); }
+  .tl-buddy { width: 160px; }
+}
+
+/* THEO LANDING — light mode (replaces the dark look above) */
+body.theo-page { background: #f7f9fc; color: var(--text); }
+.theo-page .hc-blobs span { opacity: 0.6; filter: blur(80px); }
+.theo-page .hc-blobs span:nth-child(1) { background: #b9d9f7; }
+.theo-page .hc-blobs span:nth-child(2) { background: #bfeee4; }
+.theo-page .hc-blobs span:nth-child(3) { background: #ddd0fb; }
+.theo-page .hc-blobs span:nth-child(4) { background: #fde0c2; opacity: 0.45; }
+.theo-page::after { background-image: linear-gradient(rgba(11,34,54,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(11,34,54,0.05) 1px, transparent 1px); }
+.tl-back { border-color: var(--border); background: rgba(255,255,255,0.7); color: var(--accent-strong); box-shadow: 0 2px 8px rgba(10,24,36,0.06); }
+.tl-back:hover { background: #fff; }
+.tl-brand { color: #0b2236; }
+.tl-brand span { color: #6a4bb5; }
+.tl-pill { border-color: rgba(106,75,181,0.25); background: rgba(255,255,255,0.75); color: #4b3a8f; box-shadow: 0 2px 10px rgba(106,75,181,0.10); }
+.tl-dot { background: #7b55e0; }
+.tl-title { color: #0b2236; }
+.tl-title span { background: linear-gradient(90deg, #085c98 0%, #0f9c86 45%, #6a4bb5 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tl-lead { color: #4d5d6c; }
+.tl-glow { background: radial-gradient(circle, rgba(94,224,200,0.35), rgba(111,182,255,0.18) 55%, transparent 70%); }
+.tl-buddy .hcb-shadow { opacity: 0.1; fill: #0b2236; }
+.tl-points { border-top-color: rgba(11,34,54,0.10); }
+.tl-point { border-left-color: rgba(11,34,54,0.08); }
+.tl-point strong { color: #0b2236; }
+.tl-point span { color: #5b6b7a; }
+.tl-cta h2 { color: #0b2236; }
+.tl-cta p { color: #4d5d6c; }
+.tl-cta a { color: var(--accent); }
+.tl-fine { color: #7a8794 !important; }
+@media (max-width: 520px) { .tl-point { border-top-color: rgba(11,34,54,0.08); } }
